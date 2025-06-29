@@ -7,6 +7,7 @@ import DashboardPage from '@/components/Dashboard/DashboardPage';
 import TenantsManagement from '@/components/Dashboard/TenantsManagement';
 import UsersManagement from '@/components/Dashboard/UsersManagement';
 import DomainsManagement from '@/components/Dashboard/DomainsManagement';
+import RolesManagement from '@/components/Dashboard/RolesManagement';
 
 const Index = () => {
   const { user } = useAuth();
@@ -22,6 +23,8 @@ const Index = () => {
         return <UsersManagement />;
       case 'domains':
         return <DomainsManagement />;
+      case 'roles':
+        return <RolesManagement />;
       default:
         return <DashboardPage />;
     }
