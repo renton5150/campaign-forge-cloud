@@ -5,10 +5,13 @@ import { useAuth } from '@/hooks/useAuth';
 
 export interface PersonalTemplate {
   id: string;
-  user_id: string;
+  created_by: string;
   name: string;
   html_content: string;
-  preview_image?: string;
+  description?: string;
+  category: string;
+  preview_text?: string;
+  thumbnail_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -26,7 +29,8 @@ export function usePersonalTemplates() {
       const { data, error } = await supabase
         .from('email_templates')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('created_by', user.id)
+        .eq('is_system_template', false)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -43,9 +47,11 @@ export function usePersonalTemplates() {
       const { data, error } = await supabase
         .from('email_templates')
         .insert({
-          user_id: user.id,
+          created_by: user.id,
           name,
           html_content,
+          category: 'custom',
+          is_system_template: false,
         })
         .select()
         .single();
@@ -65,7 +71,7 @@ export function usePersonalTemplates() {
         .from('email_templates')
         .delete()
         .eq('id', templateId)
-        .eq('user_id', user?.id);
+        .eq('created_by', user?.id);
 
       if (error) throw error;
     },
