@@ -91,34 +91,36 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
                         'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks',
                         'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'help', 'wordcount'
                       ],
-                      toolbar: 'fontfamily fontsize | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | table | code preview',
-                      fontsize_formats: '8pt 9pt 10pt 11pt 12pt 13pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
-                      font_size_style_values: '8pt,9pt,10pt,11pt,12pt,13pt,14pt,16pt,18pt,20pt,24pt,28pt,32pt,36pt,48pt',
+                      toolbar: 'fontfamily fontsize | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | table | font11pt | code preview',
+                      fontsize_formats: '8pt 9pt 10pt 12pt 13pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
                       content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:14px }',
                       forced_root_block: 'p',
-                      convert_fonts_to_spans: true,
-                      font_size_legacy_values: '8pt,9pt,10pt,11pt,12pt,13pt,14pt,16pt,18pt,20pt,24pt,28pt,32pt,36pt,48pt',
                       setup: (editor) => {
+                        // Ajouter le bouton personnalisé 11pt
+                        editor.ui.registry.addButton('font11pt', {
+                          text: '11pt',
+                          tooltip: 'Appliquer la taille 11pt',
+                          onAction: () => {
+                            const selection = editor.selection.getContent();
+                            if (selection) {
+                              // Appliquer 11pt au texte sélectionné
+                              editor.execCommand('mceInsertContent', false, `<span style="font-size: 11pt;">${selection}</span>`);
+                            } else {
+                              // Si pas de sélection, insérer un placeholder
+                              editor.execCommand('mceInsertContent', false, '<span style="font-size: 11pt;">Texte 11pt</span>');
+                            }
+                            console.log('✅ Bouton 11pt cliqué - taille appliquée');
+                          }
+                        });
+
                         editor.on('init', () => {
-                          console.log('🎯 TinyMCE initialisé avec configuration forcée pour 11pt');
-                          console.log('📏 Formats de taille configurés:', '8pt 9pt 10pt 11pt 12pt 13pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt');
-                          console.log('🔧 Options supplémentaires activées pour forcer 11pt');
-                          
-                          // Force le rechargement du menu des tailles
-                          setTimeout(() => {
-                            const fontsizeButton = editor.queryCommandValue('FontSize');
-                            console.log('🔍 Vérification finale - taille actuelle:', fontsizeButton);
-                          }, 1000);
+                          console.log('🎯 TinyMCE initialisé avec bouton personnalisé 11pt');
+                          console.log('🔧 Bouton 11pt ajouté à la toolbar');
                         });
                         
                         editor.on('NodeChange', () => {
                           const fontSize = editor.queryCommandValue('FontSize');
                           console.log('🔍 Taille de police sélectionnée:', fontSize);
-                        });
-
-                        // Ajouter un gestionnaire personnalisé pour 11pt
-                        editor.on('PreInit', () => {
-                          console.log('🚀 PreInit: Ajout du support forcé pour 11pt');
                         });
                       }
                     }}
