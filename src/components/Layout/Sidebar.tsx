@@ -28,6 +28,12 @@ const Sidebar = ({ currentPage, onPageChange }: SidebarProps) => {
       show: true
     },
     {
+      name: 'Campagnes',
+      id: 'campaigns',
+      icon: Mail,
+      show: true
+    },
+    {
       name: 'Tenants',
       id: 'tenants',
       icon: Building2,
@@ -44,6 +50,12 @@ const Sidebar = ({ currentPage, onPageChange }: SidebarProps) => {
       id: 'domains',
       icon: Globe,
       show: true
+    },
+    {
+      name: 'Rôles',
+      id: 'roles',
+      icon: Settings,
+      show: user?.role === 'super_admin' || user?.role === 'tenant_admin'
     },
   ];
 

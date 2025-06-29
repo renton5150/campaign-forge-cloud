@@ -1,4 +1,3 @@
-
 export type UserRole = 'super_admin' | 'tenant_admin' | 'tenant_growth' | 'tenant_sdr';
 export type TenantStatus = 'active' | 'inactive' | 'suspended';
 export type DomainVerificationStatus = 'pending' | 'verified' | 'failed';
@@ -86,4 +85,145 @@ export interface PermissionAudit {
   details: any;
   created_at: string;
   created_by: string | null;
+}
+
+// Types pour le système de campagnes email
+export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused' | 'archived';
+export type ContactStatus = 'active' | 'unsubscribed' | 'bounced';
+export type SendStatus = 'pending' | 'sent' | 'delivered' | 'bounced' | 'failed';
+export type BounceType = 'hard' | 'soft';
+export type EventType = 'open' | 'click' | 'unsubscribe' | 'complaint';
+export type ABWinnerCriteria = 'open_rate' | 'click_rate';
+
+export interface ContactList {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string | null;
+  total_contacts: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Contact {
+  id: string;
+  tenant_id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  company: string | null;
+  tags: string[];
+  custom_fields: Record<string, any>;
+  status: ContactStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactListMembership {
+  id: string;
+  contact_id: string;
+  list_id: string;
+  added_at: string;
+  added_by: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  tenant_id: string | null;
+  name: string;
+  description: string | null;
+  category: string;
+  html_content: string;
+  preview_text: string | null;
+  is_system_template: boolean;
+  thumbnail_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Campaign {
+  id: string;
+  tenant_id: string;
+  name: string;
+  subject: string;
+  preview_text: string | null;
+  from_name: string;
+  from_email: string;
+  reply_to: string | null;
+  html_content: string;
+  status: CampaignStatus;
+  template_id: string | null;
+  scheduled_at: string | null;
+  timezone: string;
+  is_ab_test: boolean;
+  ab_subject_b: string | null;
+  ab_split_percentage: number;
+  ab_winner_criteria: ABWinnerCriteria;
+  ab_test_duration_hours: number;
+  tags: string[];
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  sent_at: string | null;
+}
+
+export interface CampaignList {
+  id: string;
+  campaign_id: string;
+  list_id: string;
+  added_at: string;
+}
+
+export interface CampaignSend {
+  id: string;
+  campaign_id: string;
+  contact_id: string;
+  email: string;
+  status: SendStatus;
+  bounce_type: BounceType | null;
+  error_message: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  ab_variant: 'A' | 'B';
+}
+
+export interface CampaignEvent {
+  id: string;
+  campaign_id: string;
+  contact_id: string;
+  send_id: string;
+  event_type: EventType;
+  event_data: Record<string, any>;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface CampaignAttachment {
+  id: string;
+  campaign_id: string;
+  filename: string;
+  file_size: number;
+  mime_type: string;
+  storage_path: string;
+  created_at: string;
+}
+
+export interface CampaignStats {
+  total_sent: number;
+  delivered: number;
+  bounced: number;
+  hard_bounces: number;
+  soft_bounces: number;
+  unique_opens: number;
+  total_opens: number;
+  unique_clicks: number;
+  total_clicks: number;
+  unsubscribes: number;
+  complaints: number;
 }
