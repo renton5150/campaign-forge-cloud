@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,7 @@ import { Campaign, ABWinnerCriteria } from '@/types/database';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
-import EmailEditor from './EmailEditor/EmailEditor';
+import ReactQuillEditor from './EmailEditor/ReactQuillEditor';
 import ContactListSelector from './ContactListSelector';
 
 interface CampaignEditorProps {
@@ -162,17 +161,9 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
         </div>
 
         <div className="flex-1">
-          <EmailEditor
+          <ReactQuillEditor
             value={formData.html_content}
             onChange={(content) => setFormData({ ...formData, html_content: content })}
-            templates={templates}
-            onTemplateSelect={(template) => {
-              setFormData({ 
-                ...formData, 
-                html_content: template.html_content,
-                template_id: template.id
-              });
-            }}
             onSave={handleSave}
           />
         </div>
@@ -222,7 +213,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
           {/* Le contenu sera géré par l'EmailEditor */}
           <div className="text-center py-8">
             <Button onClick={() => setActiveTab('content')} size="lg">
-              Ouvrir l'éditeur email
+              Ouvrir l'éditeur d'email
             </Button>
           </div>
         </TabsContent>
