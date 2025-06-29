@@ -26,25 +26,169 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     toolbar: [
       'heading',
       '|',
+      'fontFamily',
+      'fontSize',
+      '|',
+      'fontColor',
+      'fontBackgroundColor',
+      '|',
       'bold',
       'italic',
       'underline',
-      '|',
-      'link',
-      'insertImage',
-      'insertTable',
+      'strikethrough',
       '|',
       'alignment',
+      '|',
       'bulletedList',
       'numberedList',
       '|',
       'outdent',
       'indent',
       '|',
+      'link',
+      'insertImage',
+      'insertTable',
+      '|',
       'blockQuote',
+      'horizontalLine',
+      '|',
       'undo',
       'redo'
     ],
+    fontFamily: {
+      options: [
+        'default',
+        'Arial, Helvetica, sans-serif',
+        'Helvetica, Arial, sans-serif',
+        'Times New Roman, Times, serif',
+        'Georgia, serif',
+        'Verdana, Geneva, sans-serif',
+        'Tahoma, Geneva, sans-serif',
+        'Trebuchet MS, Helvetica, sans-serif',
+        'Courier New, Courier, monospace'
+      ],
+      supportAllValues: true
+    },
+    fontSize: {
+      options: [
+        '8px',
+        '10px',
+        '11px',
+        '12px',
+        '14px',
+        '16px',
+        '18px',
+        '20px',
+        '24px',
+        '28px',
+        '32px',
+        '36px',
+        '48px'
+      ],
+      supportAllValues: true
+    },
+    fontColor: {
+      colors: [
+        {
+          color: 'hsl(0, 0%, 0%)',
+          label: 'Black'
+        },
+        {
+          color: 'hsl(0, 0%, 30%)',
+          label: 'Dim grey'
+        },
+        {
+          color: 'hsl(0, 0%, 60%)',
+          label: 'Grey'
+        },
+        {
+          color: 'hsl(0, 0%, 90%)',
+          label: 'Light grey'
+        },
+        {
+          color: 'hsl(0, 0%, 100%)',
+          label: 'White',
+          hasBorder: true
+        },
+        {
+          color: 'hsl(0, 75%, 60%)',
+          label: 'Red'
+        },
+        {
+          color: 'hsl(30, 75%, 60%)',
+          label: 'Orange'
+        },
+        {
+          color: 'hsl(60, 75%, 60%)',
+          label: 'Yellow'
+        },
+        {
+          color: 'hsl(90, 75%, 60%)',
+          label: 'Light green'
+        },
+        {
+          color: 'hsl(120, 75%, 60%)',
+          label: 'Green'
+        },
+        {
+          color: 'hsl(150, 75%, 60%)',
+          label: 'Aquamarine'
+        },
+        {
+          color: 'hsl(180, 75%, 60%)',
+          label: 'Turquoise'
+        },
+        {
+          color: 'hsl(210, 75%, 60%)',
+          label: 'Light blue'
+        },
+        {
+          color: 'hsl(240, 75%, 60%)',
+          label: 'Blue'
+        },
+        {
+          color: 'hsl(270, 75%, 60%)',
+          label: 'Purple'
+        }
+      ]
+    },
+    fontBackgroundColor: {
+      colors: [
+        {
+          color: 'hsl(0, 0%, 100%)',
+          label: 'White',
+          hasBorder: true
+        },
+        {
+          color: 'hsl(0, 0%, 90%)',
+          label: 'Light grey'
+        },
+        {
+          color: 'hsl(60, 75%, 60%)',
+          label: 'Yellow'
+        },
+        {
+          color: 'hsl(30, 75%, 60%)',
+          label: 'Orange'
+        },
+        {
+          color: 'hsl(0, 75%, 60%)',
+          label: 'Red'
+        },
+        {
+          color: 'hsl(120, 75%, 60%)',
+          label: 'Green'
+        },
+        {
+          color: 'hsl(240, 75%, 60%)',
+          label: 'Blue'
+        },
+        {
+          color: 'hsl(270, 75%, 60%)',
+          label: 'Purple'
+        }
+      ]
+    },
     heading: {
       options: [
         { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
@@ -54,7 +198,13 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
       ]
     },
     table: {
-      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+      contentToolbar: [
+        'tableColumn',
+        'tableRow',
+        'mergeTableCells',
+        'tableProperties',
+        'tableCellProperties'
+      ]
     },
     image: {
       toolbar: [
@@ -65,7 +215,31 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
         'resizeImage',
         '|',
         'imageTextAlternative'
+      ],
+      styles: [
+        'alignLeft',
+        'alignCenter',
+        'alignRight'
       ]
+    },
+    alignment: {
+      options: [
+        'left',
+        'center',
+        'right',
+        'justify'
+      ]
+    },
+    link: {
+      decorators: {
+        toggleDownloadable: {
+          mode: 'manual',
+          label: 'Downloadable',
+          attributes: {
+            download: 'file'
+          }
+        }
+      }
     },
     language: 'fr'
   };
