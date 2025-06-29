@@ -1,11 +1,39 @@
 
 import { useState, useCallback } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import ClassicEditor from '@ckeditor/ckeditor5-editor-classic/src/classiceditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, Monitor, Smartphone, Save } from 'lucide-react';
+
+// Import all required plugins
+import Essentials from '@ckeditor/ckeditor5-essentials/src/essentials';
+import Bold from '@ckeditor/ckeditor5-basic-styles/src/bold';
+import Italic from '@ckeditor/ckeditor5-basic-styles/src/italic';
+import Underline from '@ckeditor/ckeditor5-basic-styles/src/underline';
+import Strikethrough from '@ckeditor/ckeditor5-basic-styles/src/strikethrough';
+import Font from '@ckeditor/ckeditor5-font/src/font';
+import FontFamily from '@ckeditor/ckeditor5-font/src/fontfamily';
+import FontSize from '@ckeditor/ckeditor5-font/src/fontsize';
+import FontColor from '@ckeditor/ckeditor5-font/src/fontcolor';
+import FontBackgroundColor from '@ckeditor/ckeditor5-font/src/fontbackgroundcolor';
+import Alignment from '@ckeditor/ckeditor5-alignment/src/alignment';
+import Link from '@ckeditor/ckeditor5-link/src/link';
+import Image from '@ckeditor/ckeditor5-image/src/image';
+import ImageUpload from '@ckeditor/ckeditor5-image/src/imageupload';
+import ImageResize from '@ckeditor/ckeditor5-image/src/imageresize';
+import ImageStyle from '@ckeditor/ckeditor5-image/src/imagestyle';
+import ImageToolbar from '@ckeditor/ckeditor5-image/src/imagetoolbar';
+import List from '@ckeditor/ckeditor5-list/src/list';
+import Table from '@ckeditor/ckeditor5-table/src/table';
+import TableToolbar from '@ckeditor/ckeditor5-table/src/tabletoolbar';
+import BlockQuote from '@ckeditor/ckeditor5-block-quote/src/blockquote';
+import HorizontalLine from '@ckeditor/ckeditor5-horizontal-line/src/horizontalline';
+import Heading from '@ckeditor/ckeditor5-heading/src/heading';
+import Paragraph from '@ckeditor/ckeditor5-paragraph/src/paragraph';
+import Undo from '@ckeditor/ckeditor5-undo/src/undo';
+import Indent from '@ckeditor/ckeditor5-indent/src/indent';
 
 interface CKEditor5Props {
   value: string;
@@ -22,11 +50,39 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     onChange(data);
   }, [onChange]);
 
-  // Configuration simplifiée pour éviter les conflits de types
+  // Configuration professionnelle pour l'email marketing
   const editorConfiguration = {
+    plugins: [
+      Essentials,
+      Bold,
+      Italic,
+      Underline,
+      Strikethrough,
+      FontFamily,
+      FontSize,
+      FontColor,
+      FontBackgroundColor,
+      Alignment,
+      Link,
+      Image,
+      ImageUpload,
+      ImageResize,
+      ImageStyle,
+      ImageToolbar,
+      List,
+      Table,
+      TableToolbar,
+      BlockQuote,
+      HorizontalLine,
+      Heading,
+      Paragraph,
+      Undo,
+      Indent
+    ],
     toolbar: [
       'heading',
       '|',
+      'fontFamily',
       'fontSize',
       '|',
       'fontColor',
@@ -55,6 +111,22 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
       'undo',
       'redo'
     ],
+    fontFamily: {
+      options: [
+        'default',
+        'Arial, Helvetica, sans-serif',
+        'Georgia, serif',
+        'Times New Roman, Times, serif',
+        'Verdana, Geneva, sans-serif',
+        'Trebuchet MS, Helvetica, sans-serif',
+        'Lucida Sans Unicode, Lucida Grande, sans-serif',
+        'Tahoma, Geneva, sans-serif',
+        'Impact, Charcoal, sans-serif',
+        'Comic Sans MS, cursive',
+        'Courier New, Courier, monospace'
+      ],
+      supportAllValues: true
+    },
     fontSize: {
       options: [
         '8px',
@@ -69,7 +141,8 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
         '28px',
         '32px',
         '36px',
-        '48px'
+        '48px',
+        '60px'
       ],
       supportAllValues: true
     },
@@ -277,20 +350,20 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
               <CardContent className="h-full">
                 <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
                   <CKEditor
-                    editor={ClassicEditor as any}
+                    editor={ClassicEditor}
                     data={value}
-                    config={editorConfiguration as any}
+                    config={editorConfiguration}
                     onChange={handleChange}
                     onReady={(editor) => {
-                      console.log('CKEditor5 is ready to use!', editor);
-                      console.log('Available plugins:', Array.from(editor.plugins).map(p => p.constructor.name));
+                      console.log('CKEditor5 personnalisé prêt !', editor);
+                      console.log('Plugins disponibles:', Array.from(editor.plugins).map(p => p.constructor.name));
                       console.log('Toolbar items:', Array.from(editor.ui.componentFactory.names()));
                     }}
                     onError={(error, { willEditorRestart }) => {
                       if (willEditorRestart) {
-                        console.log('CKEditor5 will restart', error);
+                        console.log('CKEditor5 va redémarrer', error);
                       } else {
-                        console.error('CKEditor5 error:', error);
+                        console.error('Erreur CKEditor5:', error);
                       }
                     }}
                   />
