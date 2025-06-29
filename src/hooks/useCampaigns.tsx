@@ -91,7 +91,10 @@ export function useCampaigns() {
     });
 
     if (error) throw error;
-    return data;
+    
+    // Parse the JSONB response to CampaignStats
+    const stats = typeof data === 'string' ? JSON.parse(data) : data;
+    return stats as CampaignStats;
   };
 
   return {

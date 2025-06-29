@@ -21,7 +21,7 @@ import {
   Users,
   Mail
 } from 'lucide-react';
-import { Campaign } from '@/types/database';
+import { Campaign, ABWinnerCriteria } from '@/types/database';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
@@ -52,7 +52,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
     is_ab_test: false,
     ab_subject_b: '',
     ab_split_percentage: 50,
-    ab_winner_criteria: 'open_rate' as const,
+    ab_winner_criteria: 'open_rate' as ABWinnerCriteria,
     ab_test_duration_hours: 24,
     tags: [] as string[],
     notes: '',
@@ -368,7 +368,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
                     <Label htmlFor="ab_winner_criteria">Critère de victoire</Label>
                     <Select
                       value={formData.ab_winner_criteria}
-                      onValueChange={(value: 'open_rate' | 'click_rate') => 
+                      onValueChange={(value: ABWinnerCriteria) => 
                         setFormData({ ...formData, ab_winner_criteria: value })
                       }
                     >
