@@ -24,7 +24,7 @@ import { Campaign, ABWinnerCriteria } from '@/types/database';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
-import CKEditor5 from './EmailEditor/CKEditor5';
+import TinyMCEEditor from './EmailEditor/TinyMCEEditor';
 import ContactListSelector from './ContactListSelector';
 
 interface CampaignEditorProps {
@@ -161,7 +161,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
         </div>
 
         <div className="flex-1">
-          <CKEditor5
+          <TinyMCEEditor
             value={formData.html_content}
             onChange={(content) => setFormData({ ...formData, html_content: content })}
             onSave={handleSave}
