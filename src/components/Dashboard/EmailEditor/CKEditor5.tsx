@@ -22,41 +22,39 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     onChange(data);
   }, [onChange]);
 
-  // Configuration optimisée pour l'email marketing avec ClassicEditor
+  // Configuration simplifiée pour éviter les conflits de types
   const editorConfiguration = {
-    toolbar: {
-      items: [
-        'heading',
-        '|',
-        'fontSize',
-        '|',
-        'fontColor',
-        'fontBackgroundColor',
-        '|',
-        'bold',
-        'italic',
-        'underline',
-        'strikethrough',
-        '|',
-        'alignment',
-        '|',
-        'bulletedList',
-        'numberedList',
-        '|',
-        'outdent',
-        'indent',
-        '|',
-        'link',
-        'insertImage',
-        'insertTable',
-        '|',
-        'blockQuote',
-        'horizontalLine',
-        '|',
-        'undo',
-        'redo'
-      ]
-    },
+    toolbar: [
+      'heading',
+      '|',
+      'fontSize',
+      '|',
+      'fontColor',
+      'fontBackgroundColor',
+      '|',
+      'bold',
+      'italic',
+      'underline',
+      'strikethrough',
+      '|',
+      'alignment',
+      '|',
+      'bulletedList',
+      'numberedList',
+      '|',
+      'outdent',
+      'indent',
+      '|',
+      'link',
+      'insertImage',
+      'insertTable',
+      '|',
+      'blockQuote',
+      'horizontalLine',
+      '|',
+      'undo',
+      'redo'
+    ],
     fontSize: {
       options: [
         '8px',
@@ -279,9 +277,9 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
               <CardContent className="h-full">
                 <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
                   <CKEditor
-                    editor={ClassicEditor}
+                    editor={ClassicEditor as any}
                     data={value}
-                    config={editorConfiguration}
+                    config={editorConfiguration as any}
                     onChange={handleChange}
                     onReady={(editor) => {
                       console.log('CKEditor5 is ready to use!', editor);
