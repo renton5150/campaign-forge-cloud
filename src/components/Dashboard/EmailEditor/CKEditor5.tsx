@@ -22,39 +22,42 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     onChange(data);
   }, [onChange]);
 
+  // Configuration complète pour l'email marketing
   const editorConfiguration = {
-    toolbar: [
-      'heading',
-      '|',
-      'fontFamily',
-      'fontSize',
-      '|',
-      'fontColor',
-      'fontBackgroundColor',
-      '|',
-      'bold',
-      'italic',
-      'underline',
-      'strikethrough',
-      '|',
-      'alignment',
-      '|',
-      'bulletedList',
-      'numberedList',
-      '|',
-      'outdent',
-      'indent',
-      '|',
-      'link',
-      'insertImage',
-      'insertTable',
-      '|',
-      'blockQuote',
-      'horizontalLine',
-      '|',
-      'undo',
-      'redo'
-    ],
+    toolbar: {
+      items: [
+        'heading',
+        '|',
+        'fontFamily',
+        'fontSize',
+        '|',
+        'fontColor',
+        'fontBackgroundColor',
+        '|',
+        'bold',
+        'italic',
+        'underline',
+        'strikethrough',
+        '|',
+        'alignment',
+        '|',
+        'bulletedList',
+        'numberedList',
+        '|',
+        'outdent',
+        'indent',
+        '|',
+        'link',
+        'insertImage',
+        'insertTable',
+        '|',
+        'blockQuote',
+        'horizontalLine',
+        '|',
+        'undo',
+        'redo'
+      ]
+    },
     fontFamily: {
       options: [
         'default',
@@ -297,6 +300,7 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
                     onChange={handleChange}
                     onReady={(editor) => {
                       console.log('CKEditor5 is ready to use!', editor);
+                      console.log('Available plugins:', editor.plugins.get('PluginCollection'));
                     }}
                     onError={(error, { willEditorRestart }) => {
                       if (willEditorRestart) {
