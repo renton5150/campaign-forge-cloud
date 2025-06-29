@@ -4,7 +4,9 @@ import { Editor } from '@tinymce/tinymce-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, Monitor, Smartphone, Save } from 'lucide-react';
+import { Eye, Monitor, Smartphone, Save, FolderOpen } from 'lucide-react';
+import SaveTemplateModal from './SaveTemplateModal';
+import PersonalTemplates from './PersonalTemplates';
 
 interface TinyMCEEditorProps {
   value: string;
@@ -13,9 +15,10 @@ interface TinyMCEEditorProps {
 }
 
 export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditorProps) {
-  const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
+  const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'templates'>('editor');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [domainInfo, setDomainInfo] = useState<string>('');
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   useEffect(() => {
     // Capturer les informations du domaine pour TinyMCE
@@ -30,6 +33,11 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
     onChange(content);
   }, [onChange]);
 
+  const handleLoadTemplate = (htmlContent: string) => {
+    onChange(htmlContent);
+    setActiveTab('editor');
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Toolbar */}
@@ -39,6 +47,15 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
             <Button variant="outline" size="sm" onClick={onSave}>
               <Save className="h-4 w-4 mr-1" />
               Sauvegarder
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowSaveModal(true)}
+              disabled={!value.trim()}
+            >
+              <FolderOpen className="h-4 w-4 mr-1" />
+              Sauvegarder template
             </Button>
             <div className="text-xs text-gray-500 ml-4">
               {domainInfo}
@@ -70,6 +87,7 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
           <TabsList className="w-full justify-start border-b">
             <TabsTrigger value="editor">Éditeur</TabsTrigger>
             <TabsTrigger value="preview">Aperçu</TabsTrigger>
+            <TabsTrigger value="templates">Mes Templates</TabsTrigger>
           </TabsList>
 
           <TabsContent value="editor" className="h-full mt-0 p-6">
@@ -162,8 +180,26 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="templates" className="h-full mt-0">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>Mes Templates Personnels</CardTitle>
+              </CardHeader>
+              <CardContent className="h-full overflow-y-auto">
+                <PersonalTemplates onLoadTemplate={handleLoadTemplate} />
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal de sauvegarde */}
+      <SaveTemplateModal
+        open={showSaveModal}
+        onOpenChange={setShowSaveModal}
+        htmlContent={value}
+      />
     </div>
   );
 }
