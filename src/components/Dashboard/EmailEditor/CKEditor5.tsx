@@ -1,40 +1,76 @@
 
 import { useState, useCallback } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, Monitor, Smartphone, Save } from 'lucide-react';
 
-interface ReactQuillEditorProps {
+interface CKEditor5Props {
   value: string;
   onChange: (value: string) => void;
   onSave?: () => void;
 }
 
-const modules = {
-  toolbar: [
-    ['bold', 'italic', 'underline'],
-    ['link', 'image'],
-    [{ 'align': [] }],
-    ['clean']
-  ],
-};
-
-const formats = [
-  'bold', 'italic', 'underline',
-  'link', 'image',
-  'align'
-];
-
-export default function ReactQuillEditor({ value, onChange, onSave }: ReactQuillEditorProps) {
+export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
 
-  const handleChange = useCallback((content: string) => {
-    onChange(content);
+  const handleChange = useCallback((event: any, editor: any) => {
+    const data = editor.getData();
+    onChange(data);
   }, [onChange]);
+
+  const editorConfiguration = {
+    toolbar: {
+      items: [
+        'heading',
+        '|',
+        'bold',
+        'italic',
+        'underline',
+        '|',
+        'link',
+        'insertImage',
+        'insertTable',
+        '|',
+        'alignment',
+        'bulletedList',
+        'numberedList',
+        '|',
+        'outdent',
+        'indent',
+        '|',
+        'blockQuote',
+        'undo',
+        'redo'
+      ]
+    },
+    heading: {
+      options: [
+        { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+        { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+        { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+        { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+      ]
+    },
+    table: {
+      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+    },
+    image: {
+      toolbar: [
+        'imageStyle:alignLeft',
+        'imageStyle:alignCenter',
+        'imageStyle:alignRight',
+        '|',
+        'resizeImage',
+        '|',
+        'imageTextAlternative'
+      ]
+    },
+    language: 'fr'
+  };
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -81,14 +117,24 @@ export default function ReactQuillEditor({ value, onChange, onSave }: ReactQuill
                 <CardTitle>Contenu de l'email</CardTitle>
               </CardHeader>
               <CardContent className="h-full">
-                <ReactQuill
-                  value={value}
-                  onChange={handleChange}
-                  modules={modules}
-                  formats={formats}
-                  theme="snow"
-                  style={{ height: '400px' }}
-                />
+                <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
+                  <CKEditor
+                    editor={ClassicEditor}
+                    data={value}
+                    config={editorConfiguration}
+                    onChange={handleChange}
+                    onReady={(editor) => {
+                      console.log('CKEditor5 is ready to use!', editor);
+                    }}
+                    onError={(error, { willEditorRestart }) => {
+                      if (willEditorRestart) {
+                        console.log('CKEditor5 will restart', error);
+                      } else {
+                        console.error('CKEditor5 error:', error);
+                      }
+                    }}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -114,6 +160,11 @@ export default function ReactQuillEditor({ value, onChange, onSave }: ReactQuill
                     <div 
                       dangerouslySetInnerHTML={{ __html: value }}
                       className="prose max-w-none"
+                      style={{
+                        fontFamily: 'Arial, sans-serif',
+                        lineHeight: '1.6',
+                        color: '#333333'
+                      }}
                     />
                   </div>
                 </div>
