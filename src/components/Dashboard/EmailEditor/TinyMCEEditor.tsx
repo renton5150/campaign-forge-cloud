@@ -91,8 +91,8 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
                         'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks',
                         'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'help', 'wordcount'
                       ],
-                      toolbar: 'fontsize | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | table | code preview',
-                      fontsize_formats: '8pt=8pt 9pt=9pt 10pt=10pt 11pt=11pt 12pt=12pt 13px=13px 14pt=14pt 16pt=16pt 18pt=18pt 20pt=20pt 24pt=24pt 28pt=28pt 32pt=32pt 36pt=36pt 48pt=48pt',
+                      toolbar: 'fontfamily fontsize | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | table | code preview',
+                      `fontsize_formats: '8pt=8pt 9pt=9pt 10pt=10pt 11pt=11pt 12pt=12pt 13px=13px 14pt=14pt 16pt=16pt 18pt=18pt 20pt=20pt 24pt=24pt 28pt=28pt 32pt=32pt 36pt=36pt 48pt=48pt',
                       content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:14px }',
                       forced_root_block: 'p',
                       force_p_newlines: true,
