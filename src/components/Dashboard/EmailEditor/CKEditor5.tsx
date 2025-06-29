@@ -2,8 +2,6 @@
 import { useState, useCallback } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
-import { Font } from '@ckeditor/ckeditor5-font';
-import { Alignment } from '@ckeditor/ckeditor5-alignment';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,18 +22,12 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     onChange(data);
   }, [onChange]);
 
-  // Configuration complète pour l'email marketing avec plugins installés
+  // Configuration optimisée pour l'email marketing avec ClassicEditor
   const editorConfiguration = {
-    plugins: [
-      ...ClassicEditor.builtinPlugins,
-      Font,
-      Alignment
-    ],
     toolbar: {
       items: [
         'heading',
         '|',
-        'fontFamily',
         'fontSize',
         '|',
         'fontColor',
@@ -64,20 +56,6 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
         'undo',
         'redo'
       ]
-    },
-    fontFamily: {
-      options: [
-        'default',
-        'Arial, Helvetica, sans-serif',
-        'Helvetica, Arial, sans-serif',
-        'Times New Roman, Times, serif',
-        'Georgia, serif',
-        'Verdana, Geneva, sans-serif',
-        'Tahoma, Geneva, sans-serif',
-        'Trebuchet MS, Helvetica, sans-serif',
-        'Courier New, Courier, monospace'
-      ],
-      supportAllValues: true
     },
     fontSize: {
       options: [
@@ -301,14 +279,14 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
               <CardContent className="h-full">
                 <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
                   <CKEditor
-                    editor={ClassicEditor as any}
+                    editor={ClassicEditor}
                     data={value}
-                    config={editorConfiguration as any}
+                    config={editorConfiguration}
                     onChange={handleChange}
                     onReady={(editor) => {
                       console.log('CKEditor5 is ready to use!', editor);
-                      console.log('Available plugins:', editor.plugins.get('PluginCollection'));
-                      console.log('Toolbar items:', editor.ui.componentFactory.names());
+                      console.log('Available plugins:', Array.from(editor.plugins).map(p => p.constructor.name));
+                      console.log('Toolbar items:', Array.from(editor.ui.componentFactory.names()));
                     }}
                     onError={(error, { willEditorRestart }) => {
                       if (willEditorRestart) {
