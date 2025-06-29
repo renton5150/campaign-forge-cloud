@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, Move, Copy } from 'lucide-react';
+import { Trash2, Move, Copy, Layout } from 'lucide-react';
 import { EmailComponent } from './types';
 
 interface DesignCanvasProps {
