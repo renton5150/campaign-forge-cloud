@@ -1,6 +1,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserRole } from '@/types/database';
 
@@ -17,8 +18,36 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Query to fetch user profile with better error handling
+  const { data: user, isLoading: isUserLoading, error } = useQuery({
+    queryKey: ["user", session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return null;
+      
+      console.log('Fetching user profile for:', session.user.id);
+      
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", session.user.id)
+        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no data
+      
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        throw error;
+      }
+      
+      console.log('User profile loaded:', data);
+      return data;
+    },
+    enabled: !!session?.user?.id,
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   useEffect(() => {
     // Set up auth state listener
@@ -27,31 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         
+        // Invalidate user query when auth state changes
         if (session?.user) {
-          // Fetch user profile from our users table
-          setTimeout(async () => {
-            try {
-              const { data: userData, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-              
-              if (error) {
-                console.error('Error fetching user profile:', error);
-                setUser(null);
-              } else {
-                console.log('User profile loaded:', userData);
-                setUser(userData);
-              }
-            } catch (err) {
-              console.error('Error in user profile fetch:', err);
-              setUser(null);
-            }
-          }, 0);
+          queryClient.invalidateQueries({ queryKey: ['user', session.user.id] });
         } else {
-          setUser(null);
+          queryClient.clear();
         }
+        
         setLoading(false);
       }
     );
@@ -65,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -82,45 +93,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl
+        emailRedirectTo: redirectUrl,
+        data: {
+          full_name: fullName
+        }
       }
     });
 
     if (error) return { error };
 
-    // Create user profile
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          role,
-          tenant_id: null // Will be set later by super admin
-        });
-
-      if (profileError) {
-        console.error('Error creating user profile:', profileError);
-        return { error: profileError };
-      }
-    }
+    // Note: The trigger will automatically create the user profile
+    // No need to manually insert into users table anymore
 
     return { error: null };
   };
 
   const signOut = async () => {
     try {
-      // Clean up auth state
-      const cleanupAuthState = () => {
-        Object.keys(localStorage).forEach((key) => {
-          if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-            localStorage.removeItem(key);
-          }
-        });
-      };
-
-      cleanupAuthState();
+      queryClient.clear();
       await supabase.auth.signOut({ scope: 'global' });
       window.location.href = '/auth';
     } catch (error) {
@@ -129,11 +119,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Show loading while checking auth or fetching user
+  const isLoading = loading || isUserLoading;
+
   return (
     <AuthContext.Provider value={{
       session,
-      user,
-      loading,
+      user: user || null,
+      loading: isLoading,
       signIn,
       signUp,
       signOut,
