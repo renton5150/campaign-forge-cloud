@@ -67,7 +67,7 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
               <CardContent className="h-full">
                 <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
                   <Editor
-                    apiKey="no-api-key"
+                    apiKey="bjlp8x727u9vmqvrd8pj9k0d04x2ycincthiln1kde17yxc6"
                     value={value}
                     onEditorChange={handleEditorChange}
                     init={{
