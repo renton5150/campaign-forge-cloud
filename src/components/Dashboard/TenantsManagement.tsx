@@ -132,7 +132,11 @@ const TenantsManagement = () => {
     mutationFn: async (data: TenantFormData) => {
       const { error } = await supabase
         .from('tenants')
-        .insert([data]);
+        .insert([{
+          company_name: data.company_name,
+          domain: data.domain,
+          status: data.status
+        }]);
       
       if (error) throw error;
     },
@@ -161,7 +165,11 @@ const TenantsManagement = () => {
       
       const { error } = await supabase
         .from('tenants')
-        .update(data)
+        .update({
+          company_name: data.company_name,
+          domain: data.domain,
+          status: data.status
+        })
         .eq('id', editingTenant.id);
       
       if (error) throw error;
