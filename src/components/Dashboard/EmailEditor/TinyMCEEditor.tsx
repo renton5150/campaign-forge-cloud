@@ -81,7 +81,7 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
                       ],
                       toolbar: 'fontfamily fontsize forecolor backcolor | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | table | code preview',
                       font_family_formats: 'Arial=arial,helvetica,sans-serif; Times New Roman=times new roman,times,serif; Courier New=courier new,courier,monospace; Georgia=georgia,serif; Verdana=verdana,geneva,sans-serif;',
-                      fontsize_formats: '8px 10px 12px 14px 16px 18px 24px 36px 48px',
+                      fontsize_formats: '8pt 10pt 11pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt',
                       content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:14px }'
                     }}
                   />
