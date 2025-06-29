@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,16 @@ interface TinyMCEEditorProps {
 export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditorProps) {
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [domainInfo, setDomainInfo] = useState<string>('');
+
+  useEffect(() => {
+    // Capturer les informations du domaine pour TinyMCE
+    const currentDomain = window.location.hostname;
+    const currentUrl = window.location.href;
+    const domainDetails = `Domaine: ${currentDomain} | URL complète: ${currentUrl}`;
+    setDomainInfo(domainDetails);
+    console.log('🔍 Informations du domaine pour TinyMCE:', domainDetails);
+  }, []);
 
   const handleEditorChange = useCallback((content: string) => {
     onChange(content);
@@ -30,6 +40,9 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
               <Save className="h-4 w-4 mr-1" />
               Sauvegarder
             </Button>
+            <div className="text-xs text-gray-500 ml-4">
+              {domainInfo}
+            </div>
           </div>
 
           <div className="flex space-x-2">
@@ -81,8 +94,13 @@ export default function TinyMCEEditor({ value, onChange, onSave }: TinyMCEEditor
                       ],
                       toolbar: 'fontfamily fontsize forecolor backcolor | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | link image | table | code preview',
                       font_family_formats: 'Arial=arial,helvetica,sans-serif; Times New Roman=times new roman,times,serif; Courier New=courier new,courier,monospace; Georgia=georgia,serif; Verdana=verdana,geneva,sans-serif;',
-                      fontsize_formats: '8pt 10pt 11pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt',
-                      content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:14px }'
+                      fontsize_formats: '8pt 10pt 11pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
+                      content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:14px }',
+                      setup: (editor) => {
+                        editor.on('init', () => {
+                          console.log('🎯 TinyMCE initialisé avec les tailles:', '8pt 10pt 11pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt');
+                        });
+                      }
                     }}
                   />
                 </div>
