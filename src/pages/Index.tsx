@@ -1,13 +1,39 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import Sidebar from '@/components/Layout/Sidebar';
+import DashboardPage from '@/components/Dashboard/DashboardPage';
+import TenantsPage from '@/components/Dashboard/TenantsPage';
 
 const Index = () => {
+  const { user } = useAuth();
+  const [currentPage, setCurrentPage] = useState('dashboard');
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard':
+        return <DashboardPage />;
+      case 'tenants':
+        return <TenantsPage />;
+      case 'users':
+        return <div className="p-6">Page Utilisateurs (à implémenter)</div>;
+      case 'domains':
+        return <div className="p-6">Page Domaines (à implémenter)</div>;
+      default:
+        return <DashboardPage />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <ProtectedRoute>
+      <div className="flex h-screen bg-gray-100">
+        <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+        <main className="flex-1 overflow-auto">
+          {renderPage()}
+        </main>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 };
 

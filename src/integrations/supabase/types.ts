@@ -9,7 +9,109 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      domains: {
+        Row: {
+          created_at: string
+          dkim_status: Database["public"]["Enums"]["domain_verification_status"]
+          domain_name: string
+          id: string
+          tenant_id: string
+          updated_at: string
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          dkim_status?: Database["public"]["Enums"]["domain_verification_status"]
+          domain_name: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          dkim_status?: Database["public"]["Enums"]["domain_verification_status"]
+          domain_name?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domains_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          company_name: string
+          created_at: string
+          domain: string
+          id: string
+          status: Database["public"]["Enums"]["tenant_status"]
+          updated_at: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string
+          domain: string
+          id?: string
+          status?: Database["public"]["Enums"]["tenant_status"]
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          domain?: string
+          id?: string
+          status?: Database["public"]["Enums"]["tenant_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      users: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id: string
+          role?: Database["public"]["Enums"]["user_role"]
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +120,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      domain_verification_status: "pending" | "verified" | "failed"
+      tenant_status: "active" | "inactive" | "suspended"
+      user_role: "super_admin" | "tenant_admin" | "tenant_growth" | "tenant_sdr"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +237,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      domain_verification_status: ["pending", "verified", "failed"],
+      tenant_status: ["active", "inactive", "suspended"],
+      user_role: ["super_admin", "tenant_admin", "tenant_growth", "tenant_sdr"],
+    },
   },
 } as const
