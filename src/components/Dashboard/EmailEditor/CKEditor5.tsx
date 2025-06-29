@@ -2,6 +2,8 @@
 import { useState, useCallback } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import { Font } from '@ckeditor/ckeditor5-font';
+import { Alignment } from '@ckeditor/ckeditor5-alignment';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,8 +24,13 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     onChange(data);
   }, [onChange]);
 
-  // Configuration complète pour l'email marketing
+  // Configuration complète pour l'email marketing avec plugins installés
   const editorConfiguration = {
+    plugins: [
+      ...ClassicEditor.builtinPlugins,
+      Font,
+      Alignment
+    ],
     toolbar: {
       items: [
         'heading',
@@ -301,6 +308,7 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
                     onReady={(editor) => {
                       console.log('CKEditor5 is ready to use!', editor);
                       console.log('Available plugins:', editor.plugins.get('PluginCollection'));
+                      console.log('Toolbar items:', editor.ui.componentFactory.names());
                     }}
                     onError={(error, { willEditorRestart }) => {
                       if (willEditorRestart) {
