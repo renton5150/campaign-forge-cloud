@@ -6,6 +6,7 @@ import Sidebar from '@/components/Layout/Sidebar';
 import DashboardPage from '@/components/Dashboard/DashboardPage';
 import TenantsManagement from '@/components/Dashboard/TenantsManagement';
 import UsersManagement from '@/components/Dashboard/UsersManagement';
+import DomainsManagement from '@/components/Dashboard/DomainsManagement';
 
 const Index = () => {
   const { user } = useAuth();
@@ -20,7 +21,7 @@ const Index = () => {
       case 'users':
         return <UsersManagement />;
       case 'domains':
-        return <div className="p-6">Page Domaines (à implémenter)</div>;
+        return <DomainsManagement />;
       default:
         return <DashboardPage />;
     }
