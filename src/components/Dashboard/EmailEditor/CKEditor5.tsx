@@ -206,83 +206,8 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
                           'horizontalLine'
                         ],
                         shouldNotGroupWhenFull: false
-                      },
-                      fontFamily: {
-                        supportAllValues: true,
-                        options: [
-                          'default',
-                          'Arial, Helvetica, sans-serif',
-                          'Courier New, Courier, monospace',
-                          'Georgia, serif',
-                          'Lucida Sans Unicode, Lucida Grande, sans-serif',
-                          'Tahoma, Geneva, sans-serif',
-                          'Times New Roman, Times, serif',
-                          'Trebuchet MS, Helvetica, sans-serif',
-                          'Verdana, Geneva, sans-serif'
-                        ]
-                      },
-                      fontSize: {
-                        options: [10, 12, 14, 'default', 18, 20, 22],
-                        supportAllValues: true
-                      },
-                      fontColor: {
-                        columns: 12,
-                        documentColors: 10
-                      },
-                      fontBackgroundColor: {
-                        columns: 12,
-                        documentColors: 10
-                      },
-                      heading: {
-                        options: [
-                          { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
-                          { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-                          { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-                          { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
-                        ]
-                      },
-                      image: {
-                        toolbar: [
-                          'imageTextAlternative',
-                          'toggleImageCaption',
-                          '|',
-                          'imageStyle:inline',
-                          'imageStyle:wrapText',
-                          'imageStyle:breakText',
-                          '|',
-                          'resizeImage'
-                        ]
-                      },
-                      table: {
-                        contentToolbar: [
-                          'tableColumn',
-                          'tableRow',
-                          'mergeTableCells',
-                          'tableProperties',
-                          'tableCellProperties'
-                        ]
-                      },
-                      list: {
-                        properties: {
-                          styles: true,
-                          startIndex: true,
-                          reversed: true
-                        }
-                      },
-                      link: {
-                        addTargetToExternalLinks: true,
-                        defaultProtocol: 'https://',
-                        decorators: {
-                          toggleDownloadable: {
-                            mode: 'manual',
-                            label: 'Downloadable',
-                            attributes: {
-                              download: 'file'
-                            }
-                          }
-                        }
                       }
-                    }}
+                    } as any}
                     onChange={handleChange}
                     onReady={(editor) => {
                       console.log('CKEditor5 prêt !', editor);
