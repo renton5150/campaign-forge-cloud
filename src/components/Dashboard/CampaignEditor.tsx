@@ -25,7 +25,7 @@ import { Campaign, ABWinnerCriteria } from '@/types/database';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
-import RichTextEditor from './RichTextEditor';
+import EmailEditor from './EmailEditor/EmailEditor';
 import ContactListSelector from './ContactListSelector';
 
 interface CampaignEditorProps {
@@ -130,8 +130,58 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
     }
   };
 
+  if (activeTab === 'content') {
+    return (
+      <div className="h-screen flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b bg-white">
+          <div className="flex items-center space-x-3">
+            <Button variant="outline" onClick={onClose}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                {campaign ? 'Modifier la campagne' : 'Nouvelle campagne'}
+              </h1>
+              <p className="text-sm text-gray-600">{formData.name || 'Sans titre'}</p>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={() => setActiveTab('settings')}>
+              Paramètres
+            </Button>
+            <Button variant="outline" onClick={handleSave}>
+              <Save className="h-4 w-4 mr-2" />
+              Sauvegarder
+            </Button>
+            <Button onClick={handleSchedule}>
+              <Calendar className="h-4 w-4 mr-2" />
+              Planifier
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex-1">
+          <EmailEditor
+            value={formData.html_content}
+            onChange={(content) => setFormData({ ...formData, html_content: content })}
+            templates={templates}
+            onTemplateSelect={(template) => {
+              setFormData({ 
+                ...formData, 
+                html_content: template.html_content,
+                template_id: template.id
+              });
+            }}
+            onSave={handleSave}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-3">
           <Button variant="outline" onClick={onClose}>
@@ -169,6 +219,23 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
         </TabsList>
 
         <TabsContent value="content" className="space-y-6">
+          {/* Le contenu sera géré par l'EmailEditor */}
+          <div className="text-center py-8">
+            <Button onClick={() => setActiveTab('content')} size="lg">
+              Ouvrir l'éditeur email
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="recipients">
+          <ContactListSelector
+            selectedLists={selectedLists}
+            onListsChange={setSelectedLists}
+            contactLists={contactLists || []}
+          />
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -247,36 +314,6 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Contenu de l'email</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <RichTextEditor
-                value={formData.html_content}
-                onChange={(content) => setFormData({ ...formData, html_content: content })}
-                templates={templates}
-                onTemplateSelect={(template) => {
-                  setFormData({ 
-                    ...formData, 
-                    html_content: template.html_content,
-                    template_id: template.id
-                  });
-                }}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="recipients">
-          <ContactListSelector
-            selectedLists={selectedLists}
-            onListsChange={setSelectedLists}
-            contactLists={contactLists || []}
-          />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Planification</CardTitle>
