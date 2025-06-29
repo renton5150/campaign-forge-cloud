@@ -1,38 +1,64 @@
 
 import { useState, useCallback } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-editor-classic/src/classiceditor';
+
+// Import du build classic qui contient déjà les plugins de base
+import {
+  ClassicEditor,
+  AccessibilityHelp,
+  Alignment,
+  Autoformat,
+  AutoImage,
+  AutoLink,
+  Autosave,
+  BlockQuote,
+  Bold,
+  CloudServices,
+  Essentials,
+  FontBackgroundColor,
+  FontColor,
+  FontFamily,
+  FontSize,
+  Heading,
+  HorizontalLine,
+  ImageBlock,
+  ImageCaption,
+  ImageInline,
+  ImageInsert,
+  ImageInsertViaUrl,
+  ImageResize,
+  ImageStyle,
+  ImageTextAlternative,
+  ImageToolbar,
+  ImageUpload,
+  Indent,
+  IndentBlock,
+  Italic,
+  Link,
+  LinkImage,
+  List,
+  ListProperties,
+  Paragraph,
+  PasteFromOffice,
+  SelectAll,
+  Strikethrough,
+  Table,
+  TableCaption,
+  TableCellProperties,
+  TableColumnResize,
+  TableProperties,
+  TableToolbar,
+  TextTransformation,
+  Underline,
+  Undo
+} from 'ckeditor5';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, Monitor, Smartphone, Save } from 'lucide-react';
 
-// Plugins CKEditor 5
-import Essentials from '@ckeditor/ckeditor5-essentials/src/essentials';
-import Bold from '@ckeditor/ckeditor5-basic-styles/src/bold';
-import Italic from '@ckeditor/ckeditor5-basic-styles/src/italic';
-import Underline from '@ckeditor/ckeditor5-basic-styles/src/underline';
-import Strikethrough from '@ckeditor/ckeditor5-basic-styles/src/strikethrough';
-import FontFamily from '@ckeditor/ckeditor5-font/src/fontfamily';
-import FontSize from '@ckeditor/ckeditor5-font/src/fontsize';
-import FontColor from '@ckeditor/ckeditor5-font/src/fontcolor';
-import FontBackgroundColor from '@ckeditor/ckeditor5-font/src/fontbackgroundcolor';
-import Alignment from '@ckeditor/ckeditor5-alignment/src/alignment';
-import Link from '@ckeditor/ckeditor5-link/src/link';
-import Image from '@ckeditor/ckeditor5-image/src/image';
-import ImageUpload from '@ckeditor/ckeditor5-image/src/imageupload';
-import ImageResize from '@ckeditor/ckeditor5-image/src/imageresize';
-import ImageStyle from '@ckeditor/ckeditor5-image/src/imagestyle';
-import ImageToolbar from '@ckeditor/ckeditor5-image/src/imagetoolbar';
-import List from '@ckeditor/ckeditor5-list/src/list';
-import Table from '@ckeditor/ckeditor5-table/src/table';
-import TableToolbar from '@ckeditor/ckeditor5-table/src/tabletoolbar';
-import BlockQuote from '@ckeditor/ckeditor5-block-quote/src/blockquote';
-import HorizontalLine from '@ckeditor/ckeditor5-horizontal-line/src/horizontalline';
-import Heading from '@ckeditor/ckeditor5-heading/src/heading';
-import Paragraph from '@ckeditor/ckeditor5-paragraph/src/paragraph';
-import Undo from '@ckeditor/ckeditor5-undo/src/undo';
-import Indent from '@ckeditor/ckeditor5-indent/src/indent';
+import 'ckeditor5/ckeditor5.css';
 
 interface CKEditor5Props {
   value: string;
@@ -48,260 +74,6 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     const data = editor.getData();
     onChange(data);
   }, [onChange]);
-
-  // Configuration complète pour l'email marketing
-  const editorConfiguration = {
-    plugins: [
-      Essentials,
-      Bold,
-      Italic,
-      Underline,
-      Strikethrough,
-      FontFamily,
-      FontSize,
-      FontColor,
-      FontBackgroundColor,
-      Alignment,
-      Link,
-      Image,
-      ImageUpload,
-      ImageResize,
-      ImageStyle,
-      ImageToolbar,
-      List,
-      Table,
-      TableToolbar,
-      BlockQuote,
-      HorizontalLine,
-      Heading,
-      Paragraph,
-      Undo,
-      Indent
-    ],
-    toolbar: {
-      items: [
-        'heading',
-        '|',
-        'fontFamily',
-        'fontSize',
-        '|',
-        'fontColor',
-        'fontBackgroundColor',
-        '|',
-        'bold',
-        'italic',
-        'underline',
-        'strikethrough',
-        '|',
-        'alignment',
-        '|',
-        'bulletedList',
-        'numberedList',
-        '|',
-        'outdent',
-        'indent',
-        '|',
-        'link',
-        'insertImage',
-        'insertTable',
-        '|',
-        'blockQuote',
-        'horizontalLine',
-        '|',
-        'undo',
-        'redo'
-      ]
-    },
-    fontFamily: {
-      options: [
-        'default',
-        'Arial, Helvetica, sans-serif',
-        'Georgia, serif',
-        'Times New Roman, Times, serif',
-        'Verdana, Geneva, sans-serif',
-        'Trebuchet MS, Helvetica, sans-serif',
-        'Lucida Sans Unicode, Lucida Grande, sans-serif',
-        'Tahoma, Geneva, sans-serif',
-        'Impact, Charcoal, sans-serif',
-        'Comic Sans MS, cursive',
-        'Courier New, Courier, monospace'
-      ],
-      supportAllValues: true
-    },
-    fontSize: {
-      options: [
-        '8px',
-        '10px',
-        '11px',
-        '12px',
-        '14px',
-        '16px',
-        '18px',
-        '20px',
-        '24px',
-        '28px',
-        '32px',
-        '36px',
-        '48px',
-        '60px'
-      ],
-      supportAllValues: true
-    },
-    fontColor: {
-      colors: [
-        {
-          color: 'hsl(0, 0%, 0%)',
-          label: 'Black'
-        },
-        {
-          color: 'hsl(0, 0%, 30%)',
-          label: 'Dim grey'
-        },
-        {
-          color: 'hsl(0, 0%, 60%)',
-          label: 'Grey'
-        },
-        {
-          color: 'hsl(0, 0%, 90%)',
-          label: 'Light grey'
-        },
-        {
-          color: 'hsl(0, 0%, 100%)',
-          label: 'White',
-          hasBorder: true
-        },
-        {
-          color: 'hsl(0, 75%, 60%)',
-          label: 'Red'
-        },
-        {
-          color: 'hsl(30, 75%, 60%)',
-          label: 'Orange'
-        },
-        {
-          color: 'hsl(60, 75%, 60%)',
-          label: 'Yellow'
-        },
-        {
-          color: 'hsl(90, 75%, 60%)',
-          label: 'Light green'
-        },
-        {
-          color: 'hsl(120, 75%, 60%)',
-          label: 'Green'
-        },
-        {
-          color: 'hsl(150, 75%, 60%)',
-          label: 'Aquamarine'
-        },
-        {
-          color: 'hsl(180, 75%, 60%)',
-          label: 'Turquoise'
-        },
-        {
-          color: 'hsl(210, 75%, 60%)',
-          label: 'Light blue'
-        },
-        {
-          color: 'hsl(240, 75%, 60%)',
-          label: 'Blue'
-        },
-        {
-          color: 'hsl(270, 75%, 60%)',
-          label: 'Purple'
-        }
-      ]
-    },
-    fontBackgroundColor: {
-      colors: [
-        {
-          color: 'hsl(0, 0%, 100%)',
-          label: 'White',
-          hasBorder: true
-        },
-        {
-          color: 'hsl(0, 0%, 90%)',
-          label: 'Light grey'
-        },
-        {
-          color: 'hsl(60, 75%, 60%)',
-          label: 'Yellow'
-        },
-        {
-          color: 'hsl(30, 75%, 60%)',
-          label: 'Orange'
-        },
-        {
-          color: 'hsl(0, 75%, 60%)',
-          label: 'Red'
-        },
-        {
-          color: 'hsl(120, 75%, 60%)',
-          label: 'Green'
-        },
-        {
-          color: 'hsl(240, 75%, 60%)',
-          label: 'Blue'
-        },
-        {
-          color: 'hsl(270, 75%, 60%)',
-          label: 'Purple'
-        }
-      ]
-    },
-    heading: {
-      options: [
-        { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-        { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-        { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
-      ]
-    },
-    table: {
-      contentToolbar: [
-        'tableColumn',
-        'tableRow',
-        'mergeTableCells',
-        'tableProperties',
-        'tableCellProperties'
-      ]
-    },
-    image: {
-      toolbar: [
-        'imageStyle:alignLeft',
-        'imageStyle:alignCenter',
-        'imageStyle:alignRight',
-        '|',
-        'resizeImage',
-        '|',
-        'imageTextAlternative'
-      ],
-      styles: [
-        'alignLeft',
-        'alignCenter',
-        'alignRight'
-      ]
-    },
-    alignment: {
-      options: [
-        'left',
-        'center',
-        'right',
-        'justify'
-      ]
-    },
-    link: {
-      decorators: {
-        toggleDownloadable: {
-          mode: 'manual',
-          label: 'Downloadable',
-          attributes: {
-            download: 'file'
-          }
-        }
-      }
-    },
-    language: 'fr'
-  } as any; // Type assertion pour contourner les conflits de types
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -350,14 +122,170 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
               <CardContent className="h-full">
                 <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
                   <CKEditor
-                    editor={ClassicEditor as any}
+                    editor={ClassicEditor}
                     data={value}
-                    config={editorConfiguration}
+                    config={{
+                      plugins: [
+                        AccessibilityHelp,
+                        Alignment,
+                        Autoformat,
+                        AutoImage,
+                        AutoLink,
+                        Autosave,
+                        BlockQuote,
+                        Bold,
+                        CloudServices,
+                        Essentials,
+                        FontBackgroundColor,
+                        FontColor,
+                        FontFamily,
+                        FontSize,
+                        Heading,
+                        HorizontalLine,
+                        ImageBlock,
+                        ImageCaption,
+                        ImageInline,
+                        ImageInsert,
+                        ImageInsertViaUrl,
+                        ImageResize,
+                        ImageStyle,
+                        ImageTextAlternative,
+                        ImageToolbar,
+                        ImageUpload,
+                        Indent,
+                        IndentBlock,
+                        Italic,
+                        Link,
+                        LinkImage,
+                        List,
+                        ListProperties,
+                        Paragraph,
+                        PasteFromOffice,
+                        SelectAll,
+                        Strikethrough,
+                        Table,
+                        TableCaption,
+                        TableCellProperties,
+                        TableColumnResize,
+                        TableProperties,
+                        TableToolbar,
+                        TextTransformation,
+                        Underline,
+                        Undo
+                      ],
+                      toolbar: {
+                        items: [
+                          'undo',
+                          'redo',
+                          '|',
+                          'heading',
+                          '|',
+                          'fontFamily',
+                          'fontSize',
+                          'fontColor',
+                          'fontBackgroundColor',
+                          '|',
+                          'bold',
+                          'italic',
+                          'underline',
+                          'strikethrough',
+                          '|',
+                          'alignment',
+                          '|',
+                          'bulletedList',
+                          'numberedList',
+                          '|',
+                          'outdent',
+                          'indent',
+                          '|',
+                          'link',
+                          'insertImage',
+                          'insertTable',
+                          '|',
+                          'blockQuote',
+                          'horizontalLine'
+                        ],
+                        shouldNotGroupWhenFull: false
+                      },
+                      fontFamily: {
+                        supportAllValues: true,
+                        options: [
+                          'default',
+                          'Arial, Helvetica, sans-serif',
+                          'Courier New, Courier, monospace',
+                          'Georgia, serif',
+                          'Lucida Sans Unicode, Lucida Grande, sans-serif',
+                          'Tahoma, Geneva, sans-serif',
+                          'Times New Roman, Times, serif',
+                          'Trebuchet MS, Helvetica, sans-serif',
+                          'Verdana, Geneva, sans-serif'
+                        ]
+                      },
+                      fontSize: {
+                        options: [10, 12, 14, 'default', 18, 20, 22],
+                        supportAllValues: true
+                      },
+                      fontColor: {
+                        columns: 12,
+                        documentColors: 10
+                      },
+                      fontBackgroundColor: {
+                        columns: 12,
+                        documentColors: 10
+                      },
+                      heading: {
+                        options: [
+                          { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                          { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                          { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                          { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+                        ]
+                      },
+                      image: {
+                        toolbar: [
+                          'imageTextAlternative',
+                          'toggleImageCaption',
+                          '|',
+                          'imageStyle:inline',
+                          'imageStyle:wrapText',
+                          'imageStyle:breakText',
+                          '|',
+                          'resizeImage'
+                        ]
+                      },
+                      table: {
+                        contentToolbar: [
+                          'tableColumn',
+                          'tableRow',
+                          'mergeTableCells',
+                          'tableProperties',
+                          'tableCellProperties'
+                        ]
+                      },
+                      list: {
+                        properties: {
+                          styles: true,
+                          startIndex: true,
+                          reversed: true
+                        }
+                      },
+                      link: {
+                        addTargetToExternalLinks: true,
+                        defaultProtocol: 'https://',
+                        decorators: {
+                          toggleDownloadable: {
+                            mode: 'manual',
+                            label: 'Downloadable',
+                            attributes: {
+                              download: 'file'
+                            }
+                          }
+                        }
+                      }
+                    }}
                     onChange={handleChange}
                     onReady={(editor) => {
-                      console.log('CKEditor5 personnalisé prêt !', editor);
-                      console.log('Plugins disponibles:', Array.from(editor.plugins).map(p => p.constructor.name));
-                      console.log('Toolbar items:', Array.from(editor.ui.componentFactory.names()));
+                      console.log('CKEditor5 prêt !', editor);
                     }}
                     onError={(error, { willEditorRestart }) => {
                       if (willEditorRestart) {
