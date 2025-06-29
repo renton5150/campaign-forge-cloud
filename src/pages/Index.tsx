@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar';
 import DashboardPage from '@/components/Dashboard/DashboardPage';
 import TenantsManagement from '@/components/Dashboard/TenantsManagement';
+import UsersManagement from '@/components/Dashboard/UsersManagement';
 
 const Index = () => {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ const Index = () => {
       case 'tenants':
         return <TenantsManagement />;
       case 'users':
-        return <div className="p-6">Page Utilisateurs (à implémenter)</div>;
+        return <UsersManagement />;
       case 'domains':
         return <div className="p-6">Page Domaines (à implémenter)</div>;
       default:
