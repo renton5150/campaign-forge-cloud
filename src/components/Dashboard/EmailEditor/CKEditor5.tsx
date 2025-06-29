@@ -7,13 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, Monitor, Smartphone, Save } from 'lucide-react';
 
-// Import all required plugins
+// Plugins CKEditor 5
 import Essentials from '@ckeditor/ckeditor5-essentials/src/essentials';
 import Bold from '@ckeditor/ckeditor5-basic-styles/src/bold';
 import Italic from '@ckeditor/ckeditor5-basic-styles/src/italic';
 import Underline from '@ckeditor/ckeditor5-basic-styles/src/underline';
 import Strikethrough from '@ckeditor/ckeditor5-basic-styles/src/strikethrough';
-import Font from '@ckeditor/ckeditor5-font/src/font';
 import FontFamily from '@ckeditor/ckeditor5-font/src/fontfamily';
 import FontSize from '@ckeditor/ckeditor5-font/src/fontsize';
 import FontColor from '@ckeditor/ckeditor5-font/src/fontcolor';
@@ -50,7 +49,7 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     onChange(data);
   }, [onChange]);
 
-  // Configuration professionnelle pour l'email marketing
+  // Configuration complète pour l'email marketing
   const editorConfiguration = {
     plugins: [
       Essentials,
@@ -79,38 +78,40 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
       Undo,
       Indent
     ],
-    toolbar: [
-      'heading',
-      '|',
-      'fontFamily',
-      'fontSize',
-      '|',
-      'fontColor',
-      'fontBackgroundColor',
-      '|',
-      'bold',
-      'italic',
-      'underline',
-      'strikethrough',
-      '|',
-      'alignment',
-      '|',
-      'bulletedList',
-      'numberedList',
-      '|',
-      'outdent',
-      'indent',
-      '|',
-      'link',
-      'insertImage',
-      'insertTable',
-      '|',
-      'blockQuote',
-      'horizontalLine',
-      '|',
-      'undo',
-      'redo'
-    ],
+    toolbar: {
+      items: [
+        'heading',
+        '|',
+        'fontFamily',
+        'fontSize',
+        '|',
+        'fontColor',
+        'fontBackgroundColor',
+        '|',
+        'bold',
+        'italic',
+        'underline',
+        'strikethrough',
+        '|',
+        'alignment',
+        '|',
+        'bulletedList',
+        'numberedList',
+        '|',
+        'outdent',
+        'indent',
+        '|',
+        'link',
+        'insertImage',
+        'insertTable',
+        '|',
+        'blockQuote',
+        'horizontalLine',
+        '|',
+        'undo',
+        'redo'
+      ]
+    },
     fontFamily: {
       options: [
         'default',
@@ -250,7 +251,6 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
     },
     heading: {
       options: [
-        { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
         { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
         { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
         { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
@@ -301,7 +301,7 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
       }
     },
     language: 'fr'
-  };
+  } as any; // Type assertion pour contourner les conflits de types
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -350,7 +350,7 @@ export default function CKEditor5({ value, onChange, onSave }: CKEditor5Props) {
               <CardContent className="h-full">
                 <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
                   <CKEditor
-                    editor={ClassicEditor}
+                    editor={ClassicEditor as any}
                     data={value}
                     config={editorConfiguration}
                     onChange={handleChange}
