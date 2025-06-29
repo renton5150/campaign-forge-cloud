@@ -16,7 +16,7 @@ export default function RolesManagement() {
   const { roles, modules, permissions, isLoading } = usePermissions();
   const queryClient = useQueryClient();
 
-  // Récupérer les assignations de rôles
+  // Récupérer les assignations de rôles avec jointure explicite
   const { data: roleAssignments } = useQuery({
     queryKey: ['user_role_assignments', user?.tenant_id],
     queryFn: async () => {
@@ -24,8 +24,8 @@ export default function RolesManagement() {
         .from('user_role_assignments')
         .select(`
           *,
-          users!inner(full_name, email),
-          custom_roles!inner(name, label)
+          users!user_role_assignments_user_id_fkey(full_name, email),
+          custom_roles!user_role_assignments_role_id_fkey(name, label)
         `);
       
       if (error) throw error;
