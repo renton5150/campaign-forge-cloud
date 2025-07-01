@@ -25,7 +25,7 @@ export function useContactLists() {
 
   // Créer une liste de contacts
   const createContactList = useMutation({
-    mutationFn: async (listData: Omit<ContactList, 'id' | 'created_at' | 'updated_at' | 'total_contacts' | 'tags' | 'is_archived' | 'last_activity_at'>) => {
+    mutationFn: async (listData: Pick<ContactList, 'name' | 'description'>) => {
       const { data, error } = await supabase
         .from('contact_lists')
         .insert({
@@ -58,10 +58,45 @@ export function useContactLists() {
     return data as Contact[];
   };
 
+  // Modifier une liste de contacts
+  const updateContactList = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<ContactList> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('contact_lists')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact_lists'] });
+    },
+  });
+
+  // Supprimer une liste de contacts
+  const deleteContactList = useMutation({
+    mutationFn: async (listId: string) => {
+      const { error } = await supabase
+        .from('contact_lists')
+        .delete()
+        .eq('id', listId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact_lists'] });
+    },
+  });
+
   return {
     contactLists,
     isLoading,
     createContactList,
+    updateContactList,
+    deleteContactList,
     getListContacts,
   };
 }

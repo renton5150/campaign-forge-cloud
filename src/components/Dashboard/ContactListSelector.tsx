@@ -53,8 +53,6 @@ export default function ContactListSelector({
         await createContactList.mutateAsync({
           name: newListName,
           description: newListDescription || null,
-          tenant_id: '', // Will be set by the hook
-          created_by: '' // Will be set by the hook
         });
         setNewListName('');
         setNewListDescription('');

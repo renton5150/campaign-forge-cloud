@@ -3,12 +3,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useContactLists } from '@/hooks/useContactLists';
-import { List, Plus, Search, Users, Calendar } from 'lucide-react';
+import { ContactList } from '@/types/database';
+import { List, Plus, Search, Users, Calendar, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import CreateListModal from './ContactLists/CreateListModal';
+import EditListModal from './ContactLists/EditListModal';
+import DeleteListModal from './ContactLists/DeleteListModal';
 
 const ContactsListsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { contactLists, isLoading, createContactList } = useContactLists();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedList, setSelectedList] = useState<ContactList | null>(null);
+  
+  const { contactLists, isLoading } = useContactLists();
 
   const filteredLists = contactLists?.filter(list => 
     list.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -23,7 +33,7 @@ const ContactsListsPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Listes de contacts</h1>
           <p className="text-gray-600">Gérez vos listes de contacts et leurs membres</p>
         </div>
-        <Button>
+        <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Nouvelle liste
         </Button>
@@ -113,7 +123,7 @@ const ContactsListsPage = () => {
             </p>
             {!searchTerm && (
               <div className="mt-6">
-                <Button>
+                <Button onClick={() => setShowCreateModal(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Créer une liste
                 </Button>
@@ -131,9 +141,37 @@ const ContactsListsPage = () => {
                       <CardDescription className="mt-1">{list.description}</CardDescription>
                     )}
                   </div>
-                  {list.is_archived && (
-                    <Badge variant="secondary">Archivée</Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {list.is_archived && (
+                      <Badge variant="secondary">Archivée</Badge>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedList(list);
+                          setShowEditModal(true);
+                        }}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setSelectedList(list);
+                            setShowDeleteModal(true);
+                          }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </CardHeader>
               
@@ -168,6 +206,22 @@ const ContactsListsPage = () => {
           ))
         )}
       </div>
+      
+      {/* Modals */}
+      <CreateListModal 
+        open={showCreateModal} 
+        onOpenChange={setShowCreateModal} 
+      />
+      <EditListModal 
+        open={showEditModal} 
+        onOpenChange={setShowEditModal}
+        list={selectedList}
+      />
+      <DeleteListModal 
+        open={showDeleteModal} 
+        onOpenChange={setShowDeleteModal}
+        list={selectedList}
+      />
     </div>
   );
 };
