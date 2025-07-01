@@ -9,6 +9,10 @@ import DomainsManagement from '@/components/Dashboard/DomainsManagement';
 import CampaignsManagement from '@/components/Dashboard/CampaignsManagement';
 import RolesManagement from '@/components/Dashboard/RolesManagement';
 import ContactsPage from '@/components/Dashboard/ContactsPage';
+import ContactsListsPage from '@/components/Dashboard/ContactsListsPage';
+import ContactsImportPage from '@/components/Dashboard/ContactsImportPage';
+import ContactsBlacklistsPage from '@/components/Dashboard/ContactsBlacklistsPage';
+import ContactsSegmentsPage from '@/components/Dashboard/ContactsSegmentsPage';
 
 const Index = () => {
   const { user } = useAuth();
@@ -23,13 +27,13 @@ const Index = () => {
       case 'contacts':
         return <ContactsPage />;
       case 'contacts-lists':
-        return <ContactsPage />; // Will create specific components later
+        return <ContactsListsPage />;
       case 'contacts-import':
-        return <ContactsPage />; // Will create specific components later
+        return <ContactsImportPage />;
       case 'contacts-blacklists':
-        return <ContactsPage />; // Will create specific components later
+        return <ContactsBlacklistsPage />;
       case 'contacts-segments':
-        return <ContactsPage />; // Will create specific components later
+        return <ContactsSegmentsPage />;
       case 'tenants':
         return <TenantsManagement />;
       case 'users':

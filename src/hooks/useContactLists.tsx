@@ -25,7 +25,7 @@ export function useContactLists() {
 
   // Créer une liste de contacts
   const createContactList = useMutation({
-    mutationFn: async (listData: Omit<ContactList, 'id' | 'created_at' | 'updated_at' | 'total_contacts'>) => {
+    mutationFn: async (listData: Omit<ContactList, 'id' | 'created_at' | 'updated_at' | 'total_contacts' | 'tags' | 'is_archived' | 'last_activity_at'>) => {
       const { data, error } = await supabase
         .from('contact_lists')
         .insert({

@@ -101,6 +101,9 @@ export interface ContactList {
   name: string;
   description: string | null;
   total_contacts: number;
+  tags: string[];
+  is_archived: boolean;
+  last_activity_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
