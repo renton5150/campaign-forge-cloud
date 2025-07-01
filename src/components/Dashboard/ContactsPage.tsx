@@ -1,125 +1,163 @@
 import { useState } from 'react';
+import { Plus, Upload, Download, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import ContactsTable from './Contacts/ContactsTable';
-import CreateContactModal from './Contacts/CreateContactModal';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useContacts } from '@/hooks/useContacts';
 import { useContactLists } from '@/hooks/useContactLists';
-import { Users, Plus, Search, Mail, UserCheck } from 'lucide-react';
+import ContactsTable from './Contacts/ContactsTable';
+import CreateContactModal from './Contacts/CreateContactModal';
+import ImportContactsModal from './Contacts/ImportContactsModal';
 
-const ContactsPage = () => {
+export default function ContactsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  
-  const { contacts, isLoading } = useContacts(undefined, searchTerm);
+  const [selectedList, setSelectedList] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const { contacts, isLoading } = useContacts(selectedList || undefined, searchTerm, statusFilter);
   const { contactLists } = useContactLists();
 
-  const activeContacts = contacts?.filter(contact => contact.status === 'active') || [];
-  const totalContacts = contacts?.length || 0;
+  // Calculer les métriques
+  const totalContacts = contacts.length;
+  const activeContacts = contacts.filter(c => c.status === 'active').length;
+  const bouncedContacts = contacts.filter(c => c.status === 'bounced').length;
+  const unsubscribedContacts = contacts.filter(c => c.status === 'unsubscribed').length;
 
   return (
-    <div className="p-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
-          <p className="text-gray-600">Gérez vos contacts et leurs informations</p>
+          <h1 className="text-2xl font-bold">Gestion des contacts</h1>
+          <p className="text-muted-foreground">
+            Gérez vos contacts et listes de diffusion
+          </p>
         </div>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Ajouter un contact
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImportModal(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Importer
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouveau contact
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Métriques */}
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Total contacts</p>
-                <p className="text-2xl font-bold">{totalContacts}</p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total contacts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalContacts}</div>
           </CardContent>
         </Card>
-        
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <UserCheck className="h-8 w-8 text-green-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Contacts actifs</p>
-                <p className="text-2xl font-bold">{activeContacts.length}</p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Actifs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{activeContacts}</div>
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <Mail className="h-8 w-8 text-orange-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Listes</p>
-                <p className="text-2xl font-bold">{contactLists?.length || 0}</p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Bounces</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{bouncedContacts}</div>
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-purple-600" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Nouveaux (7j)</p>
-                <p className="text-2xl font-bold">
-                  {contacts?.filter(contact => {
-                    const weekAgo = new Date();
-                    weekAgo.setDate(weekAgo.getDate() - 7);
-                    return new Date(contact.created_at) > weekAgo;
-                  }).length || 0}
-                </p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Désabonnés</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{unsubscribedContacts}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <Input
-          placeholder="Rechercher des contacts..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {/* Contacts Table */}
+      {/* Filtres */}
       <Card>
         <CardHeader>
-          <CardTitle>Liste des contacts</CardTitle>
+          <CardTitle>Filtres et recherche</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-center">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par nom, email ou entreprise..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <Select value={selectedList} onValueChange={setSelectedList}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Toutes les listes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Toutes les listes</SelectItem>
+                {contactLists.map((list) => (
+                  <SelectItem key={list.id} value={list.id}>
+                    {list.name} ({list.total_contacts})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Tous statuts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Tous statuts</SelectItem>
+                <SelectItem value="active">Actif</SelectItem>
+                <SelectItem value="bounced">Bounce</SelectItem>
+                <SelectItem value="unsubscribed">Désabonné</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table des contacts */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Contacts</CardTitle>
           <CardDescription>
-            Gérez vos contacts et leurs informations
+            {totalContacts} contact{totalContacts > 1 ? 's' : ''} trouvé{totalContacts > 1 ? 's' : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ContactsTable contacts={contacts || []} isLoading={isLoading} />
+          <ContactsTable 
+            contacts={contacts} 
+            isLoading={isLoading}
+            selectedList={selectedList}
+          />
         </CardContent>
       </Card>
 
       {/* Modals */}
-      <CreateContactModal
-        open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
+      <CreateContactModal 
+        open={showCreateModal} 
+        onOpenChange={setShowCreateModal}
+      />
+      <ImportContactsModal 
+        open={showImportModal} 
+        onOpenChange={setShowImportModal}
+        targetListId={selectedList}
       />
     </div>
   );
-};
-
-export default ContactsPage;
+}
