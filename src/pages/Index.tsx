@@ -8,6 +8,7 @@ import UsersManagement from '@/components/Dashboard/UsersManagement';
 import DomainsManagement from '@/components/Dashboard/DomainsManagement';
 import CampaignsManagement from '@/components/Dashboard/CampaignsManagement';
 import RolesManagement from '@/components/Dashboard/RolesManagement';
+import ContactsPage from '@/components/Dashboard/ContactsPage';
 
 const Index = () => {
   const { user } = useAuth();
@@ -19,6 +20,8 @@ const Index = () => {
         return <DashboardPage />;
       case 'campaigns':
         return <CampaignsManagement />;
+      case 'contacts':
+        return <ContactsPage />;
       case 'tenants':
         return <TenantsManagement />;
       case 'users':

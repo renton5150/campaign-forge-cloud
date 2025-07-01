@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      blacklists: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string
+          id: string
+          reason: string | null
+          tenant_id: string
+          type: string
+          value: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          reason?: string | null
+          tenant_id: string
+          type: string
+          value: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          reason?: string | null
+          tenant_id?: string
+          type?: string
+          value?: string
+        }
+        Relationships: []
+      }
       campaign_attachments: {
         Row: {
           campaign_id: string
@@ -298,6 +331,51 @@ export type Database = {
           },
         ]
       }
+      contact_activities: {
+        Row: {
+          activity_type: string
+          campaign_id: string | null
+          contact_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          timestamp: string
+        }
+        Insert: {
+          activity_type: string
+          campaign_id?: string | null
+          contact_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          timestamp?: string
+        }
+        Update: {
+          activity_type?: string
+          campaign_id?: string | null
+          contact_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_activities_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_list_memberships: {
         Row: {
           added_at: string
@@ -350,7 +428,10 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          is_archived: boolean | null
+          last_activity_at: string | null
           name: string
+          tags: string[] | null
           tenant_id: string
           total_contacts: number | null
           updated_at: string
@@ -360,7 +441,10 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          is_archived?: boolean | null
+          last_activity_at?: string | null
           name: string
+          tags?: string[] | null
           tenant_id: string
           total_contacts?: number | null
           updated_at?: string
@@ -370,7 +454,10 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          is_archived?: boolean | null
+          last_activity_at?: string | null
           name?: string
+          tags?: string[] | null
           tenant_id?: string
           total_contacts?: number | null
           updated_at?: string
@@ -399,14 +486,20 @@ export type Database = {
           created_by: string
           custom_fields: Json | null
           email: string
+          engagement_score: number | null
           first_name: string | null
           id: string
+          language: string | null
+          last_activity_at: string | null
           last_name: string | null
+          notes: string | null
           phone: string | null
+          source: string | null
           status: string | null
           tags: string[] | null
           tenant_id: string
           updated_at: string
+          validation_status: string | null
         }
         Insert: {
           company?: string | null
@@ -414,14 +507,20 @@ export type Database = {
           created_by: string
           custom_fields?: Json | null
           email: string
+          engagement_score?: number | null
           first_name?: string | null
           id?: string
+          language?: string | null
+          last_activity_at?: string | null
           last_name?: string | null
+          notes?: string | null
           phone?: string | null
+          source?: string | null
           status?: string | null
           tags?: string[] | null
           tenant_id: string
           updated_at?: string
+          validation_status?: string | null
         }
         Update: {
           company?: string | null
@@ -429,14 +528,20 @@ export type Database = {
           created_by?: string
           custom_fields?: Json | null
           email?: string
+          engagement_score?: number | null
           first_name?: string | null
           id?: string
+          language?: string | null
+          last_activity_at?: string | null
           last_name?: string | null
+          notes?: string | null
           phone?: string | null
+          source?: string | null
           status?: string | null
           tags?: string[] | null
           tenant_id?: string
           updated_at?: string
+          validation_status?: string | null
         }
         Relationships: [
           {
@@ -590,6 +695,71 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          duplicate_rows: number | null
+          error_rows: number | null
+          file_size: number
+          filename: string
+          id: string
+          mapping: Json
+          processed_rows: number | null
+          results: Json | null
+          status: string
+          successful_rows: number | null
+          target_list_id: string | null
+          tenant_id: string
+          total_rows: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          duplicate_rows?: number | null
+          error_rows?: number | null
+          file_size: number
+          filename: string
+          id?: string
+          mapping?: Json
+          processed_rows?: number | null
+          results?: Json | null
+          status?: string
+          successful_rows?: number | null
+          target_list_id?: string | null
+          tenant_id: string
+          total_rows?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          duplicate_rows?: number | null
+          error_rows?: number | null
+          file_size?: number
+          filename?: string
+          id?: string
+          mapping?: Json
+          processed_rows?: number | null
+          results?: Json | null
+          status?: string
+          successful_rows?: number | null
+          target_list_id?: string | null
+          tenant_id?: string
+          total_rows?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_target_list_id_fkey"
+            columns: ["target_list_id"]
+            isOneToOne: false
+            referencedRelation: "contact_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -761,6 +931,84 @@ export type Database = {
           },
         ]
       }
+      segment_memberships: {
+        Row: {
+          added_at: string
+          contact_id: string
+          id: string
+          segment_id: string
+        }
+        Insert: {
+          added_at?: string
+          contact_id: string
+          id?: string
+          segment_id: string
+        }
+        Update: {
+          added_at?: string
+          contact_id?: string
+          id?: string
+          segment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segment_memberships_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segment_memberships_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      segments: {
+        Row: {
+          contact_count: number | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_dynamic: boolean | null
+          last_updated: string | null
+          name: string
+          rules: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          contact_count?: number | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_dynamic?: boolean | null
+          last_updated?: string | null
+          name: string
+          rules?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          contact_count?: number | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_dynamic?: boolean | null
+          last_updated?: string | null
+          name?: string
+          rules?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           company_name: string
@@ -877,6 +1125,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_engagement_score: {
+        Args: { contact_id_param: string }
+        Returns: number
+      }
       get_campaign_stats: {
         Args: { campaign_id_param: string }
         Returns: Json

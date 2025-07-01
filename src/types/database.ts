@@ -117,6 +117,12 @@ export interface Contact {
   tags: string[];
   custom_fields: Record<string, any>;
   status: ContactStatus;
+  validation_status: 'valid' | 'invalid' | 'unknown' | 'risky';
+  engagement_score: number;
+  source: 'manual' | 'import' | 'api' | 'form';
+  language: string;
+  notes: string | null;
+  last_activity_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
