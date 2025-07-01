@@ -22,6 +22,14 @@ const Index = () => {
         return <CampaignsManagement />;
       case 'contacts':
         return <ContactsPage />;
+      case 'contacts-lists':
+        return <ContactsPage />; // Will create specific components later
+      case 'contacts-import':
+        return <ContactsPage />; // Will create specific components later
+      case 'contacts-blacklists':
+        return <ContactsPage />; // Will create specific components later
+      case 'contacts-segments':
+        return <ContactsPage />; // Will create specific components later
       case 'tenants':
         return <TenantsManagement />;
       case 'users':
