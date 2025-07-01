@@ -30,7 +30,8 @@ export function useContactLists() {
         .from('contact_lists')
         .insert({
           ...listData,
-          tenant_id: user?.tenant_id,
+          // Pour les super_admin sans tenant_id, utiliser un tenant par défaut ou null
+          tenant_id: user?.tenant_id || null,
           created_by: user?.id
         })
         .select()
