@@ -49,9 +49,11 @@ export default function CreateListModal({ open, onOpenChange }: CreateListModalP
       setDescription('');
       onOpenChange(false);
     } catch (error) {
+      console.error('Erreur complète:', error);
+      const errorMessage = error instanceof Error ? error.message : "Impossible de créer la liste";
       toast({
         title: "Erreur",
-        description: "Impossible de créer la liste",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

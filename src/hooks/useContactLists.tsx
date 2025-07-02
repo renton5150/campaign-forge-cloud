@@ -26,18 +26,29 @@ export function useContactLists() {
   // Créer une liste de contacts
   const createContactList = useMutation({
     mutationFn: async (listData: Pick<ContactList, 'name' | 'description'>) => {
+      console.log('Création de liste - User:', user);
+      console.log('Création de liste - Data:', listData);
+      
+      const insertData = {
+        ...listData,
+        tenant_id: user?.tenant_id || null,
+        created_by: user?.id
+      };
+      
+      console.log('Création de liste - Insert data:', insertData);
+      
       const { data, error } = await supabase
         .from('contact_lists')
-        .insert({
-          ...listData,
-          // Pour les super_admin sans tenant_id, utiliser un tenant par défaut ou null
-          tenant_id: user?.tenant_id || null,
-          created_by: user?.id
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur création liste:', error);
+        throw new Error(`Erreur lors de la création de la liste: ${error.message} (Code: ${error.code})`);
+      }
+      
+      console.log('Liste créée avec succès:', data);
       return data;
     },
     onSuccess: () => {

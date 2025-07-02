@@ -432,7 +432,7 @@ export type Database = {
           last_activity_at: string | null
           name: string
           tags: string[] | null
-          tenant_id: string
+          tenant_id: string | null
           total_contacts: number | null
           updated_at: string
         }
@@ -445,7 +445,7 @@ export type Database = {
           last_activity_at?: string | null
           name: string
           tags?: string[] | null
-          tenant_id: string
+          tenant_id?: string | null
           total_contacts?: number | null
           updated_at?: string
         }
@@ -458,7 +458,7 @@ export type Database = {
           last_activity_at?: string | null
           name?: string
           tags?: string[] | null
-          tenant_id?: string
+          tenant_id?: string | null
           total_contacts?: number | null
           updated_at?: string
         }
