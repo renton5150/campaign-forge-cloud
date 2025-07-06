@@ -24,8 +24,10 @@ import { Campaign, ABWinnerCriteria } from '@/types/database';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
+import { usePersonalTemplates } from '@/hooks/usePersonalTemplates';
 import TinyMCEEditor from './EmailEditor/TinyMCEEditor';
 import ContactListSelector from './ContactListSelector';
+import SaveTemplateModal from './EmailEditor/SaveTemplateModal';
 
 interface CampaignEditorProps {
   campaign?: Campaign | null;
@@ -36,6 +38,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
   const { createCampaign, updateCampaign } = useCampaigns();
   const { contactLists } = useContactLists();
   const { templates } = useEmailTemplates();
+  const { templates: personalTemplates } = usePersonalTemplates();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -60,6 +63,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
   const [selectedLists, setSelectedLists] = useState<string[]>([]);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [activeTab, setActiveTab] = useState('content');
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
 
   useEffect(() => {
     if (campaign) {
@@ -87,17 +91,19 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
 
   const handleSave = async () => {
     try {
+      const campaignData = {
+        ...formData,
+        scheduled_at: formData.scheduled_at || null,
+        status: 'draft' as const
+      };
+
       if (campaign) {
         await updateCampaign.mutateAsync({
           id: campaign.id,
-          ...formData,
-          status: 'draft'
+          ...campaignData
         });
       } else {
-        await createCampaign.mutateAsync({
-          ...formData,
-          status: 'draft'
-        } as any);
+        await createCampaign.mutateAsync(campaignData as any);
       }
       onClose();
     } catch (error) {
@@ -107,25 +113,34 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
 
   const handleSchedule = async () => {
     try {
-      const scheduledDate = formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null;
+      const campaignData = {
+        ...formData,
+        scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null,
+        status: 'scheduled' as const
+      };
       
       if (campaign) {
         await updateCampaign.mutateAsync({
           id: campaign.id,
-          ...formData,
-          scheduled_at: scheduledDate,
-          status: 'scheduled'
+          ...campaignData
         });
       } else {
-        await createCampaign.mutateAsync({
-          ...formData,
-          scheduled_at: scheduledDate,
-          status: 'scheduled'
-        } as any);
+        await createCampaign.mutateAsync(campaignData as any);
       }
       onClose();
     } catch (error) {
       console.error('Error scheduling campaign:', error);
+    }
+  };
+
+  const handleLoadTemplate = (templateId: string) => {
+    const template = personalTemplates.find(t => t.id === templateId);
+    if (template) {
+      setFormData({
+        ...formData,
+        html_content: template.html_content,
+        template_id: templateId
+      });
     }
   };
 
@@ -146,6 +161,21 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
             </div>
           </div>
           <div className="flex space-x-2">
+            <Select value="" onValueChange={handleLoadTemplate}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Charger un template" />
+              </SelectTrigger>
+              <SelectContent>
+                {personalTemplates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={() => setShowSaveTemplateModal(true)}>
+              Sauvegarder template
+            </Button>
             <Button variant="outline" onClick={() => setActiveTab('settings')}>
               Paramètres
             </Button>
@@ -474,6 +504,12 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
           </Card>
         </TabsContent>
       </Tabs>
+
+      <SaveTemplateModal 
+        open={showSaveTemplateModal}
+        onOpenChange={setShowSaveTemplateModal}
+        htmlContent={formData.html_content}
+      />
     </div>
   );
 }
