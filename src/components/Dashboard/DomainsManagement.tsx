@@ -36,6 +36,8 @@ import {
 import { z } from 'zod';
 import { DNSInstructionsModal } from '@/components/Dashboard/DNSInstructionsModal';
 import { verifyDomainDNS, DNSVerificationResult } from '@/lib/dns-verification';
+import { SmtpConfigurationModal } from '@/components/Dashboard/SmtpConfigurationModal';
+import { generateSmtpAwareDNSRecords, validateSmtpDnsCompatibility } from '@/lib/dns-smtp-generator';
 
 const domainSchema = z.object({
   domain_name: z.string()
@@ -48,6 +50,17 @@ type DomainFormData = z.infer<typeof domainSchema>;
 
 interface DomainWithTenant extends Domain {
   tenant?: Tenant;
+}
+
+interface SmtpConfig {
+  provider: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  apiKey?: string;
+  fromEmail: string;
+  fromName: string;
 }
 
 const DomainsManagement = () => {
@@ -68,6 +81,9 @@ const DomainsManagement = () => {
   const [dnsModalOpen, setDnsModalOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [verificationProgress, setVerificationProgress] = useState<Record<string, string>>({});
+  const [smtpConfigModalOpen, setSmtpConfigModalOpen] = useState(false);
+  const [pendingDomainData, setPendingDomainData] = useState<DomainFormData | null>(null);
+  const [smtpConfigs, setSmtpConfigs] = useState<Record<string, SmtpConfig>>({});
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -113,14 +129,14 @@ const DomainsManagement = () => {
     },
   });
 
-  // ✅ MUTATION AVEC TYPAGE SÉCURISÉ
+  // ✅ MUTATION AVEC TYPAGE SÉCURISÉ ET VÉRIFICATION SMTP
   const createDomainMutation = useMutation({
-    mutationFn: async (data: DomainFormData) => {
-      console.log('🚀 DÉBUT CRÉATION DOMAINE AVEC FONCTION:', data);
+    mutationFn: async (data: { domainData: DomainFormData; smtpConfig: SmtpConfig }) => {
+      console.log('🚀 DÉBUT CRÉATION DOMAINE AVEC SMTP:', data);
       
       const { data: result, error } = await supabase.rpc('create_domain_with_dkim', {
-        p_domain_name: data.domain_name,
-        p_tenant_id: data.tenant_id
+        p_domain_name: data.domainData.domain_name,
+        p_tenant_id: data.domainData.tenant_id
       });
       
       console.log('📥 RÉPONSE FONCTION SUPABASE:', { result, error });
@@ -143,15 +159,21 @@ const DomainsManagement = () => {
         console.error('❌ ÉCHEC FONCTION:', typedResult.error);
         throw new Error(typedResult.error || 'Erreur lors de la création');
       }
+
+      // Sauvegarder la config SMTP associée
+      setSmtpConfigs(prev => ({
+        ...prev,
+        [data.domainData.domain_name]: data.smtpConfig
+      }));
       
-      console.log('✅ DOMAINE CRÉÉ:', typedResult);
-      return typedResult;
+      console.log('✅ DOMAINE CRÉÉ AVEC SMTP:', typedResult);
+      return { ...typedResult, smtpConfig: data.smtpConfig };
     },
     onSuccess: (result) => {
       console.log('🎉 MUTATION RÉUSSIE:', result);
       toast({
-        title: "✅ Domaine créé avec succès",
-        description: `Clés DKIM générées (${result.selector})`,
+        title: "✅ Domaine créé avec SMTP",
+        description: `Domaine configuré avec ${result.smtpConfig.provider} (${result.selector})`,
       });
       setDialogOpen(false);
       resetForm();
@@ -336,9 +358,23 @@ const DomainsManagement = () => {
     if (editingDomain) {
       updateDomainMutation.mutate({ id: editingDomain.id, data: formData });
     } else {
-      console.log('🎯 LANCEMENT CRÉATION DOMAINE...');
-      createDomainMutation.mutate(formData);
+      // Nouveau workflow : Configuration SMTP obligatoire
+      console.log('🎯 DEMANDE CONFIG SMTP POUR:', formData.domain_name);
+      setPendingDomainData(formData);
+      setSmtpConfigModalOpen(true);
     }
+  };
+
+  const handleSmtpConfigured = (smtpConfig: SmtpConfig) => {
+    if (!pendingDomainData) return;
+    
+    console.log('✅ SMTP CONFIGURÉ, CRÉATION DOMAINE:', { pendingDomainData, smtpConfig });
+    createDomainMutation.mutate({ 
+      domainData: pendingDomainData, 
+      smtpConfig 
+    });
+    
+    setPendingDomainData(null);
   };
 
   const handleEdit = (domain: Domain) => {
@@ -362,6 +398,29 @@ const DomainsManagement = () => {
 
   const showDNSInstructions = (domain: Domain) => {
     console.log('📋 AFFICHAGE INSTRUCTIONS DNS POUR:', domain);
+    
+    // Vérifier si on a la config SMTP pour ce domaine
+    const smtpConfig = smtpConfigs[domain.domain_name];
+    if (smtpConfig && domain.dkim_selector && domain.dkim_public_key) {
+      // Générer les DNS selon la config SMTP
+      const smtpAwareRecords = generateSmtpAwareDNSRecords(
+        domain.domain_name,
+        domain.dkim_selector,
+        domain.dkim_public_key,
+        smtpConfig
+      );
+      
+      // Validation de compatibilité
+      const compatibility = validateSmtpDnsCompatibility(smtpConfig, smtpAwareRecords);
+      if (!compatibility.isCompatible) {
+        toast({
+          title: "⚠️ Incompatibilité détectée",
+          description: `Problèmes: ${compatibility.issues.join(', ')}`,
+          variant: "destructive",
+        });
+      }
+    }
+    
     setSelectedDomain(domain);
     setDnsModalOpen(true);
   };
@@ -420,7 +479,7 @@ const DomainsManagement = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">🌐 Gestion des Domaines</h1>
-          <p className="text-gray-600">Gérez les domaines et leurs configurations DKIM/SPF/DMARC</p>
+          <p className="text-gray-600">Gérez les domaines avec configuration SMTP intégrée</p>
         </div>
         
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -438,7 +497,7 @@ const DomainsManagement = () => {
               <DialogDescription>
                 {editingDomain 
                   ? 'Modifiez les informations du domaine' 
-                  : 'Les clés DKIM seront générées automatiquement lors de la création'
+                  : 'Une configuration SMTP sera requise avant la génération DNS'
                 }
               </DialogDescription>
             </DialogHeader>
@@ -475,6 +534,19 @@ const DomainsManagement = () => {
                   <p className="text-sm text-red-600 mt-1">❌ {formErrors.tenant_id}</p>
                 )}
               </div>
+              
+              {!editingDomain && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-800 font-medium">
+                    🔧 Configuration SMTP requise
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    Après avoir créé le domaine, vous devrez configurer votre serveur SMTP 
+                    pour générer des enregistrements DNS compatibles.
+                  </p>
+                </div>
+              )}
+              
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Annuler
@@ -487,10 +559,10 @@ const DomainsManagement = () => {
                   {createDomainMutation.isPending || updateDomainMutation.isPending ? (
                     <>
                       <Clock className="mr-2 h-4 w-4 animate-spin" />
-                      {editingDomain ? 'Mise à jour...' : 'Création...'}
+                      {editingDomain ? 'Mise à jour...' : 'Configuration...'}
                     </>
                   ) : (
-                    editingDomain ? 'Mettre à jour' : 'Créer'
+                    editingDomain ? 'Mettre à jour' : 'Configurer SMTP'
                   )}
                 </Button>
               </div>
@@ -712,6 +784,19 @@ const DomainsManagement = () => {
           </p>
         </div>
       </div>
+
+      {/* SMTP Configuration Modal */}
+      {pendingDomainData && (
+        <SmtpConfigurationModal
+          open={smtpConfigModalOpen}
+          onClose={() => {
+            setSmtpConfigModalOpen(false);
+            setPendingDomainData(null);
+          }}
+          onConfigured={handleSmtpConfigured}
+          domainName={pendingDomainData.domain_name}
+        />
+      )}
 
       {/* DNS Instructions Modal */}
       {selectedDomain && (
