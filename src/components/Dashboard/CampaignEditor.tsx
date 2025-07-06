@@ -91,23 +91,32 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
 
   const handleSave = async () => {
     try {
+      console.log('💾 Tentative de sauvegarde campagne...', formData);
+      
       const campaignData = {
         ...formData,
         scheduled_at: formData.scheduled_at || null,
         status: 'draft' as const
       };
+      
+      console.log('📤 Données envoyées à Supabase:', campaignData);
 
       if (campaign) {
+        console.log('🔄 Mise à jour campagne existante:', campaign.id);
         await updateCampaign.mutateAsync({
           id: campaign.id,
           ...campaignData
         });
       } else {
+        console.log('✨ Création nouvelle campagne');
         await createCampaign.mutateAsync(campaignData as any);
       }
+      
+      console.log('✅ Campagne sauvegardée avec succès !');
       onClose();
     } catch (error) {
-      console.error('Error saving campaign:', error);
+      console.error('❌ Erreur sauvegarde campagne:', error);
+      // TODO: Afficher toast d'erreur à l'utilisateur
     }
   };
 
