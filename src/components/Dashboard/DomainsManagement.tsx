@@ -113,7 +113,7 @@ const DomainsManagement = () => {
     },
   });
 
-  // ✅ NOUVELLE MUTATION AVEC FONCTION SUPABASE
+  // ✅ MUTATION AVEC TYPAGE SÉCURISÉ
   const createDomainMutation = useMutation({
     mutationFn: async (data: DomainFormData) => {
       console.log('🚀 DÉBUT CRÉATION DOMAINE AVEC FONCTION:', data);
@@ -130,8 +130,14 @@ const DomainsManagement = () => {
         throw error;
       }
       
-      // Type assertion pour la réponse JSON
-      const typedResult = result as CreateDomainResponse;
+      // ✅ Conversion sécurisée avec vérification de type
+      const typedResult = result as unknown as CreateDomainResponse;
+      
+      // Vérification que l'objet a la structure attendue
+      if (!typedResult || typeof typedResult !== 'object' || typeof typedResult.success !== 'boolean') {
+        console.error('❌ STRUCTURE RÉPONSE INVALIDE:', typedResult);
+        throw new Error('Réponse de fonction invalide');
+      }
       
       if (!typedResult.success) {
         console.error('❌ ÉCHEC FONCTION:', typedResult.error);
