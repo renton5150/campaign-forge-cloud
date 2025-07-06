@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,7 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, RefreshCw, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, CheckCircle, Clock, XCircle, FileText } from 'lucide-react';
 import { 
   Pagination,
   PaginationContent,
@@ -35,6 +34,8 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { z } from 'zod';
+import { generateDKIMKeyPair } from '@/lib/dns-generator';
+import { DNSInstructionsModal } from '@/components/Dashboard/DNSInstructionsModal';
 
 const domainSchema = z.object({
   domain_name: z.string()
@@ -64,6 +65,8 @@ const DomainsManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(new Set());
+  const [dnsModalOpen, setDnsModalOpen] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -112,13 +115,19 @@ const DomainsManagement = () => {
   // Create domain mutation
   const createDomainMutation = useMutation({
     mutationFn: async (data: DomainFormData) => {
+      // Générer les clés DKIM automatiquement
+      const dkimKeys = generateDKIMKeyPair();
+      
       const { error } = await supabase
         .from('domains')
         .insert([{
           domain_name: data.domain_name,
           tenant_id: data.tenant_id,
           verified: false,
-          dkim_status: 'pending' as DomainVerificationStatus
+          dkim_status: 'pending' as DomainVerificationStatus,
+          dkim_private_key: dkimKeys.privateKey,
+          dkim_public_key: dkimKeys.publicKey,
+          dkim_selector: dkimKeys.selector
         }]);
       
       if (error) throw error;
@@ -301,6 +310,11 @@ const DomainsManagement = () => {
 
   const handleVerify = (domainId: string) => {
     verifyDomainMutation.mutate(domainId);
+  };
+
+  const showDNSInstructions = (domain: Domain) => {
+    setSelectedDomain(domain);
+    setDnsModalOpen(true);
   };
 
   const resetForm = () => {
@@ -511,6 +525,14 @@ const DomainsManagement = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => showDNSInstructions(domain)}
+                      title="Instructions DNS"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleVerify(domain.id)}
                       disabled={verifyingDomains.has(domain.id)}
                     >
@@ -603,6 +625,15 @@ const DomainsManagement = () => {
           </p>
         </div>
       </div>
+
+      {/* DNS Instructions Modal */}
+      {selectedDomain && (
+        <DNSInstructionsModal
+          domain={selectedDomain}
+          open={dnsModalOpen}
+          onClose={() => setDnsModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
