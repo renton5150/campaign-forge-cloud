@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Domain, Tenant, DomainVerificationStatus } from '@/types/database';
+import { Domain, Tenant, DomainVerificationStatus, CreateDomainResponse } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/pagination";
 import { z } from 'zod';
 import { DNSInstructionsModal } from '@/components/Dashboard/DNSInstructionsModal';
+import { verifyDomainDNS, DNSVerificationResult } from '@/lib/dns-verification';
 
 const domainSchema = z.object({
   domain_name: z.string()
@@ -66,6 +67,7 @@ const DomainsManagement = () => {
   const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(new Set());
   const [dnsModalOpen, setDnsModalOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
+  const [verificationProgress, setVerificationProgress] = useState<Record<string, string>>({});
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -218,42 +220,73 @@ const DomainsManagement = () => {
     },
   });
 
-  // Verify domain mutation (simulated DNS verification)
+  // Real DNS verification mutation
   const verifyDomainMutation = useMutation({
     mutationFn: async (domainId: string) => {
+      const domain = domains.find(d => d.id === domainId);
+      if (!domain || !domain.dkim_selector) {
+        throw new Error('Domaine ou sélecteur DKIM non trouvé');
+      }
+
       setVerifyingDomains(prev => new Set(prev).add(domainId));
+      setVerificationProgress(prev => ({ ...prev, [domainId]: 'Initialisation...' }));
       
-      // Simulate DNS verification delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Randomly assign verification status for demo (80% success rate)
-      const isVerified = Math.random() > 0.2;
-      const newStatus: DomainVerificationStatus = isVerified ? 'verified' : 'failed';
-      
-      const { error } = await supabase
-        .from('domains')
-        .update({
-          verified: isVerified,
-          dkim_status: newStatus
-        })
-        .eq('id', domainId);
-      
-      if (error) throw error;
-      
-      setVerifyingDomains(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(domainId);
-        return newSet;
-      });
-      
-      return { isVerified, status: newStatus };
+      try {
+        setVerificationProgress(prev => ({ ...prev, [domainId]: 'Vérification DKIM...' }));
+        
+        const verificationResult = await verifyDomainDNS(domain.domain_name, domain.dkim_selector);
+        
+        setVerificationProgress(prev => ({ ...prev, [domainId]: 'Mise à jour...' }));
+        
+        const isVerified = verificationResult.overall === 'verified';
+        const newStatus: DomainVerificationStatus = 
+          verificationResult.overall === 'verified' ? 'verified' : 
+          verificationResult.overall === 'partial' ? 'pending' : 'failed';
+
+        const { error } = await supabase
+          .from('domains')
+          .update({
+            verified: isVerified,
+            dkim_status: newStatus
+          })
+          .eq('id', domainId);
+
+        if (error) throw error;
+
+        return { 
+          isVerified, 
+          status: newStatus, 
+          details: verificationResult 
+        };
+      } finally {
+        setVerifyingDomains(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(domainId);
+          return newSet;
+        });
+        setVerificationProgress(prev => {
+          const newPrev = { ...prev };
+          delete newPrev[domainId];
+          return newPrev;
+        });
+      }
     },
     onSuccess: (result) => {
+      const statusMessage = result.isVerified 
+        ? "✅ Domaine vérifié avec succès" 
+        : result.details.overall === 'partial' 
+        ? "⚠️ Vérification partielle" 
+        : "❌ Vérification échouée";
+      
+      const description = result.isVerified 
+        ? "Tous les enregistrements DNS sont correctement configurés" 
+        : result.details.overall === 'partial'
+        ? "Certains enregistrements DNS sont manquants ou incorrects"
+        : "Les enregistrements DNS ne sont pas correctement configurés";
+
       toast({
-        title: result.isVerified ? "✅ Domaine vérifié" : "❌ Vérification échouée",
-        description: result.isVerified 
-          ? "Le domaine a été vérifié avec succès" 
-          : "La vérification DNS a échoué. Vérifiez vos enregistrements DNS.",
+        title: statusMessage,
+        description: description,
         variant: result.isVerified ? "default" : "destructive",
       });
       refetchDomains();
@@ -261,8 +294,8 @@ const DomainsManagement = () => {
     onError: (error: any) => {
       console.error('Error verifying domain:', error);
       toast({
-        title: "❌ Erreur",
-        description: "Erreur lors de la vérification",
+        title: "❌ Erreur de vérification",
+        description: error.message || "Erreur lors de la vérification DNS",
         variant: "destructive",
       });
     },
@@ -335,7 +368,8 @@ const DomainsManagement = () => {
 
   const getStatusBadge = (domain: Domain) => {
     if (verifyingDomains.has(domain.id)) {
-      return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1 animate-spin" />Vérification...</Badge>;
+      const progress = verificationProgress[domain.id] || 'Vérification...';
+      return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1 animate-spin" />{progress}</Badge>;
     }
     
     if (domain.verified) {
