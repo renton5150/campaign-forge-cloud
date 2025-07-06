@@ -50,7 +50,7 @@ const smtpServerSchema = z.object({
 const SmtpServersPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
-  const { servers, loading, createServer, deleteServer } = useSmtpServers();
+  const { servers, loading, createServer, deleteServer, testSmtpConnection } = useSmtpServers();
   
   const form = useForm<SmtpServerFormData>({
     resolver: zodResolver(smtpServerSchema),
@@ -86,20 +86,59 @@ const SmtpServersPage = () => {
     setTestingConnection(true);
     
     try {
+      // Validation des champs requis selon le type
       if (formData.type === 'smtp') {
         if (!formData.host || !formData.port || !formData.username || !formData.password) {
-          alert("Veuillez remplir tous les champs SMTP obligatoires avant de tester");
+          toast({
+            title: "Champs manquants",
+            description: "Veuillez remplir tous les champs SMTP obligatoires avant de tester",
+            variant: "destructive",
+          });
           return;
         }
-        
-        // Simulation du test (le vrai test devrait être fait côté serveur)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        alert("✅ Test de connexion simulé réussi ! (Implémentation côté serveur requise pour un vrai test)");
-      } else {
-        alert("Test de connexion - Fonctionnalité à implémenter pour ce type de serveur");
+      } else if (formData.type === 'sendgrid') {
+        if (!formData.api_key) {
+          toast({
+            title: "Champs manquants",
+            description: "Veuillez saisir la clé API SendGrid",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (formData.type === 'mailgun') {
+        if (!formData.api_key || !formData.domain) {
+          toast({
+            title: "Champs manquants",
+            description: "Veuillez saisir la clé API et le domaine Mailgun",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (formData.type === 'amazon_ses') {
+        if (!formData.api_key || !formData.password || !formData.region) {
+          toast({
+            title: "Champs manquants",
+            description: "Veuillez saisir les clés AWS et la région",
+            variant: "destructive",
+          });
+          return;
+        }
       }
+
+      const result = await testSmtpConnection(formData);
+      
+      toast({
+        title: "✅ Test réussi",
+        description: result.message + (result.details ? ` - ${JSON.stringify(result.details)}` : ''),
+      });
+
     } catch (error: any) {
-      alert(`❌ Erreur de connexion: ${error.message}`);
+      console.error('Test connection error:', error);
+      toast({
+        title: "❌ Test échoué",
+        description: error.message || "Erreur lors du test de connexion",
+        variant: "destructive",
+      });
     } finally {
       setTestingConnection(false);
     }

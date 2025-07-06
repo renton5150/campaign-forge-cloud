@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -149,6 +147,45 @@ export const useSmtpServers = () => {
     }
   };
 
+  const testSmtpConnection = async (serverData: SmtpServerFormData) => {
+    try {
+      console.log('Testing SMTP connection with data:', serverData);
+
+      const { data, error } = await supabase.functions.invoke('test-smtp-connection', {
+        body: {
+          type: serverData.type,
+          host: serverData.host,
+          port: serverData.port,
+          username: serverData.username,
+          password: serverData.password,
+          api_key: serverData.api_key,
+          domain: serverData.domain,
+          region: serverData.region,
+          encryption: serverData.encryption
+        }
+      });
+
+      if (error) {
+        console.error('Error testing SMTP connection:', error);
+        throw new Error(error.message || 'Erreur lors du test de connexion');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Test de connexion échoué');
+      }
+
+      return {
+        success: true,
+        message: data.message,
+        details: data.details
+      };
+
+    } catch (error) {
+      console.error('Error in testSmtpConnection:', error);
+      throw error;
+    }
+  };
+
   const deleteServer = async (id: string) => {
     try {
       const { error } = await supabase
@@ -193,7 +230,7 @@ export const useSmtpServers = () => {
     loading,
     createServer,
     deleteServer,
+    testSmtpConnection,
     refetch: loadServers,
   };
 };
-
