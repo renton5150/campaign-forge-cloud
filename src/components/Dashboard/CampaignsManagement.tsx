@@ -32,6 +32,7 @@ export default function CampaignsManagement() {
   const { campaigns, isLoading } = useCampaigns();
   const { sendCampaign, getCampaignQueueStats, retryFailedEmails } = useEmailQueue();
   const { contactLists } = useContactLists();
+  const { processQueue } = useQueueProcessor();
   const { toast } = useToast();
   
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -172,10 +173,20 @@ export default function CampaignsManagement() {
             Gérez vos campagnes d'email marketing
           </p>
         </div>
-        <Button onClick={() => setShowEditor(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle Campagne
-        </Button>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => processQueue.mutate()}
+            disabled={processQueue.isPending}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {processQueue.isPending ? 'Traitement...' : 'Traiter Queue'}
+          </Button>
+          <Button onClick={() => setShowEditor(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle Campagne
+          </Button>
+        </div>
       </div>
 
       {/* Statistiques globales */}
