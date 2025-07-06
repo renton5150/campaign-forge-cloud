@@ -112,43 +112,87 @@ const DomainsManagement = () => {
     },
   });
 
-  // Create domain mutation with automatic DKIM generation
+  // Create domain mutation with automatic DKIM generation and DETAILED LOGS
   const createDomainMutation = useMutation({
     mutationFn: async (data: DomainFormData) => {
       try {
+        console.log('🚀 DÉBUT CRÉATION DOMAINE:', data);
+        
         // Generate DKIM keys automatically
+        console.log('⚙️ Génération des clés DKIM...');
         const dkimKeys = generateDKIMKeyPair();
+        console.log('✅ CLÉS DKIM GÉNÉRÉES:', {
+          selector: dkimKeys.selector,
+          privateKeyLength: dkimKeys.privateKey.length,
+          publicKeyLength: dkimKeys.publicKey.length,
+          fullKeys: dkimKeys
+        });
         
-        const { error } = await supabase
+        const insertData = {
+          domain_name: data.domain_name,
+          tenant_id: data.tenant_id,
+          verified: false,
+          dkim_status: 'pending' as DomainVerificationStatus,
+          dkim_private_key: dkimKeys.privateKey,
+          dkim_public_key: dkimKeys.publicKey,
+          dkim_selector: dkimKeys.selector
+        };
+        
+        console.log('📤 DONNÉES À INSÉRER:', insertData);
+        
+        // Insert with .select() to get back the inserted data
+        const { data: insertedData, error } = await supabase
           .from('domains')
-          .insert([{
-            domain_name: data.domain_name,
-            tenant_id: data.tenant_id,
-            verified: false,
-            dkim_status: 'pending' as DomainVerificationStatus,
-            dkim_private_key: dkimKeys.privateKey,
-            dkim_public_key: dkimKeys.publicKey,
-            dkim_selector: dkimKeys.selector
-          }]);
+          .insert([insertData])
+          .select();
         
-        if (error) throw error;
-        return { success: true };
+        console.log('📥 RÉPONSE SUPABASE:', { 
+          insertedData, 
+          error,
+          hasData: !!insertedData,
+          dataLength: insertedData?.length
+        });
+        
+        if (error) {
+          console.error('❌ ERREUR SUPABASE:', error);
+          throw error;
+        }
+        
+        if (!insertedData || insertedData.length === 0) {
+          console.error('⚠️ AUCUNE DONNÉE RETOURNÉE PAR SUPABASE');
+          throw new Error('Aucune donnée retournée après insertion');
+        }
+        
+        console.log('✅ DOMAINE CRÉÉ AVEC SUCCÈS:', insertedData[0]);
+        
+        // Vérifier que les clés DKIM sont bien sauvegardées
+        const savedDomain = insertedData[0];
+        console.log('🔍 VÉRIFICATION CLÉS SAUVEGARDÉES:', {
+          dkim_selector: savedDomain.dkim_selector,
+          dkim_private_key_exists: !!savedDomain.dkim_private_key,
+          dkim_public_key_exists: !!savedDomain.dkim_public_key,
+          dkim_private_key_length: savedDomain.dkim_private_key?.length || 0,
+          dkim_public_key_length: savedDomain.dkim_public_key?.length || 0
+        });
+        
+        return { success: true, data: insertedData[0] };
       } catch (error) {
-        console.error('Error creating domain:', error);
+        console.error('💥 ERREUR LORS DE LA CRÉATION:', error);
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('🎉 MUTATION RÉUSSIE:', result);
       toast({
         title: "✅ Domaine créé avec succès",
-        description: "Les clés DKIM ont été générées automatiquement",
+        description: `Les clés DKIM ont été générées (${result.data?.dkim_selector})`,
       });
       setDialogOpen(false);
       resetForm();
       refetchDomains();
     },
     onError: (error: any) => {
-      console.error('Error creating domain:', error);
+      console.error('💥 ERREUR MUTATION:', error);
       toast({
         title: "❌ Erreur",
         description: error.message || "Erreur lors de la création du domaine",
@@ -295,6 +339,7 @@ const DomainsManagement = () => {
     if (editingDomain) {
       updateDomainMutation.mutate({ id: editingDomain.id, data: formData });
     } else {
+      console.log('🎯 LANCEMENT CRÉATION DOMAINE...');
       createDomainMutation.mutate(formData);
     }
   };
@@ -319,6 +364,7 @@ const DomainsManagement = () => {
   };
 
   const showDNSInstructions = (domain: Domain) => {
+    console.log('📋 AFFICHAGE INSTRUCTIONS DNS POUR:', domain);
     setSelectedDomain(domain);
     setDnsModalOpen(true);
   };
@@ -527,6 +573,7 @@ const DomainsManagement = () => {
               <TableHead>🌐 Domaine</TableHead>
               <TableHead>🏢 Tenant</TableHead>
               <TableHead>📊 Statut</TableHead>
+              <TableHead>🔑 DKIM</TableHead>
               <TableHead>📅 Créé le</TableHead>
               <TableHead>⚙️ Actions</TableHead>
             </TableRow>
@@ -539,6 +586,12 @@ const DomainsManagement = () => {
                   {domain.tenant?.company_name || 'N/A'}
                 </TableCell>
                 <TableCell>{getStatusBadge(domain)}</TableCell>
+                <TableCell>
+                  <div className="text-xs">
+                    <div>🔑 {domain.dkim_selector || 'N/A'}</div>
+                    <div>🔐 {domain.dkim_public_key ? '✅' : '❌'}</div>
+                  </div>
+                </TableCell>
                 <TableCell>
                   {new Date(domain.created_at).toLocaleDateString('fr-FR')}
                 </TableCell>
