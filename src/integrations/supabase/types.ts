@@ -604,6 +604,9 @@ export type Database = {
       domains: {
         Row: {
           created_at: string
+          dkim_private_key: string | null
+          dkim_public_key: string | null
+          dkim_selector: string | null
           dkim_status: Database["public"]["Enums"]["domain_verification_status"]
           domain_name: string
           id: string
@@ -613,6 +616,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dkim_private_key?: string | null
+          dkim_public_key?: string | null
+          dkim_selector?: string | null
           dkim_status?: Database["public"]["Enums"]["domain_verification_status"]
           domain_name: string
           id?: string
@@ -622,6 +628,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dkim_private_key?: string | null
+          dkim_public_key?: string | null
+          dkim_selector?: string | null
           dkim_status?: Database["public"]["Enums"]["domain_verification_status"]
           domain_name?: string
           id?: string
@@ -1276,6 +1285,14 @@ export type Database = {
       calculate_engagement_score: {
         Args: { contact_id_param: string }
         Returns: number
+      }
+      create_domain_with_dkim: {
+        Args: { p_domain_name: string; p_tenant_id: string }
+        Returns: Json
+      }
+      debug_auth_context: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       get_campaign_stats: {
         Args: { campaign_id_param: string }

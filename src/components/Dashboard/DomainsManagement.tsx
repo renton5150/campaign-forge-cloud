@@ -34,7 +34,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { z } from 'zod';
-import { generateDKIMKeyPair } from '@/lib/dns-generator';
 import { DNSInstructionsModal } from '@/components/Dashboard/DNSInstructionsModal';
 
 const domainSchema = z.object({
@@ -552,13 +551,13 @@ const DomainsManagement = () => {
                   {new Date(domain.created_at).toLocaleDateString('fr-FR')}
                 </TableCell>
                 <TableCell>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-1">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => showDNSInstructions(domain)}
-                      title="Voir les instructions DNS"
-                      className="hover:bg-blue-50"
+                      title="Instructions DNS"
+                      className="hover:bg-blue-50 flex items-center justify-center min-w-[36px] h-8"
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
@@ -568,7 +567,7 @@ const DomainsManagement = () => {
                       onClick={() => handleVerify(domain.id)}
                       disabled={verifyingDomains.has(domain.id)}
                       title="Vérifier le domaine"
-                      className="hover:bg-green-50"
+                      className="hover:bg-green-50 flex items-center justify-center min-w-[36px] h-8"
                     >
                       <RefreshCw className={`h-4 w-4 ${verifyingDomains.has(domain.id) ? 'animate-spin' : ''}`} />
                     </Button>
@@ -577,7 +576,7 @@ const DomainsManagement = () => {
                       size="sm"
                       onClick={() => handleEdit(domain)}
                       title="Modifier le domaine"
-                      className="hover:bg-yellow-50"
+                      className="hover:bg-yellow-50 flex items-center justify-center min-w-[36px] h-8"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -587,7 +586,7 @@ const DomainsManagement = () => {
                       onClick={() => handleDelete(domain.id)}
                       disabled={deleteDomainMutation.isPending}
                       title="Supprimer le domaine"
-                      className="hover:bg-red-50"
+                      className="hover:bg-red-50 flex items-center justify-center min-w-[36px] h-8"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
