@@ -639,6 +639,94 @@ export type Database = {
           },
         ]
       }
+      email_logs: {
+        Row: {
+          email_queue_id: string | null
+          id: string
+          message: string | null
+          status: string
+          timestamp: string | null
+        }
+        Insert: {
+          email_queue_id?: string | null
+          id?: string
+          message?: string | null
+          status: string
+          timestamp?: string | null
+        }
+        Update: {
+          email_queue_id?: string | null
+          id?: string
+          message?: string | null
+          status?: string
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_queue: {
+        Row: {
+          campaign_id: string
+          contact_email: string
+          contact_name: string | null
+          created_at: string | null
+          error_message: string | null
+          html_content: string
+          id: string
+          message_id: string | null
+          retry_count: number | null
+          scheduled_for: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_email: string
+          contact_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          html_content: string
+          id?: string
+          message_id?: string | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_email?: string
+          contact_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          html_content?: string
+          id?: string
+          message_id?: string | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           category: string | null
