@@ -18,7 +18,7 @@ const smtpServerSchema = z.object({
   name: z.string().min(1, 'Le nom est obligatoire'),
   type: z.enum(['smtp', 'sendgrid', 'mailgun', 'amazon_ses']),
   host: z.string().optional(),
-  port: z.number().optional(),
+  port: z.number().min(25).max(2525).optional(),
   username: z.string().optional(),
   password: z.string().optional(),
   api_key: z.string().optional(),
@@ -40,7 +40,7 @@ const smtpServerSchema = z.object({
     return data.api_key && data.domain;
   }
   if (data.type === 'amazon_ses') {
-    return data.api_key && data.password && data.region; // api_key = Access Key ID, password = Secret Access Key
+    return data.api_key && data.password && data.region;
   }
   return true;
 }, {
@@ -80,8 +80,36 @@ const SmtpServersPage = () => {
     }
   };
 
-  const handleTestConnection = () => {
-    alert("Test de connexion - Fonctionnalité à venir");
+  const handleTestConnection = async () => {
+    const formData = form.getValues();
+    
+    if (formData.type === 'smtp') {
+      if (!formData.host || !formData.port || !formData.username || !formData.password) {
+        alert("Veuillez remplir tous les champs SMTP obligatoires avant de tester");
+        return;
+      }
+      
+      try {
+        // Test SMTP connection
+        const nodemailer = await import('nodemailer');
+        const transporter = nodemailer.createTransport({
+          host: formData.host,
+          port: formData.port,
+          secure: formData.encryption === 'ssl',
+          auth: {
+            user: formData.username,
+            pass: formData.password,
+          },
+        });
+        
+        await transporter.verify();
+        alert("✅ Connexion SMTP réussie !");
+      } catch (error: any) {
+        alert(`❌ Erreur de connexion SMTP: ${error.message}`);
+      }
+    } else {
+      alert("Test de connexion - Fonctionnalité à venir pour ce type de serveur");
+    }
   };
 
   const getTypeLabel = (type: string) => {
@@ -208,7 +236,9 @@ const SmtpServersPage = () => {
                           </FormItem>
                         )}
                       />
-                      
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="username"
@@ -236,7 +266,9 @@ const SmtpServersPage = () => {
                           </FormItem>
                         )}
                       />
+                    </div>
 
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="encryption"
