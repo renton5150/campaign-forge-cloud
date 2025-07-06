@@ -27,8 +27,21 @@ export interface Domain {
   domain_name: string;
   verified: boolean;
   dkim_status: DomainVerificationStatus;
+  dkim_private_key: string | null;
+  dkim_public_key: string | null;
+  dkim_selector: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Type pour la réponse de la fonction Supabase create_domain_with_dkim
+export interface CreateDomainResponse {
+  success: boolean;
+  domain_id?: string;
+  selector?: string;
+  message?: string;
+  error?: string;
+  details?: string;
 }
 
 // Nouveaux types pour le système de permissions

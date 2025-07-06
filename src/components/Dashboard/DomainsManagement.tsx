@@ -128,13 +128,16 @@ const DomainsManagement = () => {
         throw error;
       }
       
-      if (!result.success) {
-        console.error('❌ ÉCHEC FONCTION:', result.error);
-        throw new Error(result.error || 'Erreur lors de la création');
+      // Type assertion pour la réponse JSON
+      const typedResult = result as CreateDomainResponse;
+      
+      if (!typedResult.success) {
+        console.error('❌ ÉCHEC FONCTION:', typedResult.error);
+        throw new Error(typedResult.error || 'Erreur lors de la création');
       }
       
-      console.log('✅ DOMAINE CRÉÉ:', result);
-      return result;
+      console.log('✅ DOMAINE CRÉÉ:', typedResult);
+      return typedResult;
     },
     onSuccess: (result) => {
       console.log('🎉 MUTATION RÉUSSIE:', result);
