@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -60,11 +61,42 @@ export const useSmtpServers = () => {
 
   const createServer = async (serverData: SmtpServerFormData) => {
     try {
+      // Récupérer l'utilisateur authentifié et son profil
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error('User not authenticated:', userError);
+        toast({
+          title: "Erreur",
+          description: "Vous devez être connecté pour créer un serveur.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      // Récupérer le tenant_id de l'utilisateur
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        console.error('Error fetching user profile:', profileError);
+        toast({
+          title: "Erreur",
+          description: "Impossible de récupérer le profil utilisateur.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      // Créer le serveur SMTP avec le bon tenant_id
       const { data, error } = await supabase
         .from('smtp_servers')
         .insert({
           ...serverData,
-          tenant_id: (await supabase.auth.getUser()).data.user?.id || ''
+          tenant_id: userProfile.tenant_id || user.id // Fallback sur user.id si pas de tenant_id
         })
         .select()
         .single();

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -77,38 +77,6 @@ const SmtpServersPage = () => {
     if (result) {
       setIsDialogOpen(false);
       form.reset();
-    }
-  };
-
-  const handleTestConnection = async () => {
-    const formData = form.getValues();
-    
-    if (formData.type === 'smtp') {
-      if (!formData.host || !formData.port || !formData.username || !formData.password) {
-        alert("Veuillez remplir tous les champs SMTP obligatoires avant de tester");
-        return;
-      }
-      
-      try {
-        // Test SMTP connection
-        const nodemailer = await import('nodemailer');
-        const transporter = nodemailer.createTransport({
-          host: formData.host,
-          port: formData.port,
-          secure: formData.encryption === 'ssl',
-          auth: {
-            user: formData.username,
-            pass: formData.password,
-          },
-        });
-        
-        await transporter.verify();
-        alert("✅ Connexion SMTP réussie !");
-      } catch (error: any) {
-        alert(`❌ Erreur de connexion SMTP: ${error.message}`);
-      }
-    } else {
-      alert("Test de connexion - Fonctionnalité à venir pour ce type de serveur");
     }
   };
 
@@ -492,10 +460,6 @@ const SmtpServersPage = () => {
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Annuler
                     </Button>
-                    <Button type="button" variant="secondary" onClick={handleTestConnection}>
-                      <TestTube className="mr-2 h-4 w-4" />
-                      Tester la connexion
-                    </Button>
                     <Button type="submit">
                       Créer le serveur
                     </Button>
@@ -505,7 +469,7 @@ const SmtpServersPage = () => {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
+      </div >
 
       <Card>
         <CardHeader>
