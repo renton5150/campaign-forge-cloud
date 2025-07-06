@@ -75,7 +75,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
         from_email: campaign.from_email,
         reply_to: campaign.reply_to || '',
         html_content: campaign.html_content,
-        template_id: campaign.template_id || '',
+        template_id: campaign.template_id || null,
         scheduled_at: campaign.scheduled_at ? campaign.scheduled_at.split('T')[0] : '',
         timezone: campaign.timezone,
         is_ab_test: campaign.is_ab_test,
