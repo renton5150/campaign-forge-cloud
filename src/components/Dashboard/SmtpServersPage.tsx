@@ -49,6 +49,7 @@ const smtpServerSchema = z.object({
 
 const SmtpServersPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
   const { servers, loading, createServer, deleteServer } = useSmtpServers();
   
   const form = useForm<SmtpServerFormData>({
@@ -77,6 +78,30 @@ const SmtpServersPage = () => {
     if (result) {
       setIsDialogOpen(false);
       form.reset();
+    }
+  };
+
+  const handleTestConnection = async () => {
+    const formData = form.getValues();
+    setTestingConnection(true);
+    
+    try {
+      if (formData.type === 'smtp') {
+        if (!formData.host || !formData.port || !formData.username || !formData.password) {
+          alert("Veuillez remplir tous les champs SMTP obligatoires avant de tester");
+          return;
+        }
+        
+        // Simulation du test (le vrai test devrait être fait côté serveur)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        alert("✅ Test de connexion simulé réussi ! (Implémentation côté serveur requise pour un vrai test)");
+      } else {
+        alert("Test de connexion - Fonctionnalité à implémenter pour ce type de serveur");
+      }
+    } catch (error: any) {
+      alert(`❌ Erreur de connexion: ${error.message}`);
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -460,6 +485,15 @@ const SmtpServersPage = () => {
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Annuler
                     </Button>
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      onClick={handleTestConnection}
+                      disabled={testingConnection}
+                    >
+                      <TestTube className="mr-2 h-4 w-4" />
+                      {testingConnection ? "Test en cours..." : "Tester la connexion"}
+                    </Button>
                     <Button type="submit">
                       Créer le serveur
                     </Button>
@@ -469,7 +503,7 @@ const SmtpServersPage = () => {
             </Form>
           </DialogContent>
         </Dialog>
-      </div >
+      </div>
 
       <Card>
         <CardHeader>

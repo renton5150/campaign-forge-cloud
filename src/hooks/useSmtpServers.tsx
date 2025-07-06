@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -61,7 +62,7 @@ export const useSmtpServers = () => {
 
   const createServer = async (serverData: SmtpServerFormData) => {
     try {
-      // Récupérer l'utilisateur authentifié et son profil
+      // Récupérer l'utilisateur authentifié
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
@@ -74,10 +75,10 @@ export const useSmtpServers = () => {
         return null;
       }
 
-      // Récupérer le tenant_id de l'utilisateur
+      // Récupérer le profil utilisateur
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
-        .select('tenant_id')
+        .select('tenant_id, role')
         .eq('id', user.id)
         .single();
 
@@ -91,12 +92,31 @@ export const useSmtpServers = () => {
         return null;
       }
 
-      // Créer le serveur SMTP avec le bon tenant_id
+      // Déterminer le tenant_id à utiliser
+      let tenantId = userProfile.tenant_id;
+      
+      // Si l'utilisateur est super_admin et n'a pas de tenant_id, utiliser son ID
+      if (!tenantId && userProfile.role === 'super_admin') {
+        tenantId = user.id;
+      }
+
+      if (!tenantId) {
+        toast({
+          title: "Erreur",
+          description: "Aucun tenant associé à votre compte.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      console.log('Creating SMTP server with tenant_id:', tenantId);
+
+      // Créer le serveur SMTP
       const { data, error } = await supabase
         .from('smtp_servers')
         .insert({
           ...serverData,
-          tenant_id: userProfile.tenant_id || user.id // Fallback sur user.id si pas de tenant_id
+          tenant_id: tenantId
         })
         .select()
         .single();
@@ -176,3 +196,4 @@ export const useSmtpServers = () => {
     refetch: loadServers,
   };
 };
+
