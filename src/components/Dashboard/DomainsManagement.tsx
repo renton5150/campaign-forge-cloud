@@ -112,30 +112,36 @@ const DomainsManagement = () => {
     },
   });
 
-  // Create domain mutation
+  // Create domain mutation with automatic DKIM generation
   const createDomainMutation = useMutation({
     mutationFn: async (data: DomainFormData) => {
-      // Générer les clés DKIM automatiquement
-      const dkimKeys = generateDKIMKeyPair();
-      
-      const { error } = await supabase
-        .from('domains')
-        .insert([{
-          domain_name: data.domain_name,
-          tenant_id: data.tenant_id,
-          verified: false,
-          dkim_status: 'pending' as DomainVerificationStatus,
-          dkim_private_key: dkimKeys.privateKey,
-          dkim_public_key: dkimKeys.publicKey,
-          dkim_selector: dkimKeys.selector
-        }]);
-      
-      if (error) throw error;
+      try {
+        // Generate DKIM keys automatically
+        const dkimKeys = generateDKIMKeyPair();
+        
+        const { error } = await supabase
+          .from('domains')
+          .insert([{
+            domain_name: data.domain_name,
+            tenant_id: data.tenant_id,
+            verified: false,
+            dkim_status: 'pending' as DomainVerificationStatus,
+            dkim_private_key: dkimKeys.privateKey,
+            dkim_public_key: dkimKeys.publicKey,
+            dkim_selector: dkimKeys.selector
+          }]);
+        
+        if (error) throw error;
+        return { success: true };
+      } catch (error) {
+        console.error('Error creating domain:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
-        title: "Succès",
-        description: "Domaine créé avec succès",
+        title: "✅ Domaine créé avec succès",
+        description: "Les clés DKIM ont été générées automatiquement",
       });
       setDialogOpen(false);
       resetForm();
@@ -144,8 +150,8 @@ const DomainsManagement = () => {
     onError: (error: any) => {
       console.error('Error creating domain:', error);
       toast({
-        title: "Erreur",
-        description: error.message || "Erreur lors de la création",
+        title: "❌ Erreur",
+        description: error.message || "Erreur lors de la création du domaine",
         variant: "destructive",
       });
     },
@@ -166,7 +172,7 @@ const DomainsManagement = () => {
     },
     onSuccess: () => {
       toast({
-        title: "Succès",
+        title: "✅ Succès",
         description: "Domaine mis à jour avec succès",
       });
       setDialogOpen(false);
@@ -176,7 +182,7 @@ const DomainsManagement = () => {
     onError: (error: any) => {
       console.error('Error updating domain:', error);
       toast({
-        title: "Erreur",
+        title: "❌ Erreur",
         description: error.message || "Erreur lors de la mise à jour",
         variant: "destructive",
       });
@@ -195,7 +201,7 @@ const DomainsManagement = () => {
     },
     onSuccess: () => {
       toast({
-        title: "Succès",
+        title: "✅ Succès",
         description: "Domaine supprimé avec succès",
       });
       refetchDomains();
@@ -203,23 +209,23 @@ const DomainsManagement = () => {
     onError: (error: any) => {
       console.error('Error deleting domain:', error);
       toast({
-        title: "Erreur",
+        title: "❌ Erreur",
         description: error.message || "Erreur lors de la suppression",
         variant: "destructive",
       });
     },
   });
 
-  // Verify domain mutation (simulated)
+  // Verify domain mutation (simulated DNS verification)
   const verifyDomainMutation = useMutation({
     mutationFn: async (domainId: string) => {
       setVerifyingDomains(prev => new Set(prev).add(domainId));
       
       // Simulate DNS verification delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Randomly assign verification status for demo
-      const isVerified = Math.random() > 0.3;
+      // Randomly assign verification status for demo (80% success rate)
+      const isVerified = Math.random() > 0.2;
       const newStatus: DomainVerificationStatus = isVerified ? 'verified' : 'failed';
       
       const { error } = await supabase
@@ -242,10 +248,10 @@ const DomainsManagement = () => {
     },
     onSuccess: (result) => {
       toast({
-        title: result.isVerified ? "Domaine vérifié" : "Vérification échouée",
+        title: result.isVerified ? "✅ Domaine vérifié" : "❌ Vérification échouée",
         description: result.isVerified 
           ? "Le domaine a été vérifié avec succès" 
-          : "La vérification DNS a échoué",
+          : "La vérification DNS a échoué. Vérifiez vos enregistrements DNS.",
         variant: result.isVerified ? "default" : "destructive",
       });
       refetchDomains();
@@ -253,7 +259,7 @@ const DomainsManagement = () => {
     onError: (error: any) => {
       console.error('Error verifying domain:', error);
       toast({
-        title: "Erreur",
+        title: "❌ Erreur",
         description: "Erreur lors de la vérification",
         variant: "destructive",
       });
@@ -304,7 +310,7 @@ const DomainsManagement = () => {
   };
 
   const handleDelete = async (domainId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce domaine ?')) return;
+    if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer ce domaine ? Cette action est irréversible.')) return;
     deleteDomainMutation.mutate(domainId);
   };
 
@@ -325,11 +331,11 @@ const DomainsManagement = () => {
 
   const getStatusBadge = (domain: Domain) => {
     if (verifyingDomains.has(domain.id)) {
-      return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Vérification...</Badge>;
+      return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1 animate-spin" />Vérification...</Badge>;
     }
     
     if (domain.verified) {
-      return <Badge variant="default"><CheckCircle className="h-3 w-3 mr-1" />Vérifié</Badge>;
+      return <Badge variant="default" className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Vérifié</Badge>;
     }
     
     switch (domain.dkim_status) {
@@ -357,20 +363,25 @@ const DomainsManagement = () => {
   const paginatedDomains = filteredDomains.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading) {
-    return <div className="p-6">Chargement...</div>;
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Chargement des domaines...</span>
+      </div>
+    );
   }
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des Domaines</h1>
-          <p className="text-gray-600">Gérez les domaines de vos tenants</p>
+          <h1 className="text-2xl font-bold text-gray-900">🌐 Gestion des Domaines</h1>
+          <p className="text-gray-600">Gérez les domaines et leurs configurations DKIM/SPF/DMARC</p>
         </div>
         
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="mr-2 h-4 w-4" />
               Nouveau Domaine
             </Button>
@@ -378,10 +389,13 @@ const DomainsManagement = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingDomain ? 'Modifier le domaine' : 'Créer un nouveau domaine'}
+                {editingDomain ? '✏️ Modifier le domaine' : '➕ Créer un nouveau domaine'}
               </DialogTitle>
               <DialogDescription>
-                Remplissez les informations du domaine
+                {editingDomain 
+                  ? 'Modifiez les informations du domaine' 
+                  : 'Les clés DKIM seront générées automatiquement lors de la création'
+                }
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -395,7 +409,7 @@ const DomainsManagement = () => {
                   required
                 />
                 {formErrors.domain_name && (
-                  <p className="text-sm text-red-600 mt-1">{formErrors.domain_name}</p>
+                  <p className="text-sm text-red-600 mt-1">❌ {formErrors.domain_name}</p>
                 )}
               </div>
               <div>
@@ -414,7 +428,7 @@ const DomainsManagement = () => {
                   </SelectContent>
                 </Select>
                 {formErrors.tenant_id && (
-                  <p className="text-sm text-red-600 mt-1">{formErrors.tenant_id}</p>
+                  <p className="text-sm text-red-600 mt-1">❌ {formErrors.tenant_id}</p>
                 )}
               </div>
               <div className="flex justify-end space-x-2">
@@ -424,8 +438,16 @@ const DomainsManagement = () => {
                 <Button 
                   type="submit" 
                   disabled={createDomainMutation.isPending || updateDomainMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {editingDomain ? 'Mettre à jour' : 'Créer'}
+                  {createDomainMutation.isPending || updateDomainMutation.isPending ? (
+                    <>
+                      <Clock className="mr-2 h-4 w-4 animate-spin" />
+                      {editingDomain ? 'Mise à jour...' : 'Création...'}
+                    </>
+                  ) : (
+                    editingDomain ? 'Mettre à jour' : 'Créer'
+                  )}
                 </Button>
               </div>
             </form>
@@ -436,7 +458,7 @@ const DomainsManagement = () => {
       {/* Filters */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-          <Label htmlFor="search">Recherche</Label>
+          <Label htmlFor="search">🔍 Recherche</Label>
           <Input
             id="search"
             placeholder="Rechercher par domaine..."
@@ -448,7 +470,7 @@ const DomainsManagement = () => {
           />
         </div>
         <div>
-          <Label htmlFor="status-filter">Statut</Label>
+          <Label htmlFor="status-filter">📊 Statut</Label>
           <Select value={statusFilter} onValueChange={(value: DomainVerificationStatus | 'all') => {
             setStatusFilter(value);
             setCurrentPage(1);
@@ -458,14 +480,14 @@ const DomainsManagement = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="pending">En attente</SelectItem>
-              <SelectItem value="verified">Vérifié</SelectItem>
-              <SelectItem value="failed">Échec</SelectItem>
+              <SelectItem value="pending">⏳ En attente</SelectItem>
+              <SelectItem value="verified">✅ Vérifié</SelectItem>
+              <SelectItem value="failed">❌ Échec</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div>
-          <Label htmlFor="tenant-filter">Tenant</Label>
+          <Label htmlFor="tenant-filter">🏢 Tenant</Label>
           <Select value={tenantFilter} onValueChange={(value) => {
             setTenantFilter(value);
             setCurrentPage(1);
@@ -493,7 +515,7 @@ const DomainsManagement = () => {
               setCurrentPage(1);
             }}
           >
-            Réinitialiser
+            🔄 Réinitialiser
           </Button>
         </div>
       </div>
@@ -502,11 +524,11 @@ const DomainsManagement = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Domaine</TableHead>
-              <TableHead>Tenant</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Créé le</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>🌐 Domaine</TableHead>
+              <TableHead>🏢 Tenant</TableHead>
+              <TableHead>📊 Statut</TableHead>
+              <TableHead>📅 Créé le</TableHead>
+              <TableHead>⚙️ Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -526,7 +548,8 @@ const DomainsManagement = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => showDNSInstructions(domain)}
-                      title="Instructions DNS"
+                      title="Voir les instructions DNS"
+                      className="hover:bg-blue-50"
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
@@ -535,6 +558,8 @@ const DomainsManagement = () => {
                       size="sm"
                       onClick={() => handleVerify(domain.id)}
                       disabled={verifyingDomains.has(domain.id)}
+                      title="Vérifier le domaine"
+                      className="hover:bg-green-50"
                     >
                       <RefreshCw className={`h-4 w-4 ${verifyingDomains.has(domain.id) ? 'animate-spin' : ''}`} />
                     </Button>
@@ -542,6 +567,8 @@ const DomainsManagement = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => handleEdit(domain)}
+                      title="Modifier le domaine"
+                      className="hover:bg-yellow-50"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -550,6 +577,8 @@ const DomainsManagement = () => {
                       size="sm"
                       onClick={() => handleDelete(domain.id)}
                       disabled={deleteDomainMutation.isPending}
+                      title="Supprimer le domaine"
+                      className="hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -562,7 +591,14 @@ const DomainsManagement = () => {
         
         {paginatedDomains.length === 0 && (
           <div className="text-center py-8 text-gray-500">
-            {filteredDomains.length === 0 ? 'Aucun domaine trouvé' : 'Aucun résultat pour ces filtres'}
+            {filteredDomains.length === 0 ? (
+              <div>
+                <p className="text-lg">🚫 Aucun domaine trouvé</p>
+                <p className="text-sm">Créez votre premier domaine pour commencer</p>
+              </div>
+            ) : (
+              <p>🔍 Aucun résultat pour ces filtres</p>
+            )}
           </div>
         )}
 
@@ -603,23 +639,23 @@ const DomainsManagement = () => {
       {/* Statistics */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Total Domaines</h3>
+          <h3 className="text-sm font-medium text-gray-500">📈 Total Domaines</h3>
           <p className="text-2xl font-bold text-gray-900">{domains.length}</p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Vérifiés</h3>
+          <h3 className="text-sm font-medium text-gray-500">✅ Vérifiés</h3>
           <p className="text-2xl font-bold text-green-600">
             {domains.filter(d => d.verified).length}
           </p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">En attente</h3>
+          <h3 className="text-sm font-medium text-gray-500">⏳ En attente</h3>
           <p className="text-2xl font-bold text-yellow-600">
             {domains.filter(d => d.dkim_status === 'pending').length}
           </p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Échecs</h3>
+          <h3 className="text-sm font-medium text-gray-500">❌ Échecs</h3>
           <p className="text-2xl font-bold text-red-600">
             {domains.filter(d => d.dkim_status === 'failed').length}
           </p>
