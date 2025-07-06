@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Settings, Trash2, TestTube } from 'lucide-react';
 import { useSmtpServers, SmtpServerFormData, SmtpServerType } from '@/hooks/useSmtpServers';
+import { useToast } from '@/hooks/use-toast';
 
 const smtpServerSchema = z.object({
   name: z.string().min(1, 'Le nom est obligatoire'),
@@ -51,6 +52,7 @@ const SmtpServersPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const { servers, loading, createServer, deleteServer, testSmtpConnection } = useSmtpServers();
+  const { toast } = useToast();
   
   const form = useForm<SmtpServerFormData>({
     resolver: zodResolver(smtpServerSchema),
