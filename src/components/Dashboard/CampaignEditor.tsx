@@ -48,7 +48,7 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
     from_email: '',
     reply_to: '',
     html_content: '',
-    template_id: '',
+    template_id: null as string | null,
     scheduled_at: '',
     timezone: 'UTC',
     is_ab_test: false,
