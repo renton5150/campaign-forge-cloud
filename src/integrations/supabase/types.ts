@@ -1011,7 +1011,10 @@ export type Database = {
       }
       smtp_servers: {
         Row: {
+          api_key: string | null
           created_at: string
+          domain: string | null
+          encryption: string | null
           from_email: string
           from_name: string
           host: string | null
@@ -1020,13 +1023,17 @@ export type Database = {
           name: string
           password: string | null
           port: number | null
+          region: string | null
           tenant_id: string
           type: string
           updated_at: string
           username: string | null
         }
         Insert: {
+          api_key?: string | null
           created_at?: string
+          domain?: string | null
+          encryption?: string | null
           from_email: string
           from_name: string
           host?: string | null
@@ -1035,13 +1042,17 @@ export type Database = {
           name: string
           password?: string | null
           port?: number | null
+          region?: string | null
           tenant_id: string
           type: string
           updated_at?: string
           username?: string | null
         }
         Update: {
+          api_key?: string | null
           created_at?: string
+          domain?: string | null
+          encryption?: string | null
           from_email?: string
           from_name?: string
           host?: string | null
@@ -1050,6 +1061,7 @@ export type Database = {
           name?: string
           password?: string | null
           port?: number | null
+          region?: string | null
           tenant_id?: string
           type?: string
           updated_at?: string
