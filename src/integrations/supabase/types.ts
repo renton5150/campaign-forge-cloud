@@ -251,7 +251,7 @@ export type Database = {
           subject: string
           tags: string[] | null
           template_id: string | null
-          tenant_id: string
+          tenant_id: string | null
           timezone: string | null
           updated_at: string
         }
@@ -277,7 +277,7 @@ export type Database = {
           subject: string
           tags?: string[] | null
           template_id?: string | null
-          tenant_id: string
+          tenant_id?: string | null
           timezone?: string | null
           updated_at?: string
         }
@@ -303,7 +303,7 @@ export type Database = {
           subject?: string
           tags?: string[] | null
           template_id?: string | null
-          tenant_id?: string
+          tenant_id?: string | null
           timezone?: string | null
           updated_at?: string
         }
@@ -1006,6 +1006,54 @@ export type Database = {
           rules?: Json
           tenant_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      smtp_servers: {
+        Row: {
+          created_at: string
+          from_email: string
+          from_name: string
+          host: string | null
+          id: string
+          is_active: boolean
+          name: string
+          password: string | null
+          port: number | null
+          tenant_id: string
+          type: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          from_email: string
+          from_name: string
+          host?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          password?: string | null
+          port?: number | null
+          tenant_id: string
+          type: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          from_email?: string
+          from_name?: string
+          host?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          password?: string | null
+          port?: number | null
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }

@@ -16,7 +16,8 @@ import {
   Shield,
   Filter,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Server
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -66,6 +67,12 @@ const Sidebar = ({ currentPage, onPageChange }: SidebarProps) => {
       id: 'users',
       icon: Users,
       show: user?.role === 'super_admin' || user?.role === 'tenant_admin'
+    },
+    {
+      name: 'Serveurs d\'envoi',
+      id: 'smtp-servers',
+      icon: Server,
+      show: true
     },
     {
       name: 'Domaines',

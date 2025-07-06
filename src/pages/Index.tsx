@@ -13,6 +13,7 @@ import ContactsListsPage from '@/components/Dashboard/ContactsListsPage';
 import ContactsImportPage from '@/components/Dashboard/ContactsImportPage';
 import ContactsBlacklistsPage from '@/components/Dashboard/ContactsBlacklistsPage';
 import ContactsSegmentsPage from '@/components/Dashboard/ContactsSegmentsPage';
+import SmtpServersPage from '@/components/Dashboard/SmtpServersPage';
 
 const Index = () => {
   const { user } = useAuth();
@@ -34,6 +35,8 @@ const Index = () => {
         return <ContactsBlacklistsPage />;
       case 'contacts-segments':
         return <ContactsSegmentsPage />;
+      case 'smtp-servers':
+        return <SmtpServersPage />;
       case 'tenants':
         return <TenantsManagement />;
       case 'users':
