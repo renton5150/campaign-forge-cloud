@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,29 +14,41 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
     queryFn: async () => {
       let query = supabase
         .from('contacts')
-        .select(`
-          *,
-          contact_list_memberships!inner(list_id, added_at),
-          contact_lists!inner(name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (listId) {
-        query = query.eq('contact_list_memberships.list_id', listId);
+      // Filtre par liste si spécifié
+      if (listId && listId !== 'all-lists') {
+        const { data: membershipData, error: membershipError } = await supabase
+          .from('contact_list_memberships')
+          .select('contact_id')
+          .eq('list_id', listId);
+
+        if (membershipError) throw membershipError;
+        
+        const contactIds = membershipData.map(m => m.contact_id);
+        if (contactIds.length > 0) {
+          query = query.in('id', contactIds);
+        } else {
+          // Si la liste n'a pas de contacts, retourner un tableau vide
+          return [];
+        }
       }
 
+      // Filtre par terme de recherche
       if (searchTerm) {
         query = query.or(`email.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,company.ilike.%${searchTerm}%`);
       }
 
-      if (status) {
+      // Filtre par statut
+      if (status && status !== 'all-status') {
         query = query.eq('status', status);
       }
 
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as (Contact & { contact_list_memberships: any[], contact_lists: any })[];
+      return data as Contact[];
     },
     enabled: !!user,
   });

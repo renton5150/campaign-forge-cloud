@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { MoreHorizontal, Mail, Trash2, Edit, Eye } from 'lucide-react';
 import {
@@ -26,7 +27,7 @@ import ContactDetailsModal from './ContactDetailsModal';
 import EditContactModal from './EditContactModal';
 
 interface ContactsTableProps {
-  contacts: (Contact & { contact_list_memberships: any[], contact_lists: any })[];
+  contacts: Contact[];
   isLoading: boolean;
   selectedList?: string;
 }

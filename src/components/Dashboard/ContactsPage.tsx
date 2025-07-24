@@ -112,7 +112,7 @@ export default function ContactsPage() {
                 <SelectValue placeholder="Toutes les listes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-lists">Toutes les listes</SelectItem>
+                <SelectItem value="">Toutes les listes</SelectItem>
                 {safeContactLists.map((list) => (
                   <SelectItem key={list.id} value={list.id}>
                     {list.name} ({list.total_contacts || 0})
@@ -125,7 +125,7 @@ export default function ContactsPage() {
                 <SelectValue placeholder="Tous statuts" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-status">Tous statuts</SelectItem>
+                <SelectItem value="">Tous statuts</SelectItem>
                 <SelectItem value="active">Actif</SelectItem>
                 <SelectItem value="bounced">Bounce</SelectItem>
                 <SelectItem value="unsubscribed">Désabonné</SelectItem>
