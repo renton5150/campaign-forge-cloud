@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useBlacklists, Blacklist } from '@/hooks/useBlacklists';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AddToBlacklistModalProps {
   isOpen: boolean;
@@ -23,7 +25,9 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
   const [reason, setReason] = useState('');
   const [category, setCategory] = useState<Blacklist['category']>('manual');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
+  const { user } = useAuth();
   const { addToBlacklist } = useBlacklists();
   const { toast } = useToast();
 
@@ -32,13 +36,26 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     if (!value.trim()) return;
 
     setIsLoading(true);
+    setError(null);
+
     try {
+      // Vérifier que l'utilisateur est authentifié et a un tenant_id
+      if (!user) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      if (!user.tenant_id) {
+        throw new Error('Tenant ID manquant. Veuillez vous reconnecter.');
+      }
+
+      console.log('Adding to blacklist with user:', user);
+
       await addToBlacklist.mutateAsync({
         type,
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
-        created_by: '' // This will be set by the hook
+        created_by: user.id
       });
 
       toast({
@@ -48,11 +65,24 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
 
       onClose();
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de l\'ajout à la blacklist:', error);
+      
+      let errorMessage = "Impossible d'ajouter à la blacklist";
+      
+      if (error.message.includes('tenant_id')) {
+        errorMessage = "Erreur d'authentification. Veuillez vous reconnecter.";
+      } else if (error.message.includes('duplicate key')) {
+        errorMessage = "Cet élément est déjà dans la blacklist.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setError(errorMessage);
+      
       toast({
         title: "Erreur",
-        description: "Impossible d'ajouter à la blacklist",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -65,6 +95,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     setReason('');
     setCategory('manual');
     setType('email');
+    setError(null);
   };
 
   const handleClose = () => {
@@ -78,6 +109,14 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
         <DialogHeader>
           <DialogTitle>Ajouter à la blacklist</DialogTitle>
         </DialogHeader>
+        
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="type" className="text-right">Type</Label>
