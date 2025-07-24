@@ -53,6 +53,7 @@ const SmtpServersPage = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<SmtpServer | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [testingServerId, setTestingServerId] = useState<string | null>(null);
   const { servers, loading, createServer, updateServer, deleteServer, testSmtpConnection } = useSmtpServers();
   const { toast } = useToast();
   
@@ -196,6 +197,59 @@ const SmtpServersPage = () => {
       });
     } finally {
       setTestingConnection(false);
+    }
+  };
+
+  const handleTestExistingServer = async (server: SmtpServer) => {
+    setTestingServerId(server.id);
+    
+    try {
+      // Préparer les données du serveur pour le test
+      const testData: SmtpServerFormData = {
+        name: server.name,
+        type: server.type as SmtpServerType,
+        host: server.host || '',
+        port: server.port || 587,
+        username: server.username || '',
+        password: '', // Nous ne pouvons pas récupérer le mot de passe stocké
+        api_key: '', // Nous ne pouvons pas récupérer la clé API stockée
+        domain: server.domain || '',
+        region: server.region || '',
+        encryption: server.encryption || 'tls',
+        from_name: server.from_name,
+        from_email: server.from_email,
+        is_active: server.is_active,
+      };
+
+      // Afficher un avertissement si des credentials sont manquants
+      if (server.type === 'smtp' && (!server.host || !server.username)) {
+        toast({
+          title: "⚠️ Test limité",
+          description: "Test de connectivité uniquement (credentials non disponibles pour sécurité)",
+        });
+      } else if ((server.type === 'sendgrid' || server.type === 'mailgun' || server.type === 'amazon_ses')) {
+        toast({
+          title: "⚠️ Test limité", 
+          description: "Test de connectivité uniquement (clés API non disponibles pour sécurité)",
+        });
+      }
+
+      const result = await testSmtpConnection(testData);
+      
+      toast({
+        title: "✅ Test réussi",
+        description: result.message + (result.details ? ` - ${JSON.stringify(result.details)}` : ''),
+      });
+
+    } catch (error: any) {
+      console.error('Test connection error:', error);
+      toast({
+        title: "❌ Test échoué",
+        description: error.message || "Erreur lors du test de connexion",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingServerId(null);
     }
   };
 
@@ -996,7 +1050,18 @@ const SmtpServersPage = () => {
                         <Button 
                           variant="ghost" 
                           size="sm"
+                          onClick={() => handleTestExistingServer(server)}
+                          disabled={testingServerId === server.id}
+                          title="Tester la connexion"
+                        >
+                          <TestTube className="h-4 w-4" />
+                          {testingServerId === server.id && "..."}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
                           onClick={() => handleEditServer(server)}
+                          title="Modifier"
                         >
                           <Settings className="h-4 w-4" />
                         </Button>
@@ -1004,6 +1069,7 @@ const SmtpServersPage = () => {
                           variant="ghost" 
                           size="sm"
                           onClick={() => deleteServer(server.id)}
+                          title="Supprimer"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
