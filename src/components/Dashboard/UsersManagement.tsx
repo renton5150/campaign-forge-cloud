@@ -158,24 +158,21 @@ const UsersManagement = () => {
   // Create user mutation using edge function
   const createUserMutation = useMutation({
     mutationFn: async (data: UserFormData) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Non authentifié');
-
-      const response = await fetch('/functions/v1/create-user', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
+      const { data: response, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: data.email,
+          password: data.password,
+          full_name: data.full_name,
+          role: data.role,
+          tenant_id: data.tenant_id,
         },
-        body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la création');
+      if (error) {
+        throw new Error(error.message || 'Erreur lors de la création');
       }
 
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
