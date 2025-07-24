@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,6 +63,7 @@ const userFormSchema = z.object({
   email: z.string().email('Email invalide'),
   role: z.enum(['super_admin', 'tenant_admin', 'tenant_growth', 'tenant_sdr']),
   tenant_id: z.string().optional().nullable(),
+  password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères').optional(),
 });
 
 type UserFormData = z.infer<typeof userFormSchema>;
@@ -85,7 +85,6 @@ const UsersManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [tenantFilter, setTenantFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
   const form = useForm<UserFormData>({
@@ -95,6 +94,7 @@ const UsersManagement = () => {
       email: '',
       role: 'tenant_sdr',
       tenant_id: null,
+      password: '',
     },
   });
 
@@ -155,24 +155,36 @@ const UsersManagement = () => {
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Create user mutation
+  // Create user mutation - now uses Supabase Auth properly
   const createUserMutation = useMutation({
     mutationFn: async (data: UserFormData) => {
-      // For now, we'll just create the user profile directly
-      // In a real app, you'd want to use Supabase Auth admin functions
-      const userId = crypto.randomUUID();
-      
-      const { error } = await supabase
+      // Create user in Supabase Auth first
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: data.email,
+        password: data.password || 'TempPassword123!',
+        email_confirm: true,
+        user_metadata: {
+          full_name: data.full_name,
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Utilisateur non créé');
+
+      // Then create user profile
+      const { error: profileError } = await supabase
         .from('users')
         .insert([{
-          id: userId,
+          id: authData.user.id,
           full_name: data.full_name,
           email: data.email,
           role: data.role,
           tenant_id: data.tenant_id || null,
         }]);
       
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      return authData.user;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -239,12 +251,20 @@ const UsersManagement = () => {
         throw new Error('Impossible de supprimer le dernier super administrateur');
       }
       
-      const { error } = await supabase
+      // Delete from users table first
+      const { error: profileError } = await supabase
         .from('users')
         .delete()
         .eq('id', userId);
       
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Then delete from Supabase Auth
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (authError) {
+        console.warn('Warning: Could not delete user from auth:', authError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -269,6 +289,7 @@ const UsersManagement = () => {
       email: user.email,
       role: user.role,
       tenant_id: user.tenant_id,
+      password: '', // Don't pre-fill password for edits
     });
     setDialogOpen(true);
   };
@@ -280,6 +301,7 @@ const UsersManagement = () => {
       email: '',
       role: 'tenant_sdr',
       tenant_id: null,
+      password: '',
     });
     setDialogOpen(true);
   };
@@ -385,6 +407,22 @@ const UsersManagement = () => {
                     </FormItem>
                   )}
                 />
+
+                {!editingUser && (
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mot de passe</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 
                 <FormField
                   control={form.control}
