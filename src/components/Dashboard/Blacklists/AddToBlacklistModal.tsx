@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useBlacklists, Blacklist } from '@/hooks/useBlacklists';
+import { useBlacklistItemLists } from '@/hooks/useBlacklistItemLists';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -24,19 +27,28 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
   const [value, setValue] = useState(defaultValue);
   const [reason, setReason] = useState('');
   const [category, setCategory] = useState<Blacklist['category']>('manual');
-  const [selectedListId, setSelectedListId] = useState<string>('');
+  const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { user } = useAuth();
   const { addToBlacklist } = useBlacklists();
   const { blacklistLists } = useBlacklistLists();
+  const { addToMultipleLists } = useBlacklistItemLists();
   const { toast } = useToast();
 
   // Filtrer les listes selon le type sélectionné
   const filteredLists = blacklistLists.filter(list => 
     list.type === type || list.type === 'mixed'
   );
+
+  const handleListSelection = (listId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedListIds(prev => [...prev, listId]);
+    } else {
+      setSelectedListIds(prev => prev.filter(id => id !== listId));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,22 +63,29 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
-        blacklist_list_id: selectedListId || undefined,
         created_by: user?.id
       });
 
-      await addToBlacklist.mutateAsync({
+      // Ajouter l'élément à la blacklist
+      const newBlacklistItem = await addToBlacklist.mutateAsync({
         type,
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
-        blacklist_list_id: selectedListId || undefined,
         created_by: user?.id || ''
       });
 
+      // Associer à plusieurs listes si sélectionnées
+      if (selectedListIds.length > 0) {
+        await addToMultipleLists.mutateAsync({
+          blacklistId: newBlacklistItem.id,
+          listIds: selectedListIds
+        });
+      }
+
       toast({
         title: "Ajouté à la blacklist",
-        description: `${type === 'email' ? 'Email' : 'Domaine'} ajouté avec succès`,
+        description: `${type === 'email' ? 'Email' : 'Domaine'} ajouté avec succès${selectedListIds.length > 0 ? ` et associé à ${selectedListIds.length} liste(s)` : ''}`,
       });
 
       onClose();
@@ -98,7 +117,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     setValue('');
     setReason('');
     setCategory('manual');
-    setSelectedListId('');
+    setSelectedListIds([]);
     setType('email');
     setError(null);
   };
@@ -110,7 +129,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Ajouter à la blacklist</DialogTitle>
         </DialogHeader>
@@ -152,23 +171,6 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="list" className="text-right">Liste</Label>
-            <Select value={selectedListId} onValueChange={setSelectedListId}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Sélectionner une liste (optionnel)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Aucune liste</SelectItem>
-                {filteredLists.map((list) => (
-                  <SelectItem key={list.id} value={list.id}>
-                    {list.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="category" className="text-right">Catégorie</Label>
             <Select value={category} onValueChange={(value: Blacklist['category']) => setCategory(value)}>
               <SelectTrigger className="col-span-3">
@@ -182,6 +184,26 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
               </SelectContent>
             </Select>
           </div>
+
+          {filteredLists.length > 0 && (
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Listes</Label>
+              <div className="col-span-3 space-y-2">
+                {filteredLists.map((list) => (
+                  <div key={list.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={list.id}
+                      checked={selectedListIds.includes(list.id)}
+                      onCheckedChange={(checked) => handleListSelection(list.id, checked as boolean)}
+                    />
+                    <Label htmlFor={list.id} className="text-sm font-normal">
+                      {list.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="reason" className="text-right pt-2">Raison</Label>

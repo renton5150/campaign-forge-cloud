@@ -7,16 +7,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useBlacklists } from '@/hooks/useBlacklists';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Plus, Search, Mail, Globe, AlertTriangle, Trash2, MoreHorizontal, Upload, FolderOpen } from 'lucide-react';
+import { Shield, Plus, Search, Mail, Globe, AlertTriangle, Trash2, MoreHorizontal, Upload, FolderOpen, List } from 'lucide-react';
 import AddToBlacklistModal from './Blacklists/AddToBlacklistModal';
 import BulkImportModal from './Blacklists/BulkImportModal';
 import BlacklistListsManagement from './Blacklists/BlacklistListsManagement';
+import BlacklistItemListsModal from './Blacklists/BlacklistItemListsModal';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const ContactsBlacklistsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [showItemListsModal, setShowItemListsModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<{ id: string; type: 'email' | 'domain'; value: string } | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('blacklists');
   
@@ -52,6 +55,15 @@ const ContactsBlacklistsPage = () => {
       });
     }
     setItemToDelete(null);
+  };
+
+  const handleManageLists = (item: any) => {
+    setSelectedItem({
+      id: item.id,
+      type: item.type,
+      value: item.value
+    });
+    setShowItemListsModal(true);
   };
 
   const getCategoryColor = (category: string) => {
@@ -102,6 +114,7 @@ const ContactsBlacklistsPage = () => {
         {items.map((item) => {
           const IconComponent = item.type === 'email' ? Mail : Globe;
           const iconColor = item.type === 'email' ? 'text-red-500' : 'text-orange-500';
+          const associatedLists = (item as any).blacklist_item_lists || [];
           
           return (
             <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
@@ -111,6 +124,15 @@ const ContactsBlacklistsPage = () => {
                   <p className="font-medium">{item.value}</p>
                   {item.reason && (
                     <p className="text-sm text-gray-600">Raison : {item.reason}</p>
+                  )}
+                  {associatedLists.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {associatedLists.map((listAssoc: any) => (
+                        <Badge key={listAssoc.id} variant="secondary" className="text-xs">
+                          {listAssoc.blacklist_lists?.name}
+                        </Badge>
+                      ))}
+                    </div>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
                     Ajouté le {new Date(item.created_at).toLocaleDateString('fr-FR')}
@@ -128,6 +150,10 @@ const ContactsBlacklistsPage = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleManageLists(item)}>
+                      <List className="mr-2 h-4 w-4" />
+                      Gérer les listes
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setItemToDelete(item.id)}
                       className="text-red-600 hover:text-red-900"
@@ -314,6 +340,12 @@ const ContactsBlacklistsPage = () => {
       <BulkImportModal
         isOpen={showBulkImportModal}
         onClose={() => setShowBulkImportModal(false)}
+      />
+
+      <BlacklistItemListsModal
+        isOpen={showItemListsModal}
+        onClose={() => setShowItemListsModal(false)}
+        blacklistItem={selectedItem}
       />
 
       {/* Delete Confirmation Dialog */}

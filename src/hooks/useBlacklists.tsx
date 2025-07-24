@@ -10,7 +10,6 @@ export interface Blacklist {
   value: string;
   reason?: string;
   category: 'bounce' | 'complaint' | 'manual' | 'competitor';
-  blacklist_list_id?: string;
   created_by: string;
   created_at: string;
 }
@@ -19,7 +18,7 @@ export function useBlacklists(type?: 'email' | 'domain') {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Récupérer les blacklists
+  // Récupérer les blacklists avec leurs listes associées
   const { data: blacklists, isLoading } = useQuery({
     queryKey: ['blacklists', user?.tenant_id, user?.role, type],
     queryFn: async () => {
@@ -30,7 +29,17 @@ export function useBlacklists(type?: 'email' | 'domain') {
 
       let query = supabase
         .from('blacklists')
-        .select('*')
+        .select(`
+          *,
+          blacklist_item_lists (
+            id,
+            blacklist_lists (
+              id,
+              name,
+              type
+            )
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (type) {
@@ -56,8 +65,6 @@ export function useBlacklists(type?: 'email' | 'domain') {
         throw new Error('Utilisateur non authentifié ou données manquantes');
       }
 
-      // Pour les super_admin, on peut laisser tenant_id à null
-      // Pour les autres utilisateurs, on utilise leur tenant_id
       const tenantId = user.role === 'super_admin' ? null : user.tenant_id;
       
       if (user.role !== 'super_admin' && !tenantId) {
