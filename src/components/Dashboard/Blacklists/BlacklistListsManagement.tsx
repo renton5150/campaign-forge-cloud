@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,13 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useBlacklistLists } from '@/hooks/useBlacklistLists';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FolderOpen, Edit, Trash2, MoreHorizontal, Mail, Globe, FileText } from 'lucide-react';
+import { Plus, FolderOpen, Edit, Trash2, MoreHorizontal, Mail, Globe, FileText, Eye } from 'lucide-react';
 import BlacklistListModal from './BlacklistListModal';
+import BlacklistListItemsModal from './BlacklistListItemsModal';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const BlacklistListsManagement = () => {
   const [showModal, setShowModal] = useState(false);
+  const [showItemsModal, setShowItemsModal] = useState(false);
   const [editingList, setEditingList] = useState(null);
+  const [selectedList, setSelectedList] = useState(null);
   const [listToDelete, setListToDelete] = useState<string | null>(null);
   
   const { blacklistLists, isLoading, deleteBlacklistList } = useBlacklistLists();
@@ -21,6 +23,11 @@ const BlacklistListsManagement = () => {
   const handleEdit = (list: any) => {
     setEditingList(list);
     setShowModal(true);
+  };
+
+  const handleViewItems = (list: any) => {
+    setSelectedList(list);
+    setShowItemsModal(true);
   };
 
   const handleDelete = async (listId: string) => {
@@ -43,6 +50,11 @@ const BlacklistListsManagement = () => {
   const handleModalClose = () => {
     setShowModal(false);
     setEditingList(null);
+  };
+
+  const handleItemsModalClose = () => {
+    setShowItemsModal(false);
+    setSelectedList(null);
   };
 
   const getTypeIcon = (type: string) => {
@@ -131,6 +143,10 @@ const BlacklistListsManagement = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleViewItems(list)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Voir les éléments
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEdit(list)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Modifier
@@ -163,6 +179,17 @@ const BlacklistListsManagement = () => {
                 <div className="mt-2 text-xs text-gray-500">
                   Créée le {new Date(list.created_at).toLocaleDateString('fr-FR')}
                 </div>
+                <div className="mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleViewItems(list)}
+                    className="w-full"
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Voir les éléments
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -174,6 +201,13 @@ const BlacklistListsManagement = () => {
         isOpen={showModal}
         onClose={handleModalClose}
         list={editingList}
+      />
+
+      {/* Modal pour voir les éléments de la liste */}
+      <BlacklistListItemsModal
+        isOpen={showItemsModal}
+        onClose={handleItemsModalClose}
+        list={selectedList}
       />
 
       {/* Dialog de confirmation de suppression */}
