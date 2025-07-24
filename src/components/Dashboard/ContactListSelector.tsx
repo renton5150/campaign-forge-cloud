@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,10 @@ export default function ContactListSelector({
   
   const { createContactList } = useContactLists();
 
-  const filteredLists = contactLists.filter(list =>
+  // S'assurer que contactLists est un tableau
+  const safeContactLists = contactLists || [];
+
+  const filteredLists = safeContactLists.filter(list =>
     list.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (list.description && list.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -63,7 +65,7 @@ export default function ContactListSelector({
     }
   };
 
-  const totalContacts = contactLists
+  const totalContacts = safeContactLists
     .filter(list => selectedLists.includes(list.id))
     .reduce((sum, list) => sum + list.total_contacts, 0);
 

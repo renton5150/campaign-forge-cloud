@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 import type {
@@ -183,6 +184,7 @@ function useToast() {
 
   return {
     ...state,
+    toasts: state.toasts || [], // S'assurer que toasts est toujours un tableau
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
