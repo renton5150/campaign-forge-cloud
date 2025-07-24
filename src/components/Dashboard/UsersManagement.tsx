@@ -155,36 +155,27 @@ const UsersManagement = () => {
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Create user mutation - now uses Supabase Auth properly
+  // Create user mutation using edge function
   const createUserMutation = useMutation({
     mutationFn: async (data: UserFormData) => {
-      // Create user in Supabase Auth first
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: data.email,
-        password: data.password || 'TempPassword123!',
-        email_confirm: true,
-        user_metadata: {
-          full_name: data.full_name,
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Non authentifié');
+
+      const response = await fetch('/functions/v1/create-user', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Utilisateur non créé');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la création');
+      }
 
-      // Then create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([{
-          id: authData.user.id,
-          full_name: data.full_name,
-          email: data.email,
-          role: data.role,
-          tenant_id: data.tenant_id || null,
-        }]);
-      
-      if (profileError) throw profileError;
-
-      return authData.user;
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
