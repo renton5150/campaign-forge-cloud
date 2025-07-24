@@ -75,21 +75,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return newUser;
       }
       
-      // Only assign tenant for non-super_admin users
+      // Only assign tenant for non-super_admin users who don't have one
       if (data && !data.tenant_id && data.role !== 'super_admin') {
         console.log('User has no tenant_id and is not super_admin, attempting to create/assign tenant...');
-        await createOrAssignTenant(data);
         
-        // Refetch user data after tenant creation
-        const { data: updatedUser, error: updateError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", session.user.id)
-          .maybeSingle();
-        
-        if (!updateError && updatedUser) {
-          console.log('Updated user profile with tenant:', updatedUser);
-          return updatedUser;
+        try {
+          await createOrAssignTenant(data);
+          
+          // Refetch user data after tenant creation
+          const { data: updatedUser, error: updateError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", session.user.id)
+            .maybeSingle();
+          
+          if (!updateError && updatedUser) {
+            console.log('Updated user profile with tenant:', updatedUser);
+            return updatedUser;
+          }
+        } catch (tenantError) {
+          console.error('Error creating tenant:', tenantError);
+          // Continue with user data even if tenant creation fails
         }
       }
       
@@ -127,17 +133,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Only create tenant for non-super_admin users
       if (data && data.role !== 'super_admin') {
-        await createOrAssignTenant(data);
-        
-        // Refetch user data after tenant creation
-        const { data: updatedUser, error: updateError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", authUser.id)
-          .maybeSingle();
-        
-        if (!updateError && updatedUser) {
-          return updatedUser;
+        try {
+          await createOrAssignTenant(data);
+          
+          // Refetch user data after tenant creation
+          const { data: updatedUser, error: updateError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", authUser.id)
+            .maybeSingle();
+          
+          if (!updateError && updatedUser) {
+            return updatedUser;
+          }
+        } catch (tenantError) {
+          console.error('Error creating tenant for new user:', tenantError);
+          // Return user data even if tenant creation fails
         }
       }
       

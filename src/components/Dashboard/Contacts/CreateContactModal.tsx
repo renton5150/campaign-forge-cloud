@@ -34,7 +34,7 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     notes: '',
     listId: defaultListId || '',
   });
-  const [isRetrying, setIsRetrying] = useState(false);
+  const [isConfiguring, setIsConfiguring] = useState(false);
 
   const { user, refreshUser } = useAuth();
   const { createContact, addToList } = useContacts();
@@ -54,38 +54,40 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
       return;
     }
 
+    // Gestion spéciale pour les super_admin (ils n'ont pas de tenant_id)
+    if (user.role === 'super_admin') {
+      toast({
+        title: 'Erreur',
+        description: 'Les super administrateurs ne peuvent pas créer de contacts directement',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Si l'utilisateur n'a pas de tenant_id, on tente de rafraîchir
     if (!user.tenant_id) {
       console.log('User has no tenant_id, attempting to refresh user data...');
-      setIsRetrying(true);
+      setIsConfiguring(true);
       
       try {
         await refreshUser();
         
-        // Wait a moment for the refresh to complete
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Attendre un moment pour que le rafraîchissement se termine
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // Check if we now have a tenant_id
-        if (!user.tenant_id) {
-          toast({
-            title: 'Erreur de configuration',
-            description: 'Votre compte n\'est pas encore configuré. Veuillez rafraîchir la page et réessayer.',
-            variant: 'destructive',
-          });
-          setIsRetrying(false);
-          return;
-        }
+        // Recharger la page si le tenant_id n'est toujours pas présent
+        window.location.reload();
+        return;
       } catch (error) {
         console.error('Error refreshing user:', error);
         toast({
-          title: 'Erreur',
+          title: 'Erreur de configuration',
           description: 'Impossible de configurer votre compte. Veuillez rafraîchir la page.',
           variant: 'destructive',
         });
-        setIsRetrying(false);
+        setIsConfiguring(false);
         return;
       }
-      
-      setIsRetrying(false);
     }
 
     if (!formData.email) {
@@ -260,9 +262,9 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
             </Button>
             <Button 
               type="submit" 
-              disabled={createContact.isPending || addToList.isPending || isRetrying}
+              disabled={createContact.isPending || addToList.isPending || isConfiguring}
             >
-              {isRetrying ? 'Configuration...' : createContact.isPending ? 'Création...' : 'Créer le contact'}
+              {isConfiguring ? 'Configuration du compte...' : createContact.isPending ? 'Création...' : 'Créer le contact'}
             </Button>
           </DialogFooter>
         </form>
