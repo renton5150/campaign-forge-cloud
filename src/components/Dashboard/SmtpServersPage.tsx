@@ -12,7 +12,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Settings, Trash2, TestTube } from 'lucide-react';
-import { useSmtpServers, SmtpServerFormData, SmtpServerType } from '@/hooks/useSmtpServers';
+import { useSmtpServers, SmtpServerFormData, SmtpServerType, SmtpServer } from '@/hooks/useSmtpServers';
 import { useToast } from '@/hooks/use-toast';
 
 const smtpServerSchema = z.object({
