@@ -27,7 +27,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { addToBlacklist } = useBlacklists();
   const { toast } = useToast();
 
@@ -39,24 +39,12 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     setError(null);
 
     try {
-      // Debug logging
-      console.log('Current user:', user);
-      console.log('Current session:', session);
-      console.log('User tenant_id:', user?.tenant_id);
-      console.log('User role:', user?.role);
-      console.log('Session user:', session?.user);
-
-      // Vérifier que l'utilisateur est authentifié
-      if (!user || !session) {
-        throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.');
-      }
-
       console.log('Adding to blacklist with data:', {
         type,
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
-        created_by: user.id
+        created_by: user?.id
       });
 
       await addToBlacklist.mutateAsync({
@@ -64,7 +52,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
-        created_by: user.id
+        created_by: user?.id || ''
       });
 
       toast({
@@ -79,14 +67,8 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
       
       let errorMessage = "Impossible d'ajouter à la blacklist";
       
-      if (error.message.includes('row-level security') || error.message.includes('violates')) {
-        errorMessage = "Problème de permissions. Veuillez contacter l'administrateur.";
-      } else if (error.message.includes('tenant_id') || error.message.includes('tenant')) {
-        errorMessage = "Problème avec votre compte. Veuillez vous reconnecter.";
-      } else if (error.message.includes('duplicate key')) {
+      if (error.message.includes('duplicate key')) {
         errorMessage = "Cet élément est déjà dans la blacklist.";
-      } else if (error.message.includes('not allowed')) {
-        errorMessage = "Vous n'avez pas les permissions nécessaires.";
       } else if (error.message) {
         errorMessage = error.message;
       }
