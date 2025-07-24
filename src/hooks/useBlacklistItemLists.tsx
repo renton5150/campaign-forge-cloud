@@ -9,6 +9,11 @@ export interface BlacklistItemList {
   blacklist_list_id: string;
   added_at: string;
   added_by: string;
+  blacklist_lists?: {
+    id: string;
+    name: string;
+    type: string;
+  };
 }
 
 export function useBlacklistItemLists() {
@@ -22,31 +27,57 @@ export function useBlacklistItemLists() {
       queryFn: async () => {
         if (!user || !blacklistId) return [];
 
-        try {
-          const { data, error } = await supabase
-            .from('blacklist_item_lists' as any)
-            .select(`
-              *,
-              blacklist_lists (
-                id,
-                name,
-                type
-              )
-            `)
-            .eq('blacklist_id', blacklistId);
+        const { data, error } = await supabase
+          .from('blacklist_item_lists')
+          .select(`
+            *,
+            blacklist_lists (
+              id,
+              name,
+              type
+            )
+          `)
+          .eq('blacklist_id', blacklistId);
 
-          if (error) {
-            console.error('Error fetching blacklist item lists:', error);
-            // Retourner un tableau vide en cas d'erreur plutôt que de throw
-            return [];
-          }
-          return data || [];
-        } catch (error) {
-          console.error('Error in getBlacklistItemLists:', error);
+        if (error) {
+          console.error('Error fetching blacklist item lists:', error);
           return [];
         }
+        return data || [];
       },
       enabled: !!user && !!blacklistId,
+    });
+  };
+
+  // Récupérer les éléments d'une liste de blacklist
+  const getBlacklistListItems = (listId: string) => {
+    return useQuery({
+      queryKey: ['blacklistListItems', listId],
+      queryFn: async () => {
+        if (!user || !listId) return [];
+
+        const { data, error } = await supabase
+          .from('blacklist_item_lists')
+          .select(`
+            *,
+            blacklists (
+              id,
+              type,
+              value,
+              reason,
+              category,
+              created_at
+            )
+          `)
+          .eq('blacklist_list_id', listId);
+
+        if (error) {
+          console.error('Error fetching blacklist list items:', error);
+          return [];
+        }
+        return data || [];
+      },
+      enabled: !!user && !!listId,
     });
   };
 
@@ -57,29 +88,25 @@ export function useBlacklistItemLists() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      try {
-        const { data, error } = await supabase
-          .from('blacklist_item_lists' as any)
-          .insert({
-            blacklist_id: blacklistId,
-            blacklist_list_id: listId,
-            added_by: user.id
-          })
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from('blacklist_item_lists')
+        .insert({
+          blacklist_id: blacklistId,
+          blacklist_list_id: listId,
+          added_by: user.id
+        })
+        .select()
+        .single();
 
-        if (error) {
-          console.error('Error adding to blacklist list:', error);
-          throw error;
-        }
-        return data;
-      } catch (error) {
-        console.error('Error in addToList:', error);
+      if (error) {
+        console.error('Error adding to blacklist list:', error);
         throw error;
       }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blacklistItemLists'] });
+      queryClient.invalidateQueries({ queryKey: ['blacklistListItems'] });
       queryClient.invalidateQueries({ queryKey: ['blacklists'] });
     },
   });
@@ -91,24 +118,20 @@ export function useBlacklistItemLists() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      try {
-        const { error } = await supabase
-          .from('blacklist_item_lists' as any)
-          .delete()
-          .eq('blacklist_id', blacklistId)
-          .eq('blacklist_list_id', listId);
+      const { error } = await supabase
+        .from('blacklist_item_lists')
+        .delete()
+        .eq('blacklist_id', blacklistId)
+        .eq('blacklist_list_id', listId);
 
-        if (error) {
-          console.error('Error removing from blacklist list:', error);
-          throw error;
-        }
-      } catch (error) {
-        console.error('Error in removeFromList:', error);
+      if (error) {
+        console.error('Error removing from blacklist list:', error);
         throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blacklistItemLists'] });
+      queryClient.invalidateQueries({ queryKey: ['blacklistListItems'] });
       queryClient.invalidateQueries({ queryKey: ['blacklists'] });
     },
   });
@@ -120,36 +143,33 @@ export function useBlacklistItemLists() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      try {
-        const associations = listIds.map(listId => ({
-          blacklist_id: blacklistId,
-          blacklist_list_id: listId,
-          added_by: user.id
-        }));
+      const associations = listIds.map(listId => ({
+        blacklist_id: blacklistId,
+        blacklist_list_id: listId,
+        added_by: user.id
+      }));
 
-        const { data, error } = await supabase
-          .from('blacklist_item_lists' as any)
-          .insert(associations)
-          .select();
+      const { data, error } = await supabase
+        .from('blacklist_item_lists')
+        .insert(associations)
+        .select();
 
-        if (error) {
-          console.error('Error adding to multiple lists:', error);
-          throw error;
-        }
-        return data;
-      } catch (error) {
-        console.error('Error in addToMultipleLists:', error);
+      if (error) {
+        console.error('Error adding to multiple lists:', error);
         throw error;
       }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blacklistItemLists'] });
+      queryClient.invalidateQueries({ queryKey: ['blacklistListItems'] });
       queryClient.invalidateQueries({ queryKey: ['blacklists'] });
     },
   });
 
   return {
     getBlacklistItemLists,
+    getBlacklistListItems,
     addToList,
     removeFromList,
     addToMultipleLists,

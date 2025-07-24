@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      blacklist_item_lists: {
+        Row: {
+          added_at: string
+          added_by: string
+          blacklist_id: string
+          blacklist_list_id: string
+          id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          blacklist_id: string
+          blacklist_list_id: string
+          id?: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          blacklist_id?: string
+          blacklist_list_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blacklist_item_lists_blacklist_id_fkey"
+            columns: ["blacklist_id"]
+            isOneToOne: false
+            referencedRelation: "blacklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blacklist_item_lists_blacklist_list_id_fkey"
+            columns: ["blacklist_list_id"]
+            isOneToOne: false
+            referencedRelation: "blacklist_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blacklist_lists: {
         Row: {
           created_at: string

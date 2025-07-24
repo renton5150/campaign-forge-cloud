@@ -12,6 +12,14 @@ export interface Blacklist {
   category: 'bounce' | 'complaint' | 'manual' | 'competitor';
   created_by: string;
   created_at: string;
+  blacklist_item_lists?: Array<{
+    id: string;
+    blacklist_lists: {
+      id: string;
+      name: string;
+      type: string;
+    };
+  }>;
 }
 
 export function useBlacklists(type?: 'email' | 'domain') {
@@ -31,7 +39,7 @@ export function useBlacklists(type?: 'email' | 'domain') {
         .from('blacklists')
         .select(`
           *,
-          blacklist_item_lists!inner (
+          blacklist_item_lists (
             id,
             blacklist_lists (
               id,
