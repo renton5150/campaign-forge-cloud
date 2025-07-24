@@ -66,7 +66,6 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
         tags: [],
         custom_fields: {},
         last_activity_at: null,
-        created_by: '', // Will be set by the hook
       });
 
       // Ajouter à la liste si sélectionnée (et différente de "no-list")

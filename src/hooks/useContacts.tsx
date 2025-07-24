@@ -42,14 +42,17 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
 
   // Créer un contact
   const createContact = useMutation({
-    mutationFn: async (contactData: Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'tenant_id'>) => {
+    mutationFn: async (contactData: Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'tenant_id' | 'created_by'>) => {
+      if (!user?.id) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
       const { data, error } = await supabase
         .from('contacts')
         .insert({
           ...contactData,
-          tenant_id: user?.tenant_id,
-          created_by: user?.id,
-          source: 'manual'
+          tenant_id: user.tenant_id,
+          created_by: user.id
         })
         .select()
         .single();
