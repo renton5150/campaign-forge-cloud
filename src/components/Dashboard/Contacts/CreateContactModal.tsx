@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,22 +52,6 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
       return;
     }
 
-    // Pour les super_admin, on utilise un tenant_id fictif ou on permet la création sans tenant_id
-    let tenantId = user.tenant_id;
-    if (user.role === 'super_admin' && !tenantId) {
-      // Les super_admin peuvent créer des contacts sans tenant_id spécifique
-      tenantId = '00000000-0000-0000-0000-000000000000'; // UUID fictif pour les super_admin
-    }
-
-    if (!tenantId && user.role !== 'super_admin') {
-      toast({
-        title: 'Erreur',
-        description: 'Votre compte n\'est pas encore configuré. Veuillez contacter l\'administrateur.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     if (!formData.email) {
       toast({
         title: 'Erreur',
@@ -82,7 +65,6 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
       console.log('Submitting contact creation...');
       console.log('User role:', user.role);
       console.log('User tenant_id:', user.tenant_id);
-      console.log('Using tenant_id:', tenantId);
       
       const contact = await createContact.mutateAsync({
         email: formData.email.toLowerCase().trim(),

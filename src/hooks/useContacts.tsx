@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,7 +43,6 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
   // Créer un contact
   const createContact = useMutation({
     mutationFn: async (contactData: Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'tenant_id' | 'created_by'>) => {
-      console.log('User data:', user);
       console.log('Creating contact with data:', contactData);
 
       if (!user) {
@@ -55,19 +53,9 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
         throw new Error('ID utilisateur manquant');
       }
 
-      // Pour les super_admin, on utilise un tenant_id fictif
-      let tenantId = user.tenant_id;
-      if (user.role === 'super_admin' && !tenantId) {
-        tenantId = '00000000-0000-0000-0000-000000000000';
-      }
-
-      if (!tenantId && user.role !== 'super_admin') {
-        throw new Error('Tenant ID manquant pour l\'utilisateur');
-      }
-
       const insertData = {
         ...contactData,
-        tenant_id: tenantId,
+        tenant_id: user.tenant_id,
         created_by: user.id
       };
 
