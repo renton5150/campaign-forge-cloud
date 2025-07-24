@@ -27,7 +27,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { addToBlacklist } = useBlacklists();
   const { toast } = useToast();
 
@@ -39,16 +39,29 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     setError(null);
 
     try {
-      // Vérifier que l'utilisateur est authentifié et a un tenant_id
-      if (!user) {
-        throw new Error('Utilisateur non authentifié');
+      // Debug logging
+      console.log('Current user:', user);
+      console.log('Current session:', session);
+      console.log('User tenant_id:', user?.tenant_id);
+      console.log('Session user:', session?.user);
+
+      // Vérifier que l'utilisateur est authentifié
+      if (!user || !session) {
+        throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.');
       }
 
       if (!user.tenant_id) {
-        throw new Error('Tenant ID manquant. Veuillez vous reconnecter.');
+        throw new Error('Aucun tenant associé à votre compte. Veuillez contacter l\'administrateur.');
       }
 
-      console.log('Adding to blacklist with user:', user);
+      console.log('Adding to blacklist with data:', {
+        type,
+        value: value.trim().toLowerCase(),
+        reason: reason.trim() || undefined,
+        category,
+        created_by: user.id,
+        tenant_id: user.tenant_id
+      });
 
       await addToBlacklist.mutateAsync({
         type,
@@ -70,10 +83,12 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
       
       let errorMessage = "Impossible d'ajouter à la blacklist";
       
-      if (error.message.includes('tenant_id')) {
-        errorMessage = "Erreur d'authentification. Veuillez vous reconnecter.";
+      if (error.message.includes('tenant_id') || error.message.includes('tenant')) {
+        errorMessage = "Problème avec votre compte. Veuillez vous reconnecter.";
       } else if (error.message.includes('duplicate key')) {
         errorMessage = "Cet élément est déjà dans la blacklist.";
+      } else if (error.message.includes('not allowed')) {
+        errorMessage = "Vous n'avez pas les permissions nécessaires.";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -103,6 +118,9 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     onClose();
   };
 
+  // Show user debug info if there's an issue
+  const showDebugInfo = !user?.tenant_id && user;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
@@ -114,6 +132,16 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {showDebugInfo && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Debug: Utilisateur connecté mais sans tenant_id. 
+              Email: {user.email}, ID: {user.id}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -176,7 +204,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
             <Button type="button" variant="outline" onClick={handleClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={isLoading || !value.trim()}>
+            <Button type="submit" disabled={isLoading || !value.trim() || !user?.tenant_id}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ajouter
             </Button>

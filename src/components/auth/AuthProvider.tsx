@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -68,30 +67,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return await createUserProfile(session.user);
       }
       
+      // Vérifier si l'utilisateur a un tenant_id
       if (data && !data.tenant_id && data.role !== 'super_admin') {
         console.log('User has no tenant_id, creating tenant...');
         
         try {
-          await createOrAssignTenant(data);
-          
-          const { data: updatedUser, error: updateError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("id", session.user.id)
-            .maybeSingle();
-          
-          if (!updateError && updatedUser) {
-            return updatedUser;
-          }
+          const updatedUser = await createOrAssignTenant(data);
+          return updatedUser;
         } catch (tenantError) {
           console.error('Error creating tenant:', tenantError);
+          // Retourner l'utilisateur même sans tenant_id pour éviter les boucles infinies
+          return data;
         }
       }
       
       return data;
     },
     enabled: !!session?.user?.id,
-    retry: 3,
+    retry: 2,
     retryDelay: 1000,
     staleTime: 5 * 60 * 1000,
   });
@@ -121,19 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (data && data.role !== 'super_admin') {
         try {
-          await createOrAssignTenant(data);
-          
-          const { data: updatedUser, error: updateError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("id", authUser.id)
-            .maybeSingle();
-          
-          if (!updateError && updatedUser) {
-            return updatedUser;
-          }
+          return await createOrAssignTenant(data);
         } catch (tenantError) {
           console.error('Error creating tenant for new user:', tenantError);
+          // Retourner l'utilisateur même sans tenant_id
+          return data;
         }
       }
       
@@ -144,10 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const createOrAssignTenant = async (userData: User) => {
+  const createOrAssignTenant = async (userData: User): Promise<User> => {
     if (userData.role === 'super_admin') {
       console.log('Skipping tenant creation for super_admin user');
-      return;
+      return userData;
     }
     
     try {
@@ -155,7 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const domain = userData.email.split('@')[1];
       if (!domain) {
-        throw new Error('Invalid email domain');
+        console.error('Invalid email domain for user:', userData.email);
+        return userData;
       }
       
       const companyName = domain.split('.')[0];
@@ -201,17 +187,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             if (retryError) {
               console.error('Error retrying tenant search:', retryError);
-              throw retryError;
+              return userData;
             }
             
             if (retryTenant) {
               tenantId = retryTenant.id;
               console.log('Using existing tenant after duplicate error:', retryTenant);
             } else {
-              throw tenantError;
+              console.error('Could not create or find tenant');
+              return userData;
             }
           } else {
-            throw tenantError;
+            console.error('Failed to create tenant:', tenantError);
+            return userData;
           }
         } else {
           console.log('New tenant created:', newTenant);
@@ -219,20 +207,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      const { error: updateError } = await supabase
+      // Mettre à jour l'utilisateur avec le tenant_id
+      const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({ tenant_id: tenantId })
-        .eq('id', userData.id);
+        .eq('id', userData.id)
+        .select()
+        .single();
       
       if (updateError) {
         console.error('Error updating user with tenant_id:', updateError);
-        throw updateError;
-      } else {
-        console.log('User updated with tenant_id:', tenantId);
+        return userData;
       }
+      
+      console.log('User updated with tenant_id:', updatedUser);
+      return updatedUser;
     } catch (error) {
       console.error('Error in createOrAssignTenant:', error);
-      throw error;
+      return userData;
     }
   };
 
