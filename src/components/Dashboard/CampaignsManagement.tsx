@@ -16,12 +16,14 @@ import {
   TrendingUp,
   AlertCircle,
   RefreshCw,
-  List
+  List,
+  Shield
 } from 'lucide-react';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useEmailQueue } from '@/hooks/useEmailQueue';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useQueueProcessor } from '@/hooks/useQueueProcessor';
+import { useAuth } from '@/hooks/useAuth';
 import { Campaign } from '@/types/database';
 import CampaignEditor from './CampaignEditor';
 import CampaignStats from './CampaignStats';
@@ -35,6 +37,7 @@ export default function CampaignsManagement() {
   const { sendCampaign, getCampaignQueueStats, retryFailedEmails } = useEmailQueue();
   const { contactLists } = useContactLists();
   const { processQueue } = useQueueProcessor();
+  const { user } = useAuth();
   const { toast } = useToast();
   
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -47,7 +50,6 @@ export default function CampaignsManagement() {
   const [cleaningResult, setCleaningResult] = useState<ContactCleaningResult | null>(null);
   const [showCleaningPreview, setShowCleaningPreview] = useState(false);
 
-  // Charger les statistiques de queue pour chaque campagne
   useEffect(() => {
     if (campaigns) {
       const loadStats = async () => {
@@ -165,7 +167,6 @@ export default function CampaignsManagement() {
     }
   };
 
-  // Statistiques globales
   const totalCampaigns = campaigns?.length || 0;
   const draftCampaigns = campaigns?.filter(c => c.status === 'draft').length || 0;
   const sentCampaigns = campaigns?.filter(c => c.status === 'sent').length || 0;
@@ -219,7 +220,6 @@ export default function CampaignsManagement() {
         </div>
       </div>
 
-      {/* Statistiques globales */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -321,7 +321,6 @@ export default function CampaignsManagement() {
                      )}
                    </div>
                    
-                   {/* Statistiques de queue */}
                    {queueStats[campaign.id] && queueStats[campaign.id].total > 0 && (
                      <div className="grid grid-cols-4 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
                        <div className="text-center">
@@ -428,7 +427,6 @@ export default function CampaignsManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Modal pour sélectionner les listes de contacts */}
       {showSendModal && selectedCampaign && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -457,7 +455,6 @@ export default function CampaignsManagement() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Sélection des listes de contacts */}
               <div>
                 <h4 className="font-medium mb-3">Listes de contacts destinataires</h4>
                 <div className="max-h-48 overflow-y-auto border rounded-lg p-3">
@@ -485,7 +482,6 @@ export default function CampaignsManagement() {
                 </div>
               </div>
 
-              {/* Sélection des listes de blacklist */}
               <div>
                 <BlacklistListSelector
                   selectedListIds={selectedBlacklistLists}
@@ -494,7 +490,6 @@ export default function CampaignsManagement() {
               </div>
             </div>
 
-            {/* Bouton d'aperçu du nettoyage */}
             {selectedLists.length > 0 && (
               <div className="mt-4">
                 <Button
@@ -508,7 +503,6 @@ export default function CampaignsManagement() {
               </div>
             )}
 
-            {/* Statistiques de nettoyage */}
             {showCleaningPreview && cleaningResult && (
               <div className="mt-4">
                 <ContactCleaningStats cleaningResult={cleaningResult} />

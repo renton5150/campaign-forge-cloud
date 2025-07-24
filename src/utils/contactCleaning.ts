@@ -70,7 +70,11 @@ export async function cleanContactsForCampaign(
   if (blacklistError) throw blacklistError;
 
   // 3. Si des listes de blacklist sont spécifiées, ne garder que les éléments de ces listes
-  let applicableBlacklists: BlacklistItem[] = allBlacklists || [];
+  let applicableBlacklists: BlacklistItem[] = (allBlacklists || []).map(item => ({
+    id: item.id,
+    type: item.type as 'email' | 'domain',
+    value: item.value
+  }));
 
   if (blacklistListIds.length > 0) {
     const { data: listAssociations, error: listError } = await supabase
