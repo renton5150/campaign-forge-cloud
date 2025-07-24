@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,9 +13,34 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, role?: UserRole) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  cleanupAuthState: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Function to clean up authentication state
+const cleanupAuthState = () => {
+  console.log('Cleaning up authentication state...');
+  
+  // Remove standard auth tokens
+  localStorage.removeItem('supabase.auth.token');
+  
+  // Remove all Supabase auth keys from localStorage
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  
+  // Remove from sessionStorage if in use
+  if (typeof sessionStorage !== 'undefined') {
+    Object.keys(sessionStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        sessionStorage.removeItem(key);
+      }
+    });
+  }
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -42,6 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('User profile loaded:', data);
       
+      // If no user profile exists, create one
+      if (!data) {
+        console.log('No user profile found, creating one...');
+        const newUser = await createUserProfile(session.user);
+        return newUser;
+      }
+      
       // If user doesn't have a tenant_id, try to create or assign one
       if (data && !data.tenant_id) {
         console.log('User has no tenant_id, attempting to create/assign tenant...');
@@ -68,6 +101,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Function to create user profile
+  const createUserProfile = async (authUser: SupabaseUser): Promise<User | null> => {
+    try {
+      console.log('Creating user profile for:', authUser.email);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: authUser.id,
+          email: authUser.email || '',
+          full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utilisateur',
+          role: 'tenant_sdr' as UserRole,
+          tenant_id: null
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating user profile:', error);
+        throw error;
+      }
+      
+      console.log('User profile created:', data);
+      
+      // Now create or assign tenant
+      if (data) {
+        await createOrAssignTenant(data);
+        
+        // Refetch user data after tenant creation
+        const { data: updatedUser, error: updateError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", authUser.id)
+          .maybeSingle();
+        
+        if (!updateError && updatedUser) {
+          return updatedUser;
+        }
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in createUserProfile:', error);
+      throw error;
+    }
+  };
+
   // Function to create or assign a tenant for a user
   const createOrAssignTenant = async (userData: User) => {
     try {
@@ -75,6 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Extract domain from email
       const domain = userData.email.split('@')[1];
+      if (!domain) {
+        throw new Error('Invalid email domain');
+      }
+      
       const companyName = domain.split('.')[0];
       
       // First, check if a tenant already exists for this domain
@@ -84,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('domain', domain)
         .maybeSingle();
       
-      if (searchError) {
+      if (searchError && searchError.code !== 'PGRST116') {
         console.error('Error searching for existing tenant:', searchError);
         throw searchError;
       }
@@ -194,36 +278,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      // Clean up existing state
+      cleanupAuthState();
+      
+      // Attempt global sign out first
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+        console.log('Global signout failed, continuing...');
+      }
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      return { error };
+    } catch (error) {
+      console.error('Sign in error:', error);
+      return { error };
+    }
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: UserRole = 'tenant_sdr') => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName
+    try {
+      // Clean up existing state
+      cleanupAuthState();
+      
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            full_name: fullName
+          }
         }
-      }
-    });
+      });
 
-    if (error) return { error };
+      if (error) return { error };
 
-    return { error: null };
+      return { error: null };
+    } catch (error) {
+      console.error('Sign up error:', error);
+      return { error };
+    }
   };
 
   const signOut = async () => {
     try {
+      // Clean up auth state
+      cleanupAuthState();
       queryClient.clear();
-      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Attempt global sign out
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        console.log('Global signout failed, continuing...');
+      }
+      
+      // Force page reload for a clean state
       window.location.href = '/auth';
     } catch (error) {
       console.error('Error signing out:', error);
@@ -243,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       refreshUser,
+      cleanupAuthState,
     }}>
       {children}
     </AuthContext.Provider>

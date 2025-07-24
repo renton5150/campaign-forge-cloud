@@ -7,10 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2, Mail, RefreshCw } from 'lucide-react';
 
 const Auth = () => {
-  const { signIn, signUp, user, loading } = useAuth();
+  const { signIn, signUp, user, loading, cleanupAuthState } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -48,6 +48,7 @@ const Auth = () => {
           title: "Connexion réussie",
           description: "Bienvenue !",
         });
+        // Force page reload to ensure clean state
         window.location.href = '/';
       }
     } catch (err) {
@@ -103,6 +104,15 @@ const Auth = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCleanAuth = () => {
+    cleanupAuthState();
+    toast({
+      title: "État d'authentification nettoyé",
+      description: "Vous pouvez maintenant vous reconnecter",
+    });
+    window.location.reload();
   };
 
   if (loading) {
@@ -227,6 +237,18 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
+          
+          <div className="mt-6 pt-4 border-t">
+            <Button 
+              onClick={handleCleanAuth}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Nettoyer l'état d'authentification
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
