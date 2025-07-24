@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -177,8 +178,8 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
                 <SelectValue placeholder="Sélectionner une liste (optionnel)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Aucune liste</SelectItem>
-                {contactLists.map((list) => (
+                <SelectItem value="no-list">Aucune liste</SelectItem>
+                {(contactLists || []).map((list) => (
                   <SelectItem key={list.id} value={list.id}>
                     {list.name} ({list.total_contacts} contacts)
                   </SelectItem>
