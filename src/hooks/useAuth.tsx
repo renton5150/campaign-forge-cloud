@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -43,10 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('User profile loaded:', data);
       
-      // If user doesn't have a tenant_id, try to create one
+      // If user doesn't have a tenant_id, try to create or assign one
       if (data && !data.tenant_id) {
         console.log('User has no tenant_id, attempting to create/assign tenant...');
-        await createTenantForUser(data);
+        await createOrAssignTenant(data);
         
         // Refetch user data after tenant creation
         const { data: updatedUser, error: updateError } = await supabase
@@ -69,46 +68,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Function to create a tenant for a user
-  const createTenantForUser = async (userData: User) => {
+  // Function to create or assign a tenant for a user
+  const createOrAssignTenant = async (userData: User) => {
     try {
-      console.log('Creating tenant for user:', userData.email);
+      console.log('Creating/assigning tenant for user:', userData.email);
       
       // Extract domain from email
       const domain = userData.email.split('@')[1];
       const companyName = domain.split('.')[0];
       
-      // Create tenant
-      const { data: tenant, error: tenantError } = await supabase
+      // First, check if a tenant already exists for this domain
+      const { data: existingTenant, error: searchError } = await supabase
         .from('tenants')
-        .insert({
-          company_name: companyName,
-          domain: domain,
-          status: 'active'
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('domain', domain)
+        .maybeSingle();
       
-      if (tenantError) {
-        console.error('Error creating tenant:', tenantError);
-        return;
+      if (searchError) {
+        console.error('Error searching for existing tenant:', searchError);
+        throw searchError;
       }
       
-      console.log('Tenant created:', tenant);
+      let tenantId: string;
+      
+      if (existingTenant) {
+        // Use existing tenant
+        console.log('Found existing tenant for domain:', domain, existingTenant);
+        tenantId = existingTenant.id;
+      } else {
+        // Create new tenant with a unique name to avoid conflicts
+        const uniqueCompanyName = `${companyName}-${Date.now()}`;
+        
+        const { data: newTenant, error: tenantError } = await supabase
+          .from('tenants')
+          .insert({
+            company_name: uniqueCompanyName,
+            domain: domain,
+            status: 'active'
+          })
+          .select()
+          .single();
+        
+        if (tenantError) {
+          console.error('Error creating tenant:', tenantError);
+          
+          // If it's a duplicate key error, try to find the existing tenant again
+          if (tenantError.code === '23505') {
+            const { data: retryTenant, error: retryError } = await supabase
+              .from('tenants')
+              .select('*')
+              .eq('domain', domain)
+              .maybeSingle();
+            
+            if (retryError) {
+              console.error('Error retrying tenant search:', retryError);
+              throw retryError;
+            }
+            
+            if (retryTenant) {
+              tenantId = retryTenant.id;
+              console.log('Using existing tenant after duplicate error:', retryTenant);
+            } else {
+              throw tenantError;
+            }
+          } else {
+            throw tenantError;
+          }
+        } else {
+          console.log('New tenant created:', newTenant);
+          tenantId = newTenant.id;
+        }
+      }
       
       // Update user with tenant_id
       const { error: updateError } = await supabase
         .from('users')
-        .update({ tenant_id: tenant.id })
+        .update({ tenant_id: tenantId })
         .eq('id', userData.id);
       
       if (updateError) {
         console.error('Error updating user with tenant_id:', updateError);
+        throw updateError;
       } else {
-        console.log('User updated with tenant_id:', tenant.id);
+        console.log('User updated with tenant_id:', tenantId);
       }
     } catch (error) {
-      console.error('Error in createTenantForUser:', error);
+      console.error('Error in createOrAssignTenant:', error);
+      throw error;
     }
   };
 

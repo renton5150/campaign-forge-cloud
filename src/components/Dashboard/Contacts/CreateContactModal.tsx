@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +34,7 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     notes: '',
     listId: defaultListId || '',
   });
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const { user, refreshUser } = useAuth();
   const { createContact, addToList } = useContacts();
@@ -53,22 +55,37 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     }
 
     if (!user.tenant_id) {
-      console.log('User has no tenant_id, refreshing user data...');
-      await refreshUser();
+      console.log('User has no tenant_id, attempting to refresh user data...');
+      setIsRetrying(true);
       
-      // Wait a moment for the refresh to complete
-      setTimeout(async () => {
+      try {
+        await refreshUser();
+        
+        // Wait a moment for the refresh to complete
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check if we now have a tenant_id
         if (!user.tenant_id) {
           toast({
-            title: 'Erreur',
-            description: 'Impossible de créer un tenant pour votre compte. Veuillez réessayer ou contacter l\'administrateur.',
+            title: 'Erreur de configuration',
+            description: 'Votre compte n\'est pas encore configuré. Veuillez rafraîchir la page et réessayer.',
             variant: 'destructive',
           });
+          setIsRetrying(false);
           return;
         }
-      }, 1000);
+      } catch (error) {
+        console.error('Error refreshing user:', error);
+        toast({
+          title: 'Erreur',
+          description: 'Impossible de configurer votre compte. Veuillez rafraîchir la page.',
+          variant: 'destructive',
+        });
+        setIsRetrying(false);
+        return;
+      }
       
-      return;
+      setIsRetrying(false);
     }
 
     if (!formData.email) {
@@ -83,6 +100,7 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     try {
       console.log('Submitting contact creation...');
       console.log('User tenant_id:', user.tenant_id);
+      console.log('User id:', user.id);
       
       const contact = await createContact.mutateAsync({
         email: formData.email.toLowerCase().trim(),
@@ -242,9 +260,9 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
             </Button>
             <Button 
               type="submit" 
-              disabled={createContact.isPending || addToList.isPending}
+              disabled={createContact.isPending || addToList.isPending || isRetrying}
             >
-              {createContact.isPending ? 'Création...' : 'Créer le contact'}
+              {isRetrying ? 'Configuration...' : createContact.isPending ? 'Création...' : 'Créer le contact'}
             </Button>
           </DialogFooter>
         </form>
