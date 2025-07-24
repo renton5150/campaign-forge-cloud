@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  // Query to fetch user profile with better error handling
+  // Query to fetch user profile
   const { data: user, isLoading: isUserLoading, error } = useQuery({
     queryKey: ["user", session?.user?.id],
     queryFn: async () => {
@@ -75,9 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return newUser;
       }
       
-      // If user doesn't have a tenant_id, try to create or assign one
-      if (data && !data.tenant_id) {
-        console.log('User has no tenant_id, attempting to create/assign tenant...');
+      // Only assign tenant for non-super_admin users
+      if (data && !data.tenant_id && data.role !== 'super_admin') {
+        console.log('User has no tenant_id and is not super_admin, attempting to create/assign tenant...');
         await createOrAssignTenant(data);
         
         // Refetch user data after tenant creation
@@ -125,8 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('User profile created:', data);
       
-      // Now create or assign tenant
-      if (data) {
+      // Only create tenant for non-super_admin users
+      if (data && data.role !== 'super_admin') {
         await createOrAssignTenant(data);
         
         // Refetch user data after tenant creation
@@ -148,8 +148,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Function to create or assign a tenant for a user
+  // Function to create or assign a tenant for a user (only for non-super_admin users)
   const createOrAssignTenant = async (userData: User) => {
+    // Skip tenant creation for super_admin users
+    if (userData.role === 'super_admin') {
+      console.log('Skipping tenant creation for super_admin user');
+      return;
+    }
+    
     try {
       console.log('Creating/assigning tenant for user:', userData.email);
       
