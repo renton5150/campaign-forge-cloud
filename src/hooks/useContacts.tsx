@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,25 +44,38 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
   // Créer un contact
   const createContact = useMutation({
     mutationFn: async (contactData: Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'tenant_id' | 'created_by'>) => {
-      if (!user?.id || !user?.tenant_id) {
-        throw new Error('Utilisateur non authentifié ou tenant manquant');
+      console.log('User data:', user);
+      console.log('Creating contact with data:', contactData);
+
+      if (!user) {
+        throw new Error('Utilisateur non connecté');
       }
 
-      console.log('Creating contact with tenant_id:', user.tenant_id);
+      if (!user.id) {
+        throw new Error('ID utilisateur manquant');
+      }
+
+      if (!user.tenant_id) {
+        throw new Error('Tenant ID manquant pour l\'utilisateur');
+      }
+
+      const insertData = {
+        ...contactData,
+        tenant_id: user.tenant_id,
+        created_by: user.id
+      };
+
+      console.log('Inserting contact with data:', insertData);
       
       const { data, error } = await supabase
         .from('contacts')
-        .insert({
-          ...contactData,
-          tenant_id: user.tenant_id,
-          created_by: user.id
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (error) {
         console.error('Error creating contact:', error);
-        throw error;
+        throw new Error(`Erreur lors de la création du contact: ${error.message}`);
       }
       
       console.log('Contact created successfully:', data);

@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useContacts } from '@/hooks/useContacts';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CreateContactModalProps {
   open: boolean;
@@ -34,12 +35,32 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     listId: defaultListId || '',
   });
 
+  const { user } = useAuth();
   const { createContact, addToList } = useContacts();
   const { contactLists } = useContactLists();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Vérifications d'authentification
+    if (!user) {
+      toast({
+        title: 'Erreur',
+        description: 'Vous devez être connecté pour créer un contact',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!user.tenant_id) {
+      toast({
+        title: 'Erreur',
+        description: 'Votre compte n\'est pas associé à un tenant. Contactez l\'administrateur.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if (!formData.email) {
       toast({
@@ -51,6 +72,8 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     }
 
     try {
+      console.log('Submitting contact creation...');
+      
       const contact = await createContact.mutateAsync({
         email: formData.email.toLowerCase().trim(),
         first_name: formData.first_name.trim() || null,
@@ -67,6 +90,8 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
         custom_fields: {},
         last_activity_at: null,
       });
+
+      console.log('Contact created, now adding to list if selected...');
 
       // Ajouter à la liste si sélectionnée (et différente de "no-list")
       if (formData.listId && formData.listId !== 'no-list' && contact) {
@@ -94,6 +119,7 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
 
       onOpenChange(false);
     } catch (error: any) {
+      console.error('Error creating contact:', error);
       toast({
         title: 'Erreur',
         description: error.message || 'Erreur lors de la création du contact',
