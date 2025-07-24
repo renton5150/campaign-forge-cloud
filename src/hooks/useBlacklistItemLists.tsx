@@ -23,7 +23,7 @@ export function useBlacklistItemLists() {
         if (!user || !blacklistId) return [];
 
         const { data, error } = await supabase
-          .from('blacklist_item_lists')
+          .from('blacklist_item_lists' as any)
           .select(`
             *,
             blacklist_lists (
@@ -52,7 +52,7 @@ export function useBlacklistItemLists() {
       }
 
       const { data, error } = await supabase
-        .from('blacklist_item_lists')
+        .from('blacklist_item_lists' as any)
         .insert({
           blacklist_id: blacklistId,
           blacklist_list_id: listId,
@@ -81,7 +81,7 @@ export function useBlacklistItemLists() {
       }
 
       const { error } = await supabase
-        .from('blacklist_item_lists')
+        .from('blacklist_item_lists' as any)
         .delete()
         .eq('blacklist_id', blacklistId)
         .eq('blacklist_list_id', listId);
@@ -111,7 +111,7 @@ export function useBlacklistItemLists() {
       }));
 
       const { data, error } = await supabase
-        .from('blacklist_item_lists')
+        .from('blacklist_item_lists' as any)
         .insert(associations)
         .select();
 

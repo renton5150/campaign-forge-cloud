@@ -31,7 +31,7 @@ export function useBlacklists(type?: 'email' | 'domain') {
         .from('blacklists')
         .select(`
           *,
-          blacklist_item_lists (
+          blacklist_item_lists!inner (
             id,
             blacklist_lists (
               id,
