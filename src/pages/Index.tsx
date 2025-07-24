@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/components/auth/AuthProvider';
+import AuthGuard from '@/components/auth/AuthGuard';
 import Sidebar from '@/components/Layout/Sidebar';
 import DashboardPage from '@/components/Dashboard/DashboardPage';
 import TenantsManagement from '@/components/Dashboard/TenantsManagement';
@@ -66,14 +66,14 @@ const Index = () => {
   };
 
   return (
-    <ProtectedRoute>
+    <AuthGuard>
       <div className="flex h-screen bg-gray-100">
         <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
         <main className="flex-1 overflow-auto">
           {renderContent()}
         </main>
       </div>
-    </ProtectedRoute>
+    </AuthGuard>
   );
 };
 
