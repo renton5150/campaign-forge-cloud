@@ -43,10 +43,12 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
   // Créer un contact
   const createContact = useMutation({
     mutationFn: async (contactData: Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'tenant_id' | 'created_by'>) => {
-      if (!user?.id) {
-        throw new Error('Utilisateur non authentifié');
+      if (!user?.id || !user?.tenant_id) {
+        throw new Error('Utilisateur non authentifié ou tenant manquant');
       }
 
+      console.log('Creating contact with tenant_id:', user.tenant_id);
+      
       const { data, error } = await supabase
         .from('contacts')
         .insert({
@@ -57,7 +59,12 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating contact:', error);
+        throw error;
+      }
+      
+      console.log('Contact created successfully:', data);
       return data;
     },
     onSuccess: () => {
