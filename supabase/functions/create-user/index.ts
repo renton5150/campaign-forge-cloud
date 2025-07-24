@@ -26,9 +26,12 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')!
     const token = authHeader.replace('Bearer ', '')
-    const { data } = await supabaseAdmin.auth.getUser(token)
     
-    if (!data.user) {
+    // Vérifier l'utilisateur authentifié
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    
+    if (userError || !user) {
+      console.error('Auth error:', userError)
       return new Response(
         JSON.stringify({ error: 'Non authentifié' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -36,13 +39,14 @@ serve(async (req) => {
     }
 
     // Vérifier que l'utilisateur actuel est super_admin
-    const { data: currentUser } = await supabaseAdmin
+    const { data: currentUser, error: currentUserError } = await supabaseAdmin
       .from('users')
       .select('role')
-      .eq('id', data.user.id)
+      .eq('id', user.id)
       .single()
 
-    if (!currentUser || currentUser.role !== 'super_admin') {
+    if (currentUserError || !currentUser || currentUser.role !== 'super_admin') {
+      console.error('Permission error:', currentUserError, currentUser)
       return new Response(
         JSON.stringify({ error: 'Permission refusée' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -50,6 +54,8 @@ serve(async (req) => {
     }
 
     const { email, password, full_name, role, tenant_id } = await req.json()
+
+    console.log('Creating user with data:', { email, full_name, role, tenant_id })
 
     // Créer l'utilisateur dans Supabase Auth
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -62,11 +68,14 @@ serve(async (req) => {
     })
 
     if (authError) {
+      console.error('Auth creation error:', authError)
       return new Response(
         JSON.stringify({ error: authError.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log('Auth user created:', authUser.user.id)
 
     // Créer le profil utilisateur
     const { error: profileError } = await supabaseAdmin
@@ -80,6 +89,7 @@ serve(async (req) => {
       }])
 
     if (profileError) {
+      console.error('Profile creation error:', profileError)
       // Si la création du profil échoue, supprimer l'utilisateur Auth
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
       return new Response(
@@ -88,12 +98,15 @@ serve(async (req) => {
       )
     }
 
+    console.log('User profile created successfully')
+
     return new Response(
       JSON.stringify({ user: authUser.user }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
+    console.error('Unexpected error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
