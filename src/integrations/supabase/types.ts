@@ -21,7 +21,7 @@ export type Database = {
           created_by: string
           id: string
           reason: string | null
-          tenant_id: string
+          tenant_id: string | null
           type: string
           value: string
         }
@@ -31,7 +31,7 @@ export type Database = {
           created_by: string
           id?: string
           reason?: string | null
-          tenant_id: string
+          tenant_id?: string | null
           type: string
           value: string
         }
@@ -41,7 +41,7 @@ export type Database = {
           created_by?: string
           id?: string
           reason?: string | null
-          tenant_id?: string
+          tenant_id?: string | null
           type?: string
           value?: string
         }
