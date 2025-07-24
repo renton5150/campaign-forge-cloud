@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { cleanContactsForCampaign, ContactCleaningResult } from '@/utils/contactCleaning';
 
 export interface EmailQueueItem {
   id: string;
@@ -72,55 +73,47 @@ export function useEmailQueue() {
     enabled: !!user,
   });
 
-  // Envoyer une campagne (créer les entrées en queue)
+  // Envoyer une campagne avec nettoyage de blacklist
   const sendCampaign = useMutation({
     mutationFn: async ({ 
       campaignId, 
       subject, 
       htmlContent, 
-      contactListIds 
+      contactListIds,
+      blacklistListIds = []
     }: { 
       campaignId: string; 
       subject: string; 
       htmlContent: string; 
       contactListIds: string[];
-    }) => {
-      // Récupérer tous les contacts des listes sélectionnées
-      const { data: contacts, error: contactError } = await supabase
-        .from('contact_list_memberships')
-        .select(`
-          contacts!inner(
-            id,
-            email,
-            first_name,
-            last_name,
-            status
-          )
-        `)
-        .in('list_id', contactListIds)
-        .eq('contacts.status', 'active');
+      blacklistListIds?: string[];
+    }): Promise<{ queued: number; uniqueContacts: number; cleaningResult: ContactCleaningResult }> => {
+      
+      // Nettoyer les contacts avec la blacklist
+      const cleaningResult = await cleanContactsForCampaign(
+        contactListIds,
+        blacklistListIds,
+        user?.tenant_id || null
+      );
 
-      if (contactError) throw contactError;
-
-      if (!contacts || contacts.length === 0) {
-        throw new Error('Aucun contact actif trouvé dans les listes sélectionnées');
+      if (cleaningResult.cleanedContacts.length === 0) {
+        throw new Error('Aucun contact valide trouvé après nettoyage de la blacklist');
       }
 
-      // Créer les entrées en queue
+      // Créer les entrées en queue avec les contacts nettoyés
       const timestamp = new Date().getTime();
-      const queueEntries = contacts.map((contact: any, index: number) => {
-        const contactData = contact.contacts;
-        const contactName = contactData.first_name || contactData.last_name 
-          ? `${contactData.first_name || ''} ${contactData.last_name || ''}`.trim()
+      const queueEntries = cleaningResult.cleanedContacts.map((contact, index) => {
+        const contactName = contact.first_name || contact.last_name 
+          ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
           : null;
 
         return {
           campaign_id: campaignId,
-          contact_email: contactData.email,
+          contact_email: contact.email,
           contact_name: contactName,
           subject: subject,
           html_content: htmlContent,
-          message_id: `${campaignId}-${contactData.email}-${timestamp}-${index}`,
+          message_id: `${campaignId}-${contact.email}-${timestamp}-${index}`,
           status: 'pending' as const,
           scheduled_for: new Date().toISOString(),
         };
@@ -135,7 +128,8 @@ export function useEmailQueue() {
 
       return {
         queued: queueEntries.length,
-        uniqueContacts: new Set(contacts.map((c: any) => c.contacts.email)).size
+        uniqueContacts: cleaningResult.cleanedContacts.length,
+        cleaningResult
       };
     },
     onSuccess: (result) => {

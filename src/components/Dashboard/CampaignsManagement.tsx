@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +26,9 @@ import { Campaign } from '@/types/database';
 import CampaignEditor from './CampaignEditor';
 import CampaignStats from './CampaignStats';
 import { useToast } from '@/hooks/use-toast';
+import BlacklistListSelector from './BlacklistListSelector';
+import ContactCleaningStats from './ContactCleaningStats';
+import { ContactCleaningResult } from '@/utils/contactCleaning';
 
 export default function CampaignsManagement() {
   const { campaigns, isLoading } = useCampaigns();
@@ -41,6 +43,9 @@ export default function CampaignsManagement() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedLists, setSelectedLists] = useState<string[]>([]);
   const [queueStats, setQueueStats] = useState<Record<string, any>>({});
+  const [selectedBlacklistLists, setSelectedBlacklistLists] = useState<string[]>([]);
+  const [cleaningResult, setCleaningResult] = useState<ContactCleaningResult | null>(null);
+  const [showCleaningPreview, setShowCleaningPreview] = useState(false);
 
   // Charger les statistiques de queue pour chaque campagne
   useEffect(() => {
@@ -76,20 +81,45 @@ export default function CampaignsManagement() {
         subject: campaign.subject,
         htmlContent: campaign.html_content,
         contactListIds: selectedLists,
+        blacklistListIds: selectedBlacklistLists,
       });
 
       toast({
         title: "✅ Campagne mise en queue",
-        description: `${result.queued} emails ajoutés à la queue pour ${result.uniqueContacts} contacts uniques`,
+        description: `${result.queued} emails ajoutés à la queue après nettoyage de la blacklist`,
       });
 
       setShowSendModal(false);
       setSelectedLists([]);
+      setSelectedBlacklistLists([]);
       setSelectedCampaign(null);
+      setCleaningResult(null);
+      setShowCleaningPreview(false);
     } catch (error: any) {
       toast({
         title: "Erreur",
         description: error.message || "Erreur lors de l'envoi de la campagne",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePreviewCleaning = async () => {
+    if (!selectedCampaign || !selectedLists.length) return;
+
+    try {
+      const { cleanContactsForCampaign } = await import('@/utils/contactCleaning');
+      const result = await cleanContactsForCampaign(
+        selectedLists,
+        selectedBlacklistLists,
+        user?.tenant_id || null
+      );
+      setCleaningResult(result);
+      setShowCleaningPreview(true);
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de l'aperçu du nettoyage",
         variant: "destructive",
       });
     }
@@ -401,7 +431,7 @@ export default function CampaignsManagement() {
       {/* Modal pour sélectionner les listes de contacts */}
       {showSendModal && selectedCampaign && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Envoyer la campagne</h3>
               <Button
@@ -410,7 +440,10 @@ export default function CampaignsManagement() {
                 onClick={() => {
                   setShowSendModal(false);
                   setSelectedLists([]);
+                  setSelectedBlacklistLists([]);
                   setSelectedCampaign(null);
+                  setCleaningResult(null);
+                  setShowCleaningPreview(false);
                 }}
               >
                 ✕
@@ -421,42 +454,77 @@ export default function CampaignsManagement() {
               <p className="text-sm text-gray-600 mb-2">
                 Campagne: <strong>{selectedCampaign.name}</strong>
               </p>
-              <p className="text-sm text-gray-600">
-                Sélectionnez les listes de contacts destinataires:
-              </p>
             </div>
 
-            <div className="max-h-64 overflow-y-auto mb-4">
-              {contactLists?.map((list) => (
-                <div key={list.id} className="flex items-center space-x-2 mb-2">
-                  <input
-                    type="checkbox"
-                    id={`list-${list.id}`}
-                    checked={selectedLists.includes(list.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedLists([...selectedLists, list.id]);
-                      } else {
-                        setSelectedLists(selectedLists.filter(id => id !== list.id));
-                      }
-                    }}
-                    className="rounded border-gray-300"
-                  />
-                  <label htmlFor={`list-${list.id}`} className="flex-1 cursor-pointer">
-                    <div className="text-sm text-gray-900">{list.name}</div>
-                    <div className="text-xs text-gray-500">{list.total_contacts} contacts</div>
-                  </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Sélection des listes de contacts */}
+              <div>
+                <h4 className="font-medium mb-3">Listes de contacts destinataires</h4>
+                <div className="max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {contactLists?.map((list) => (
+                    <div key={list.id} className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id={`list-${list.id}`}
+                        checked={selectedLists.includes(list.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedLists([...selectedLists, list.id]);
+                          } else {
+                            setSelectedLists(selectedLists.filter(id => id !== list.id));
+                          }
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor={`list-${list.id}`} className="flex-1 cursor-pointer">
+                        <div className="text-sm text-gray-900">{list.name}</div>
+                        <div className="text-xs text-gray-500">{list.total_contacts} contacts</div>
+                      </label>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Sélection des listes de blacklist */}
+              <div>
+                <BlacklistListSelector
+                  selectedListIds={selectedBlacklistLists}
+                  onSelectionChange={setSelectedBlacklistLists}
+                />
+              </div>
             </div>
 
-            <div className="flex justify-end space-x-2">
+            {/* Bouton d'aperçu du nettoyage */}
+            {selectedLists.length > 0 && (
+              <div className="mt-4">
+                <Button
+                  variant="outline"
+                  onClick={handlePreviewCleaning}
+                  className="w-full"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Aperçu du nettoyage
+                </Button>
+              </div>
+            )}
+
+            {/* Statistiques de nettoyage */}
+            {showCleaningPreview && cleaningResult && (
+              <div className="mt-4">
+                <ContactCleaningStats cleaningResult={cleaningResult} />
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2 mt-6">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowSendModal(false);
                   setSelectedLists([]);
+                  setSelectedBlacklistLists([]);
                   setSelectedCampaign(null);
+                  setCleaningResult(null);
+                  setShowCleaningPreview(false);
                 }}
               >
                 Annuler
@@ -466,7 +534,7 @@ export default function CampaignsManagement() {
                 disabled={selectedLists.length === 0 || sendCampaign.isPending}
               >
                 <Send className="h-4 w-4 mr-1" />
-                {sendCampaign.isPending ? 'Envoi...' : `Envoyer (${selectedLists.length} listes)`}
+                {sendCampaign.isPending ? 'Envoi...' : `Envoyer ${cleaningResult ? `(${cleaningResult.stats.cleanedCount} contacts)` : `(${selectedLists.length} listes)`}`}
               </Button>
             </div>
           </div>
