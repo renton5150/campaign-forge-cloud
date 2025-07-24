@@ -30,9 +30,10 @@ interface ContactsTableProps {
   contacts: Contact[];
   isLoading: boolean;
   selectedList?: string;
+  onNavigateToList?: (listId: string) => void;
 }
 
-export default function ContactsTable({ contacts, isLoading, selectedList }: ContactsTableProps) {
+export default function ContactsTable({ contacts, isLoading, selectedList, onNavigateToList }: ContactsTableProps) {
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -93,21 +94,55 @@ export default function ContactsTable({ contacts, isLoading, selectedList }: Con
       return <span className="text-muted-foreground">Aucune liste</span>;
     }
 
-    const lists = contact.contact_list_memberships.map((membership: any) => membership.contact_lists?.name).filter(Boolean);
+    const lists = contact.contact_list_memberships
+      .map((membership: any) => ({
+        id: membership.list_id,
+        name: membership.contact_lists?.name
+      }))
+      .filter((list: any) => list.name);
     
     if (lists.length === 0) {
       return <span className="text-muted-foreground">Aucune liste</span>;
     }
 
     if (lists.length === 1) {
-      return <Badge variant="outline">{lists[0]}</Badge>;
+      return (
+        <Badge 
+          variant="outline" 
+          className="cursor-pointer hover:bg-blue-50"
+          onClick={() => onNavigateToList?.(lists[0].id)}
+        >
+          {lists[0].name}
+        </Badge>
+      );
     }
 
     return (
       <div className="flex flex-wrap gap-1">
-        <Badge variant="outline">{lists[0]}</Badge>
+        <Badge 
+          variant="outline"
+          className="cursor-pointer hover:bg-blue-50"
+          onClick={() => onNavigateToList?.(lists[0].id)}
+        >
+          {lists[0].name}
+        </Badge>
         {lists.length > 1 && (
-          <Badge variant="outline">+{lists.length - 1}</Badge>
+          <div className="relative group">
+            <Badge variant="outline" className="cursor-pointer hover:bg-blue-50">
+              +{lists.length - 1}
+            </Badge>
+            <div className="absolute left-0 top-full mt-1 bg-white border rounded-md shadow-lg p-2 hidden group-hover:block z-10 min-w-max">
+              {lists.slice(1).map((list: any, index: number) => (
+                <div 
+                  key={index}
+                  className="px-2 py-1 hover:bg-gray-100 cursor-pointer text-sm"
+                  onClick={() => onNavigateToList?.(list.id)}
+                >
+                  {list.name}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     );

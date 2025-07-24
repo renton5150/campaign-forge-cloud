@@ -26,6 +26,11 @@ const Index = () => {
     setCurrentPage('contacts');
   };
 
+  const handleNavigateToList = (listId: string) => {
+    setSelectedListId(listId);
+    setCurrentPage('contacts');
+  };
+
   const renderContent = () => {
     switch (currentPage) {
       case 'dashboard':
@@ -33,7 +38,10 @@ const Index = () => {
       case 'campaigns':
         return <CampaignsManagement />;
       case 'contacts':
-        return <ContactsPage initialSelectedList={selectedListId} />;
+        return <ContactsPage 
+          initialSelectedList={selectedListId} 
+          onNavigateToList={handleNavigateToList}
+        />;
       case 'contacts-lists':
         return <ContactsListsPage onNavigateToContacts={handleNavigateToContacts} />;
       case 'contacts-import':

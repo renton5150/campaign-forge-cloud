@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Plus, Upload, Download, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,9 +13,10 @@ import ImportContactsModal from './Contacts/ImportContactsModal';
 
 interface ContactsPageProps {
   initialSelectedList?: string;
+  onNavigateToList?: (listId: string) => void;
 }
 
-export default function ContactsPage({ initialSelectedList }: ContactsPageProps) {
+export default function ContactsPage({ initialSelectedList, onNavigateToList }: ContactsPageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedList, setSelectedList] = useState<string>('all-lists');
   const [statusFilter, setStatusFilter] = useState<string>('all-status');
@@ -35,6 +35,14 @@ export default function ContactsPage({ initialSelectedList }: ContactsPageProps)
 
   // Ensure contactLists is always an array
   const safeContactLists = Array.isArray(contactLists) ? contactLists : [];
+
+  // Handle navigation to a specific list
+  const handleNavigateToList = (listId: string) => {
+    setSelectedList(listId);
+    if (onNavigateToList) {
+      onNavigateToList(listId);
+    }
+  };
 
   // Calculer les métriques
   const totalContacts = contacts.length;
@@ -159,6 +167,7 @@ export default function ContactsPage({ initialSelectedList }: ContactsPageProps)
             contacts={contacts} 
             isLoading={isLoading}
             selectedList={selectedList}
+            onNavigateToList={handleNavigateToList}
           />
         </CardContent>
       </Card>
