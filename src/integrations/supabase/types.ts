@@ -14,8 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      blacklist_lists: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blacklists: {
         Row: {
+          blacklist_list_id: string | null
           category: string | null
           created_at: string
           created_by: string
@@ -26,6 +63,7 @@ export type Database = {
           value: string
         }
         Insert: {
+          blacklist_list_id?: string | null
           category?: string | null
           created_at?: string
           created_by: string
@@ -36,6 +74,7 @@ export type Database = {
           value: string
         }
         Update: {
+          blacklist_list_id?: string | null
           category?: string | null
           created_at?: string
           created_by?: string

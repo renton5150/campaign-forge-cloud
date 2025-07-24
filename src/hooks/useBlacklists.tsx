@@ -10,6 +10,7 @@ export interface Blacklist {
   value: string;
   reason?: string;
   category: 'bounce' | 'complaint' | 'manual' | 'competitor';
+  blacklist_list_id?: string;
   created_by: string;
   created_at: string;
 }

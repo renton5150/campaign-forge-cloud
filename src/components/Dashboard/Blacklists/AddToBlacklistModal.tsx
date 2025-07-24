@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useBlacklistLists } from '@/hooks/useBlacklistLists';
 
 interface AddToBlacklistModalProps {
   isOpen: boolean;
@@ -24,12 +24,19 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
   const [value, setValue] = useState(defaultValue);
   const [reason, setReason] = useState('');
   const [category, setCategory] = useState<Blacklist['category']>('manual');
+  const [selectedListId, setSelectedListId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { user } = useAuth();
   const { addToBlacklist } = useBlacklists();
+  const { blacklistLists } = useBlacklistLists();
   const { toast } = useToast();
+
+  // Filtrer les listes selon le type sélectionné
+  const filteredLists = blacklistLists.filter(list => 
+    list.type === type || list.type === 'mixed'
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +51,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
+        blacklist_list_id: selectedListId || undefined,
         created_by: user?.id
       });
 
@@ -52,6 +60,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
+        blacklist_list_id: selectedListId || undefined,
         created_by: user?.id || ''
       });
 
@@ -89,6 +98,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     setValue('');
     setReason('');
     setCategory('manual');
+    setSelectedListId('');
     setType('email');
     setError(null);
   };
@@ -139,6 +149,23 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
               className="col-span-3"
               required
             />
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="list" className="text-right">Liste</Label>
+            <Select value={selectedListId} onValueChange={setSelectedListId}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Sélectionner une liste (optionnel)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Aucune liste</SelectItem>
+                {filteredLists.map((list) => (
+                  <SelectItem key={list.id} value={list.id}>
+                    {list.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">

@@ -249,3 +249,27 @@ export interface CampaignStats {
   unsubscribes: number;
   complaints: number;
 }
+
+export interface Blacklist {
+  id: string;
+  tenant_id: string | null;
+  type: 'email' | 'domain';
+  value: string;
+  reason?: string;
+  category: 'bounce' | 'complaint' | 'manual' | 'competitor';
+  blacklist_list_id?: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface BlacklistList {
+  id: string;
+  tenant_id: string | null;
+  name: string;
+  description?: string;
+  type: 'email' | 'domain' | 'mixed';
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}

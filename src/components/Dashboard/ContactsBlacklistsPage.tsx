@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useBlacklists } from '@/hooks/useBlacklists';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Plus, Search, Mail, Globe, AlertTriangle, Trash2, MoreHorizontal, Upload } from 'lucide-react';
+import { Shield, Plus, Search, Mail, Globe, AlertTriangle, Trash2, MoreHorizontal, Upload, FolderOpen } from 'lucide-react';
 import AddToBlacklistModal from './Blacklists/AddToBlacklistModal';
 import BulkImportModal from './Blacklists/BulkImportModal';
+import BlacklistListsManagement from './Blacklists/BlacklistListsManagement';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const ContactsBlacklistsPage = () => {
@@ -18,6 +18,7 @@ const ContactsBlacklistsPage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('blacklists');
   
   const { blacklists, isLoading, removeFromBlacklist } = useBlacklists();
   const { toast } = useToast();
@@ -203,31 +204,93 @@ const ContactsBlacklistsPage = () => {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <Input
-          placeholder="Rechercher dans les blacklists..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
       {/* Tabs */}
-      <Tabs defaultValue="emails" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="blacklists" className="flex items-center">
+            <Shield className="mr-2 h-4 w-4" />
+            Blacklists
+          </TabsTrigger>
+          <TabsTrigger value="lists" className="flex items-center">
+            <FolderOpen className="mr-2 h-4 w-4" />
+            Listes
+          </TabsTrigger>
           <TabsTrigger value="emails" className="flex items-center">
             <Mail className="mr-2 h-4 w-4" />
             Emails ({emailBlacklists.length})
           </TabsTrigger>
-          <TabsTrigger value="domains" className="flex items-center">
-            <Globe className="mr-2 h-4 w-4" />
-            Domaines ({domainBlacklists.length})
-          </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="blacklists" className="mt-6">
+          {/* Search */}
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Rechercher dans les blacklists..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <Tabs defaultValue="emails" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="emails" className="flex items-center">
+                <Mail className="mr-2 h-4 w-4" />
+                Emails ({emailBlacklists.length})
+              </TabsTrigger>
+              <TabsTrigger value="domains" className="flex items-center">
+                <Globe className="mr-2 h-4 w-4" />
+                Domaines ({domainBlacklists.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="emails" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Emails blacklistés</CardTitle>
+                  <CardDescription>
+                    Liste des adresses email bloquées pour vos campagnes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {renderBlacklistItems(filteredEmailBlacklists, 'email')}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="domains" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Domaines blacklistés</CardTitle>
+                  <CardDescription>
+                    Liste des domaines bloqués pour vos campagnes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {renderBlacklistItems(filteredDomainBlacklists, 'domain')}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="lists" className="mt-6">
+          <BlacklistListsManagement />
+        </TabsContent>
+
         <TabsContent value="emails" className="mt-6">
+          {/* Search */}
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Rechercher dans les emails..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
           <Card>
             <CardHeader>
               <CardTitle>Emails blacklistés</CardTitle>
@@ -237,20 +300,6 @@ const ContactsBlacklistsPage = () => {
             </CardHeader>
             <CardContent>
               {renderBlacklistItems(filteredEmailBlacklists, 'email')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="domains" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Domaines blacklistés</CardTitle>
-              <CardDescription>
-                Liste des domaines bloqués pour vos campagnes
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {renderBlacklistItems(filteredDomainBlacklists, 'domain')}
             </CardContent>
           </Card>
         </TabsContent>
