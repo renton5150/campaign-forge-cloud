@@ -68,15 +68,45 @@ export function useBlacklists(type?: 'email' | 'domain') {
         throw new Error('Utilisateur non authentifié ou données manquantes');
       }
 
-      // Pour les super_admin, on peut utiliser un tenant_id par défaut ou null
-      // Pour les autres, on vérifie qu'ils ont un tenant_id
+      // Pour les super_admin, on utilise un tenant_id par défaut s'ils n'en ont pas
       let tenantId = user.tenant_id;
       
-      if (user.role === 'super_admin' && !tenantId) {
-        // Pour les super_admin, on peut créer une blacklist globale avec tenant_id null
-        // Ou bien utiliser un tenant_id par défaut
-        console.log('Super admin adding to global blacklist');
-        tenantId = null;
+      if (user.role === 'super_admin') {
+        // Pour les super_admin sans tenant_id, on utilise un tenant_id par défaut
+        // On va créer un tenant système pour les super_admin
+        if (!tenantId) {
+          console.log('Super admin without tenant_id, using system tenant');
+          // Créer ou récupérer un tenant système pour les super_admin
+          const { data: systemTenant, error: systemTenantError } = await supabase
+            .from('tenants')
+            .select('id')
+            .eq('company_name', 'System Admin')
+            .maybeSingle();
+
+          if (systemTenantError && systemTenantError.code !== 'PGRST116') {
+            throw systemTenantError;
+          }
+
+          if (!systemTenant) {
+            // Créer un tenant système
+            const { data: newSystemTenant, error: createError } = await supabase
+              .from('tenants')
+              .insert({
+                company_name: 'System Admin',
+                domain: 'system.admin',
+                status: 'active'
+              })
+              .select('id')
+              .single();
+
+            if (createError) {
+              throw createError;
+            }
+            tenantId = newSystemTenant.id;
+          } else {
+            tenantId = systemTenant.id;
+          }
+        }
       } else if (!tenantId) {
         throw new Error('Utilisateur sans tenant associé');
       }
@@ -178,12 +208,43 @@ export function useBlacklists(type?: 'email' | 'domain') {
         throw new Error('Utilisateur non authentifié ou données manquantes');
       }
 
-      // Pour les super_admin, on peut utiliser un tenant_id par défaut ou null
+      // Pour les super_admin, on utilise un tenant_id par défaut s'ils n'en ont pas
       let tenantId = user.tenant_id;
       
-      if (user.role === 'super_admin' && !tenantId) {
-        console.log('Super admin bulk importing to global blacklist');
-        tenantId = null;
+      if (user.role === 'super_admin') {
+        if (!tenantId) {
+          console.log('Super admin without tenant_id, using system tenant');
+          // Récupérer ou créer un tenant système pour les super_admin
+          const { data: systemTenant, error: systemTenantError } = await supabase
+            .from('tenants')
+            .select('id')
+            .eq('company_name', 'System Admin')
+            .maybeSingle();
+
+          if (systemTenantError && systemTenantError.code !== 'PGRST116') {
+            throw systemTenantError;
+          }
+
+          if (!systemTenant) {
+            // Créer un tenant système
+            const { data: newSystemTenant, error: createError } = await supabase
+              .from('tenants')
+              .insert({
+                company_name: 'System Admin',
+                domain: 'system.admin',
+                status: 'active'
+              })
+              .select('id')
+              .single();
+
+            if (createError) {
+              throw createError;
+            }
+            tenantId = newSystemTenant.id;
+          } else {
+            tenantId = systemTenant.id;
+          }
+        }
       } else if (!tenantId) {
         throw new Error('Utilisateur sans tenant associé');
       }

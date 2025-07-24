@@ -51,18 +51,12 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
         throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.');
       }
 
-      // Pour les super_admin, on peut permettre l'ajout sans tenant_id
-      if (!user.tenant_id && user.role !== 'super_admin') {
-        throw new Error('Aucun tenant associé à votre compte. Veuillez contacter l\'administrateur.');
-      }
-
       console.log('Adding to blacklist with data:', {
         type,
         value: value.trim().toLowerCase(),
         reason: reason.trim() || undefined,
         category,
-        created_by: user.id,
-        tenant_id: user.tenant_id
+        created_by: user.id
       });
 
       await addToBlacklist.mutateAsync({
@@ -85,7 +79,9 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
       
       let errorMessage = "Impossible d'ajouter à la blacklist";
       
-      if (error.message.includes('tenant_id') || error.message.includes('tenant')) {
+      if (error.message.includes('row-level security') || error.message.includes('violates')) {
+        errorMessage = "Problème de permissions. Veuillez contacter l'administrateur.";
+      } else if (error.message.includes('tenant_id') || error.message.includes('tenant')) {
         errorMessage = "Problème avec votre compte. Veuillez vous reconnecter.";
       } else if (error.message.includes('duplicate key')) {
         errorMessage = "Cet élément est déjà dans la blacklist.";
@@ -120,12 +116,6 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     onClose();
   };
 
-  // Condition pour désactiver le bouton : pas d'utilisateur OU (pas de tenant_id ET pas super_admin)
-  const isButtonDisabled = !user || (!user.tenant_id && user.role !== 'super_admin');
-
-  // Show user debug info if there's an issue
-  const showDebugInfo = !user?.tenant_id && user && user.role !== 'super_admin';
-
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
@@ -137,16 +127,6 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {showDebugInfo && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Debug: Utilisateur connecté mais sans tenant_id. 
-              Email: {user.email}, ID: {user.id}, Role: {user.role}
-            </AlertDescription>
           </Alert>
         )}
 
@@ -209,7 +189,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
             <Button type="button" variant="outline" onClick={handleClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={isLoading || !value.trim() || isButtonDisabled}>
+            <Button type="submit" disabled={isLoading || !value.trim()}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ajouter
             </Button>
