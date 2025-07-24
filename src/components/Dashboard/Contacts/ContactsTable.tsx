@@ -88,6 +88,31 @@ export default function ContactsTable({ contacts, isLoading, selectedList }: Con
     return <span className="text-red-600 font-medium">{score}</span>;
   };
 
+  const getContactLists = (contact: any) => {
+    if (!contact.contact_list_memberships || contact.contact_list_memberships.length === 0) {
+      return <span className="text-muted-foreground">Aucune liste</span>;
+    }
+
+    const lists = contact.contact_list_memberships.map((membership: any) => membership.contact_lists?.name).filter(Boolean);
+    
+    if (lists.length === 0) {
+      return <span className="text-muted-foreground">Aucune liste</span>;
+    }
+
+    if (lists.length === 1) {
+      return <Badge variant="outline">{lists[0]}</Badge>;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        <Badge variant="outline">{lists[0]}</Badge>
+        {lists.length > 1 && (
+          <Badge variant="outline">+{lists.length - 1}</Badge>
+        )}
+      </div>
+    );
+  };
+
   const handleViewDetails = (contact: Contact) => {
     setSelectedContact(contact);
     setShowDetailsModal(true);
@@ -123,6 +148,7 @@ export default function ContactsTable({ contacts, isLoading, selectedList }: Con
               <TableHead>Contact</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Entreprise</TableHead>
+              <TableHead>Listes</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Validation</TableHead>
               <TableHead>Score</TableHead>
@@ -133,7 +159,7 @@ export default function ContactsTable({ contacts, isLoading, selectedList }: Con
           <TableBody>
             {contacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   Aucun contact trouvé
                 </TableCell>
               </TableRow>
@@ -184,6 +210,7 @@ export default function ContactsTable({ contacts, isLoading, selectedList }: Con
                     </div>
                   </TableCell>
                   <TableCell>{contact.company || '-'}</TableCell>
+                  <TableCell>{getContactLists(contact)}</TableCell>
                   <TableCell>{getStatusBadge(contact.status || 'unknown')}</TableCell>
                   <TableCell>{getValidationBadge(contact.validation_status || 'unknown')}</TableCell>
                   <TableCell>{formatEngagementScore(contact.engagement_score || 0)}</TableCell>

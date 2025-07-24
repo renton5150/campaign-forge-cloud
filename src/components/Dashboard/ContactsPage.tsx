@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Plus, Upload, Download, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,12 +12,23 @@ import ContactsTable from './Contacts/ContactsTable';
 import CreateContactModal from './Contacts/CreateContactModal';
 import ImportContactsModal from './Contacts/ImportContactsModal';
 
-export default function ContactsPage() {
+interface ContactsPageProps {
+  initialSelectedList?: string;
+}
+
+export default function ContactsPage({ initialSelectedList }: ContactsPageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedList, setSelectedList] = useState<string>('all-lists');
   const [statusFilter, setStatusFilter] = useState<string>('all-status');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+
+  // Set the initial selected list if provided
+  useEffect(() => {
+    if (initialSelectedList) {
+      setSelectedList(initialSelectedList);
+    }
+  }, [initialSelectedList]);
 
   const { contacts, isLoading } = useContacts(selectedList, searchTerm, statusFilter);
   const { contactLists } = useContactLists();

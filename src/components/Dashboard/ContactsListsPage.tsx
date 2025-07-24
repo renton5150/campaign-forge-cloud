@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,12 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useContactLists } from '@/hooks/useContactLists';
 import { ContactList } from '@/types/database';
-import { List, Plus, Search, Users, Calendar, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { List, Plus, Search, Users, Calendar, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
 import CreateListModal from './ContactLists/CreateListModal';
 import EditListModal from './ContactLists/EditListModal';
 import DeleteListModal from './ContactLists/DeleteListModal';
 
-const ContactsListsPage = () => {
+interface ContactsListsPageProps {
+  onNavigateToContacts?: (listId: string) => void;
+}
+
+const ContactsListsPage = ({ onNavigateToContacts }: ContactsListsPageProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -24,6 +29,12 @@ const ContactsListsPage = () => {
     list.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     list.description?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  const handleViewContacts = (listId: string) => {
+    if (onNavigateToContacts) {
+      onNavigateToContacts(listId);
+    }
+  };
 
   return (
     <div className="p-6">
@@ -132,11 +143,13 @@ const ContactsListsPage = () => {
           </div>
         ) : (
           filteredLists.map((list) => (
-            <Card key={list.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Card key={list.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{list.name}</CardTitle>
+                  <div className="flex-1">
+                    <CardTitle className="text-lg cursor-pointer hover:text-blue-600" onClick={() => handleViewContacts(list.id)}>
+                      {list.name}
+                    </CardTitle>
                     {list.description && (
                       <CardDescription className="mt-1">{list.description}</CardDescription>
                     )}
@@ -152,6 +165,10 @@ const ContactsListsPage = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleViewContacts(list.id)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Voir les contacts
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
                           setSelectedList(list);
                           setShowEditModal(true);
@@ -176,8 +193,8 @@ const ContactsListsPage = () => {
               </CardHeader>
               
               <CardContent>
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <div className="flex items-center">
+                <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                  <div className="flex items-center cursor-pointer hover:text-blue-600" onClick={() => handleViewContacts(list.id)}>
                     <Users className="mr-1 h-4 w-4" />
                     <span>{list.total_contacts || 0} contacts</span>
                   </div>
@@ -186,6 +203,16 @@ const ContactsListsPage = () => {
                     <span>{new Date(list.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => handleViewContacts(list.id)}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Voir les contacts
+                </Button>
                 
                 {list.tags && list.tags.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1">

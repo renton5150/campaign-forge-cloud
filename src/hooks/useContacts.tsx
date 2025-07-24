@@ -13,7 +13,13 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
     queryFn: async () => {
       let query = supabase
         .from('contacts')
-        .select('*')
+        .select(`
+          *,
+          contact_list_memberships(
+            list_id,
+            contact_lists(name)
+          )
+        `)
         .order('created_at', { ascending: false });
 
       // Filtre par liste si spécifié
@@ -151,7 +157,7 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      queryClient.invalidateQueries({ queryKey: ['contactLists'] });
+      queryClient.invalidateQueries({ queryKey: ['contact_lists'] });
     },
   });
 
@@ -173,7 +179,7 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      queryClient.invalidateQueries({ queryKey: ['contactLists'] });
+      queryClient.invalidateQueries({ queryKey: ['contact_lists'] });
     },
   });
 

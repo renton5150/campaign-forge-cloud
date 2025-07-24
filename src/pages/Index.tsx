@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -18,6 +19,12 @@ import SmtpServersPage from '@/components/Dashboard/SmtpServersPage';
 const Index = () => {
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [selectedListId, setSelectedListId] = useState<string | undefined>();
+
+  const handleNavigateToContacts = (listId?: string) => {
+    setSelectedListId(listId);
+    setCurrentPage('contacts');
+  };
 
   const renderContent = () => {
     switch (currentPage) {
@@ -26,9 +33,9 @@ const Index = () => {
       case 'campaigns':
         return <CampaignsManagement />;
       case 'contacts':
-        return <ContactsPage />;
+        return <ContactsPage initialSelectedList={selectedListId} />;
       case 'contacts-lists':
-        return <ContactsListsPage />;
+        return <ContactsListsPage onNavigateToContacts={handleNavigateToContacts} />;
       case 'contacts-import':
         return <ContactsImportPage />;
       case 'contacts-blacklists':
