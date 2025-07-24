@@ -50,8 +50,10 @@ const smtpServerSchema = z.object({
 
 const SmtpServersPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<SmtpServer | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
-  const { servers, loading, createServer, deleteServer, testSmtpConnection } = useSmtpServers();
+  const { servers, loading, createServer, updateServer, deleteServer, testSmtpConnection } = useSmtpServers();
   const { toast } = useToast();
   
   const form = useForm<SmtpServerFormData>({
@@ -73,7 +75,27 @@ const SmtpServersPage = () => {
     },
   });
 
+  const editForm = useForm<SmtpServerFormData>({
+    resolver: zodResolver(smtpServerSchema),
+    defaultValues: {
+      name: '',
+      type: 'smtp',
+      host: '',
+      port: 587,
+      username: '',
+      password: '',
+      api_key: '',
+      domain: '',
+      region: '',
+      encryption: 'tls',
+      from_name: '',
+      from_email: '',
+      is_active: true,
+    },
+  });
+
   const selectedType = form.watch('type');
+  const selectedEditType = editForm.watch('type');
 
   const onSubmit = async (data: SmtpServerFormData) => {
     const result = await createServer(data);
@@ -81,6 +103,37 @@ const SmtpServersPage = () => {
       setIsDialogOpen(false);
       form.reset();
     }
+  };
+
+  const onEditSubmit = async (data: SmtpServerFormData) => {
+    if (!editingServer) return;
+    
+    const result = await updateServer(editingServer.id, data);
+    if (result) {
+      setIsEditDialogOpen(false);
+      setEditingServer(null);
+      editForm.reset();
+    }
+  };
+
+  const handleEditServer = (server: SmtpServer) => {
+    setEditingServer(server);
+    editForm.reset({
+      name: server.name,
+      type: server.type as SmtpServerType,
+      host: server.host || '',
+      port: server.port || 587,
+      username: server.username || '',
+      password: '', // Ne pas pré-remplir le mot de passe pour la sécurité
+      api_key: '', // Ne pas pré-remplir l'API key pour la sécurité
+      domain: server.domain || '',
+      region: server.region || '',
+      encryption: server.encryption || 'tls',
+      from_name: server.from_name,
+      from_email: server.from_email,
+      is_active: server.is_active,
+    });
+    setIsEditDialogOpen(true);
   };
 
   const handleTestConnection = async () => {
@@ -233,7 +286,6 @@ const SmtpServersPage = () => {
                   />
                 </div>
 
-                {/* Configuration SMTP */}
                 {selectedType === 'smtp' && (
                   <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
                     <h4 className="font-medium">Configuration SMTP</h4>
@@ -329,7 +381,6 @@ const SmtpServersPage = () => {
                   </div>
                 )}
 
-                {/* Configuration SendGrid */}
                 {selectedType === 'sendgrid' && (
                   <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
                     <h4 className="font-medium">Configuration SendGrid</h4>
@@ -349,7 +400,6 @@ const SmtpServersPage = () => {
                   </div>
                 )}
 
-                {/* Configuration Mailgun */}
                 {selectedType === 'mailgun' && (
                   <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
                     <h4 className="font-medium">Configuration Mailgun</h4>
@@ -407,7 +457,6 @@ const SmtpServersPage = () => {
                   </div>
                 )}
 
-                {/* Configuration Amazon SES */}
                 {selectedType === 'amazon_ses' && (
                   <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
                     <h4 className="font-medium">Configuration Amazon SES</h4>
@@ -468,7 +517,6 @@ const SmtpServersPage = () => {
                   </div>
                 )}
 
-                {/* Expéditeur par défaut */}
                 <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
                   <h4 className="col-span-2 font-medium">Expéditeur par défaut</h4>
                   <FormField
@@ -544,6 +592,355 @@ const SmtpServersPage = () => {
             </Form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Modifier le serveur d'envoi</DialogTitle>
+              <DialogDescription>
+                Modifiez la configuration de votre serveur d'envoi.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom du serveur</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ex: SendGrid Production" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner le type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="smtp">SMTP (serveur SMTP classique)</SelectItem>
+                            <SelectItem value="sendgrid">SendGrid (API SendGrid)</SelectItem>
+                            <SelectItem value="mailgun">Mailgun (API Mailgun)</SelectItem>
+                            <SelectItem value="amazon_ses">Amazon SES (Amazon Simple Email Service)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {selectedEditType === 'smtp' && (
+                  <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Configuration SMTP</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={editForm.control}
+                        name="host"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Hôte *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="smtp.gmail.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={editForm.control}
+                        name="port"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Port *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                placeholder="587"
+                                {...field}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 587)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={editForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nom d'utilisateur *</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={editForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Mot de passe *</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Laissez vide pour conserver" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={editForm.control}
+                        name="encryption"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Chiffrement</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="tls">TLS</SelectItem>
+                                <SelectItem value="ssl">SSL</SelectItem>
+                                <SelectItem value="none">Aucun</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {selectedEditType === 'sendgrid' && (
+                  <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Configuration SendGrid</h4>
+                    <FormField
+                      control={editForm.control}
+                      name="api_key"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>API Key SendGrid *</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="Laissez vide pour conserver" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                {selectedEditType === 'mailgun' && (
+                  <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Configuration Mailgun</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={editForm.control}
+                        name="api_key"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>API Key Mailgun *</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="key-xxxxx" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={editForm.control}
+                        name="domain"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Domaine Mailgun *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="mg.mondomaine.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={editForm.control}
+                        name="region"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Région</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Sélectionner une région" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="us">US (États-Unis)</SelectItem>
+                                <SelectItem value="eu">EU (Europe)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {selectedEditType === 'amazon_ses' && (
+                  <div className="grid grid-cols-1 gap-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Configuration Amazon SES</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={editForm.control}
+                        name="api_key"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Access Key ID *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="AKIAXXXXXXXXXXXXXXXX" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={editForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Secret Access Key *</FormLabel>
+                            <FormControl>
+                              <Input type="password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={editForm.control}
+                        name="region"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Région AWS *</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Sélectionner une région" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="us-east-1">us-east-1 (N. Virginia)</SelectItem>
+                                <SelectItem value="us-west-2">us-west-2 (Oregon)</SelectItem>
+                                <SelectItem value="eu-west-1">eu-west-1 (Ireland)</SelectItem>
+                                <SelectItem value="eu-central-1">eu-central-1 (Frankfurt)</SelectItem>
+                                <SelectItem value="ap-southeast-1">ap-southeast-1 (Singapore)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
+                  <h4 className="col-span-2 font-medium">Expéditeur par défaut</h4>
+                  <FormField
+                    control={editForm.control}
+                    name="from_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom expéditeur *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Mon Entreprise" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="from_email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email expéditeur *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="noreply@monentreprise.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={editForm.control}
+                  name="is_active"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>Serveur actif</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Ce serveur peut être utilisé pour l'envoi d'emails
+                        </p>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      Annuler
+                    </Button>
+                    <Button type="submit">
+                      Modifier le serveur
+                    </Button>
+                  </div>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -596,7 +993,11 @@ const SmtpServersPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditServer(server)}
+                        >
                           <Settings className="h-4 w-4" />
                         </Button>
                         <Button 

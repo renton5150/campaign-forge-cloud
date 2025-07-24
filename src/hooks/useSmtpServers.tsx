@@ -147,6 +147,43 @@ export const useSmtpServers = () => {
     }
   };
 
+  const updateServer = async (id: string, serverData: SmtpServerFormData) => {
+    try {
+      const { data, error } = await supabase
+        .from('smtp_servers')
+        .update(serverData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating SMTP server:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de modifier le serveur d'envoi.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      toast({
+        title: "Serveur modifié",
+        description: "Le serveur d'envoi a été modifié avec succès.",
+      });
+
+      await loadServers();
+      return data;
+    } catch (error) {
+      console.error('Error updating SMTP server:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier le serveur d'envoi.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
   const testSmtpConnection = async (serverData: SmtpServerFormData) => {
     try {
       console.log('Testing SMTP connection with data:', serverData);
@@ -229,6 +266,7 @@ export const useSmtpServers = () => {
     servers,
     loading,
     createServer,
+    updateServer,
     deleteServer,
     testSmtpConnection,
     refetch: loadServers,
