@@ -69,8 +69,8 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
         created_by: '', // Will be set by the hook
       });
 
-      // Ajouter à la liste si sélectionnée
-      if (formData.listId && contact) {
+      // Ajouter à la liste si sélectionnée (et différente de "no-list")
+      if (formData.listId && formData.listId !== 'no-list' && contact) {
         await addToList.mutateAsync({
           contactId: contact.id,
           listId: formData.listId
@@ -106,6 +106,8 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  const safeContactLists = Array.isArray(contactLists) ? contactLists : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,9 +181,9 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="no-list">Aucune liste</SelectItem>
-                {(contactLists || []).map((list) => (
+                {safeContactLists.map((list) => (
                   <SelectItem key={list.id} value={list.id}>
-                    {list.name} ({list.total_contacts} contacts)
+                    {list.name} ({list.total_contacts || 0} contacts)
                   </SelectItem>
                 ))}
               </SelectContent>

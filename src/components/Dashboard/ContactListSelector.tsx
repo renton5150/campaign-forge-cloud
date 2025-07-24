@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,11 +35,11 @@ export default function ContactListSelector({
   const { createContactList } = useContactLists();
 
   // S'assurer que contactLists est un tableau
-  const safeContactLists = contactLists || [];
+  const safeContactLists = Array.isArray(contactLists) ? contactLists : [];
 
   const filteredLists = safeContactLists.filter(list =>
-    list.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (list.description && list.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    list?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (list?.description && list.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleListToggle = (listId: string) => {
@@ -67,7 +68,7 @@ export default function ContactListSelector({
 
   const totalContacts = safeContactLists
     .filter(list => selectedLists.includes(list.id))
-    .reduce((sum, list) => sum + list.total_contacts, 0);
+    .reduce((sum, list) => sum + (list.total_contacts || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -170,7 +171,7 @@ export default function ContactListSelector({
                     <div className="text-right">
                       <div className="flex items-center space-x-1 text-sm text-gray-500">
                         <Mail className="h-4 w-4" />
-                        <span>{list.total_contacts.toLocaleString()} contacts</span>
+                        <span>{(list.total_contacts || 0).toLocaleString()} contacts</span>
                       </div>
                       <div className="text-xs text-gray-400">
                         Créé le {new Date(list.created_at).toLocaleDateString()}
