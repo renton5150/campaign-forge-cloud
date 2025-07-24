@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Plus, Upload, Download, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,11 +18,7 @@ export default function ContactsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
-  const { contacts, isLoading } = useContacts(
-    selectedList === 'all-lists' ? undefined : selectedList, 
-    searchTerm, 
-    statusFilter === 'all-status' ? undefined : statusFilter
-  );
+  const { contacts, isLoading } = useContacts(selectedList, searchTerm, statusFilter);
   const { contactLists } = useContactLists();
 
   // Ensure contactLists is always an array

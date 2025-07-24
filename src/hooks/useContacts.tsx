@@ -1,12 +1,14 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Contact, ContactInsert, ContactUpdate } from '@/types/database';
+import { Contact } from '@/types/database';
+import { ContactInsert, ContactUpdate } from '@/types/contacts';
 
 export function useContacts(listId?: string, searchTerm?: string, status?: string) {
   const { user } = useAuth();
   
-  return useQuery({
+  const query = useQuery({
     queryKey: ['contacts', listId, searchTerm, status],
     queryFn: async () => {
       let query = supabase
@@ -15,7 +17,7 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
         .order('created_at', { ascending: false });
 
       // Filtre par liste si spécifié
-      if (listId) {
+      if (listId && listId !== 'all-lists') {
         const { data: membershipData, error: membershipError } = await supabase
           .from('contact_list_memberships')
           .select('contact_id')
@@ -38,7 +40,7 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
       }
 
       // Filtre par statut
-      if (status) {
+      if (status && status !== 'all-status') {
         query = query.eq('status', status);
       }
 
@@ -49,21 +51,24 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
     },
     enabled: !!user,
   });
-}
 
-export function useCreateContact() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
-  return useMutation({
+  const createContact = useMutation({
     mutationFn: async (newContact: ContactInsert) => {
       if (!user) {
         throw new Error('User must be authenticated to create a contact.');
       }
 
+      const contactData = {
+        ...newContact,
+        tenant_id: user.tenant_id,
+        created_by: user.id,
+      };
+
       const { data, error } = await supabase
         .from('contacts')
-        .insert([newContact])
+        .insert([contactData])
         .select()
         .single();
 
@@ -77,13 +82,8 @@ export function useCreateContact() {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
     },
   });
-}
 
-export function useUpdateContact() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  return useMutation({
+  const updateContact = useMutation({
     mutationFn: async ({ id, ...updates }: ContactUpdate & { id: string }) => {
       if (!user) {
         throw new Error('User must be authenticated to update a contact.');
@@ -106,13 +106,8 @@ export function useUpdateContact() {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
     },
   });
-}
 
-export function useDeleteContact() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  return useMutation({
+  const deleteContact = useMutation({
     mutationFn: async (id: string) => {
       if (!user) {
         throw new Error('User must be authenticated to delete a contact.');
@@ -131,13 +126,8 @@ export function useDeleteContact() {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
     },
   });
-}
 
-export function useAddToList() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  return useMutation({
+  const addToList = useMutation({
     mutationFn: async ({ contactId, listId }: { contactId: string, listId: string }) => {
       if (!user) {
         throw new Error('User must be authenticated to add a contact to a list.');
@@ -145,7 +135,11 @@ export function useAddToList() {
 
       const { data, error } = await supabase
         .from('contact_list_memberships')
-        .insert([{ contact_id: contactId, list_id: listId }])
+        .insert([{ 
+          contact_id: contactId, 
+          list_id: listId,
+          added_by: user.id
+        }])
         .select()
         .single();
 
@@ -160,13 +154,8 @@ export function useAddToList() {
       queryClient.invalidateQueries({ queryKey: ['contactLists'] });
     },
   });
-}
 
-export function useRemoveFromList() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  return useMutation({
+  const removeFromList = useMutation({
     mutationFn: async ({ contactId, listId }: { contactId: string, listId: string }) => {
       if (!user) {
         throw new Error('User must be authenticated to remove a contact from a list.');
@@ -187,14 +176,14 @@ export function useRemoveFromList() {
       queryClient.invalidateQueries({ queryKey: ['contactLists'] });
     },
   });
-}
 
-export function useContactsActions() {
   return {
-    useCreateContact,
-    useUpdateContact,
-    useDeleteContact,
-    useAddToList,
-    useRemoveFromList,
+    ...query,
+    contacts: query.data || [],
+    createContact,
+    updateContact,
+    deleteContact,
+    addToList,
+    removeFromList,
   };
 }
