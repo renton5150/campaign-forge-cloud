@@ -14,12 +14,16 @@ import ImportContactsModal from './Contacts/ImportContactsModal';
 
 export default function ContactsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedList, setSelectedList] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [selectedList, setSelectedList] = useState<string>('all-lists');
+  const [statusFilter, setStatusFilter] = useState<string>('all-status');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
-  const { contacts, isLoading } = useContacts(selectedList || undefined, searchTerm, statusFilter);
+  const { contacts, isLoading } = useContacts(
+    selectedList === 'all-lists' ? undefined : selectedList, 
+    searchTerm, 
+    statusFilter === 'all-status' ? undefined : statusFilter
+  );
   const { contactLists } = useContactLists();
 
   // Ensure contactLists is always an array
@@ -112,7 +116,7 @@ export default function ContactsPage() {
                 <SelectValue placeholder="Toutes les listes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Toutes les listes</SelectItem>
+                <SelectItem value="all-lists">Toutes les listes</SelectItem>
                 {safeContactLists.map((list) => (
                   <SelectItem key={list.id} value={list.id}>
                     {list.name} ({list.total_contacts || 0})
@@ -125,7 +129,7 @@ export default function ContactsPage() {
                 <SelectValue placeholder="Tous statuts" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous statuts</SelectItem>
+                <SelectItem value="all-status">Tous statuts</SelectItem>
                 <SelectItem value="active">Actif</SelectItem>
                 <SelectItem value="bounced">Bounce</SelectItem>
                 <SelectItem value="unsubscribed">Désabonné</SelectItem>
@@ -160,7 +164,7 @@ export default function ContactsPage() {
       <ImportContactsModal 
         open={showImportModal} 
         onOpenChange={setShowImportModal}
-        targetListId={selectedList}
+        targetListId={selectedList === 'all-lists' ? undefined : selectedList}
       />
     </div>
   );
