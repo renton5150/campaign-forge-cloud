@@ -346,7 +346,6 @@ const UsersManagement = () => {
     setSearchTerm('');
     setRoleFilter('all');
     setTenantFilter('all');
-    setStatusFilter('all');
     setCurrentPage(1);
   };
 
