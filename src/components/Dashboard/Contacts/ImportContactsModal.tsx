@@ -44,6 +44,9 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
   const { contactLists } = useContactLists();
   const { toast } = useToast();
 
+  // Ensure contactLists is always an array
+  const safeContactLists = Array.isArray(contactLists) ? contactLists : [];
+
   const requiredFields = ['email'];
   const optionalFields = ['first_name', 'last_name', 'company', 'phone', 'notes'];
   const systemFields = ['email', 'first_name', 'last_name', 'company', 'phone', 'notes'];
@@ -225,9 +228,9 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                     <SelectValue placeholder="Choisir une liste de contacts" />
                   </SelectTrigger>
                   <SelectContent>
-                    {contactLists.map((list) => (
+                    {safeContactLists.map((list) => (
                       <SelectItem key={list.id} value={list.id}>
-                        {list.name} ({list.total_contacts} contacts)
+                        {list.name} ({list.total_contacts || 0} contacts)
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -265,7 +268,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                             <SelectValue placeholder="Ignorer cette colonne" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Ignorer</SelectItem>
+                            <SelectItem value="ignore">Ignorer</SelectItem>
                             {systemFields.map((field) => (
                               <SelectItem key={field} value={field}>
                                 {field === 'email' ? 'Email *' : 
