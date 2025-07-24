@@ -502,7 +502,7 @@ export type Database = {
           source: string | null
           status: string | null
           tags: string[] | null
-          tenant_id: string
+          tenant_id: string | null
           updated_at: string
           validation_status: string | null
         }
@@ -523,7 +523,7 @@ export type Database = {
           source?: string | null
           status?: string | null
           tags?: string[] | null
-          tenant_id: string
+          tenant_id?: string | null
           updated_at?: string
           validation_status?: string | null
         }
@@ -544,7 +544,7 @@ export type Database = {
           source?: string | null
           status?: string | null
           tags?: string[] | null
-          tenant_id?: string
+          tenant_id?: string | null
           updated_at?: string
           validation_status?: string | null
         }
