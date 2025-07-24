@@ -22,23 +22,29 @@ export function useBlacklistItemLists() {
       queryFn: async () => {
         if (!user || !blacklistId) return [];
 
-        const { data, error } = await supabase
-          .from('blacklist_item_lists' as any)
-          .select(`
-            *,
-            blacklist_lists (
-              id,
-              name,
-              type
-            )
-          `)
-          .eq('blacklist_id', blacklistId);
+        try {
+          const { data, error } = await supabase
+            .from('blacklist_item_lists' as any)
+            .select(`
+              *,
+              blacklist_lists (
+                id,
+                name,
+                type
+              )
+            `)
+            .eq('blacklist_id', blacklistId);
 
-        if (error) {
-          console.error('Error fetching blacklist item lists:', error);
-          throw error;
+          if (error) {
+            console.error('Error fetching blacklist item lists:', error);
+            // Retourner un tableau vide en cas d'erreur plutôt que de throw
+            return [];
+          }
+          return data || [];
+        } catch (error) {
+          console.error('Error in getBlacklistItemLists:', error);
+          return [];
         }
-        return data || [];
       },
       enabled: !!user && !!blacklistId,
     });
@@ -51,21 +57,26 @@ export function useBlacklistItemLists() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      const { data, error } = await supabase
-        .from('blacklist_item_lists' as any)
-        .insert({
-          blacklist_id: blacklistId,
-          blacklist_list_id: listId,
-          added_by: user.id
-        })
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('blacklist_item_lists' as any)
+          .insert({
+            blacklist_id: blacklistId,
+            blacklist_list_id: listId,
+            added_by: user.id
+          })
+          .select()
+          .single();
 
-      if (error) {
-        console.error('Error adding to blacklist list:', error);
+        if (error) {
+          console.error('Error adding to blacklist list:', error);
+          throw error;
+        }
+        return data;
+      } catch (error) {
+        console.error('Error in addToList:', error);
         throw error;
       }
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blacklistItemLists'] });
@@ -80,14 +91,19 @@ export function useBlacklistItemLists() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      const { error } = await supabase
-        .from('blacklist_item_lists' as any)
-        .delete()
-        .eq('blacklist_id', blacklistId)
-        .eq('blacklist_list_id', listId);
+      try {
+        const { error } = await supabase
+          .from('blacklist_item_lists' as any)
+          .delete()
+          .eq('blacklist_id', blacklistId)
+          .eq('blacklist_list_id', listId);
 
-      if (error) {
-        console.error('Error removing from blacklist list:', error);
+        if (error) {
+          console.error('Error removing from blacklist list:', error);
+          throw error;
+        }
+      } catch (error) {
+        console.error('Error in removeFromList:', error);
         throw error;
       }
     },
@@ -104,22 +120,27 @@ export function useBlacklistItemLists() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      const associations = listIds.map(listId => ({
-        blacklist_id: blacklistId,
-        blacklist_list_id: listId,
-        added_by: user.id
-      }));
+      try {
+        const associations = listIds.map(listId => ({
+          blacklist_id: blacklistId,
+          blacklist_list_id: listId,
+          added_by: user.id
+        }));
 
-      const { data, error } = await supabase
-        .from('blacklist_item_lists' as any)
-        .insert(associations)
-        .select();
+        const { data, error } = await supabase
+          .from('blacklist_item_lists' as any)
+          .insert(associations)
+          .select();
 
-      if (error) {
-        console.error('Error adding to multiple lists:', error);
+        if (error) {
+          console.error('Error adding to multiple lists:', error);
+          throw error;
+        }
+        return data;
+      } catch (error) {
+        console.error('Error in addToMultipleLists:', error);
         throw error;
       }
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blacklistItemLists'] });

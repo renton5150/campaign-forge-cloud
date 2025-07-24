@@ -38,7 +38,7 @@ const BlacklistItemListsModal = ({ isOpen, onClose, blacklistItem }: BlacklistIt
   );
 
   useEffect(() => {
-    if (currentLists) {
+    if (currentLists && Array.isArray(currentLists)) {
       const currentListIds = currentLists.map((item: any) => item.blacklist_list_id);
       setSelectedListIds(currentListIds);
     }
@@ -60,7 +60,8 @@ const BlacklistItemListsModal = ({ isOpen, onClose, blacklistItem }: BlacklistIt
     setError(null);
 
     try {
-      const currentListIds = currentLists?.map((item: any) => item.blacklist_list_id) || [];
+      const currentListIds = (Array.isArray(currentLists) ? currentLists : [])
+        .map((item: any) => item.blacklist_list_id) || [];
       
       // Listes à ajouter
       const listsToAdd = selectedListIds.filter(id => !currentListIds.includes(id));
@@ -70,18 +71,28 @@ const BlacklistItemListsModal = ({ isOpen, onClose, blacklistItem }: BlacklistIt
 
       // Ajouter aux nouvelles listes
       for (const listId of listsToAdd) {
-        await addToList.mutateAsync({
-          blacklistId: blacklistItem.id,
-          listId
-        });
+        try {
+          await addToList.mutateAsync({
+            blacklistId: blacklistItem.id,
+            listId
+          });
+        } catch (addError) {
+          console.error('Error adding to list:', addError);
+          // Continuer avec les autres listes même si une échoue
+        }
       }
 
       // Supprimer des anciennes listes
       for (const listId of listsToRemove) {
-        await removeFromList.mutateAsync({
-          blacklistId: blacklistItem.id,
-          listId
-        });
+        try {
+          await removeFromList.mutateAsync({
+            blacklistId: blacklistItem.id,
+            listId
+          });
+        } catch (removeError) {
+          console.error('Error removing from list:', removeError);
+          // Continuer avec les autres listes même si une échoue
+        }
       }
 
       toast({
@@ -92,10 +103,11 @@ const BlacklistItemListsModal = ({ isOpen, onClose, blacklistItem }: BlacklistIt
       onClose();
     } catch (error: any) {
       console.error('Erreur lors de la mise à jour des listes:', error);
-      setError(error.message || "Une erreur est survenue");
+      const errorMessage = error.message || "Une erreur est survenue lors de la mise à jour des listes";
+      setError(errorMessage);
       toast({
         title: "Erreur",
-        description: error.message || "Une erreur est survenue",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -113,12 +125,14 @@ const BlacklistItemListsModal = ({ isOpen, onClose, blacklistItem }: BlacklistIt
     onClose();
   };
 
+  if (!blacklistItem) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            Gérer les listes - {blacklistItem?.value}
+            Gérer les listes - {blacklistItem.value}
           </DialogTitle>
         </DialogHeader>
         
@@ -146,7 +160,7 @@ const BlacklistItemListsModal = ({ isOpen, onClose, blacklistItem }: BlacklistIt
                       onCheckedChange={(checked) => handleListSelection(list.id, checked as boolean)}
                     />
                     <div className="flex-1">
-                      <Label htmlFor={list.id} className="text-sm font-medium">
+                      <Label htmlFor={list.id} className="text-sm font-medium cursor-pointer">
                         {list.name}
                       </Label>
                       {list.description && (
