@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,7 +34,7 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     listId: defaultListId || '',
   });
 
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { createContact, addToList } = useContacts();
   const { contactLists } = useContactLists();
   const { toast } = useToast();
@@ -54,11 +53,21 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     }
 
     if (!user.tenant_id) {
-      toast({
-        title: 'Erreur',
-        description: 'Votre compte n\'est pas associé à un tenant. Contactez l\'administrateur.',
-        variant: 'destructive',
-      });
+      console.log('User has no tenant_id, refreshing user data...');
+      await refreshUser();
+      
+      // Wait a moment for the refresh to complete
+      setTimeout(async () => {
+        if (!user.tenant_id) {
+          toast({
+            title: 'Erreur',
+            description: 'Impossible de créer un tenant pour votre compte. Veuillez réessayer ou contacter l\'administrateur.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }, 1000);
+      
       return;
     }
 
@@ -73,6 +82,7 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
 
     try {
       console.log('Submitting contact creation...');
+      console.log('User tenant_id:', user.tenant_id);
       
       const contact = await createContact.mutateAsync({
         email: formData.email.toLowerCase().trim(),

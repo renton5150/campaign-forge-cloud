@@ -12,6 +12,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string, role?: UserRole) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from("users")
         .select("*")
         .eq("id", session.user.id)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no data
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching user profile:', error);
@@ -41,6 +42,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       console.log('User profile loaded:', data);
+      
+      // If user doesn't have a tenant_id, try to create one
+      if (data && !data.tenant_id) {
+        console.log('User has no tenant_id, attempting to create/assign tenant...');
+        await createTenantForUser(data);
+        
+        // Refetch user data after tenant creation
+        const { data: updatedUser, error: updateError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        
+        if (!updateError && updatedUser) {
+          console.log('Updated user profile with tenant:', updatedUser);
+          return updatedUser;
+        }
+      }
+      
       return data;
     },
     enabled: !!session?.user?.id,
@@ -48,6 +68,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retryDelay: 1000,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Function to create a tenant for a user
+  const createTenantForUser = async (userData: User) => {
+    try {
+      console.log('Creating tenant for user:', userData.email);
+      
+      // Extract domain from email
+      const domain = userData.email.split('@')[1];
+      const companyName = domain.split('.')[0];
+      
+      // Create tenant
+      const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .insert({
+          company_name: companyName,
+          domain: domain,
+          status: 'active'
+        })
+        .select()
+        .single();
+      
+      if (tenantError) {
+        console.error('Error creating tenant:', tenantError);
+        return;
+      }
+      
+      console.log('Tenant created:', tenant);
+      
+      // Update user with tenant_id
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ tenant_id: tenant.id })
+        .eq('id', userData.id);
+      
+      if (updateError) {
+        console.error('Error updating user with tenant_id:', updateError);
+      } else {
+        console.log('User updated with tenant_id:', tenant.id);
+      }
+    } catch (error) {
+      console.error('Error in createTenantForUser:', error);
+    }
+  };
+
+  const refreshUser = async () => {
+    if (session?.user?.id) {
+      queryClient.invalidateQueries({ queryKey: ['user', session.user.id] });
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener
@@ -102,9 +171,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) return { error };
 
-    // Note: The trigger will automatically create the user profile
-    // No need to manually insert into users table anymore
-
     return { error: null };
   };
 
@@ -130,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       signOut,
+      refreshUser,
     }}>
       {children}
     </AuthContext.Provider>
