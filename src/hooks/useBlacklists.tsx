@@ -20,18 +20,30 @@ export function useBlacklists(type?: 'email' | 'domain') {
 
   // Récupérer les blacklists
   const { data: blacklists, isLoading } = useQuery({
-    queryKey: ['blacklists', user?.tenant_id, type],
+    queryKey: ['blacklists', user?.tenant_id, user?.role, type],
     queryFn: async () => {
-      if (!user?.tenant_id) {
-        console.error('User or tenant_id not found:', user);
-        throw new Error('Utilisateur non authentifié ou tenant_id manquant');
+      if (!user) {
+        console.error('User not found:', user);
+        throw new Error('Utilisateur non authentifié');
       }
 
+      // Pour les super_admin, on peut récupérer toutes les blacklists
+      // Pour les autres, on filtre par tenant_id
       let query = supabase
         .from('blacklists')
         .select('*')
-        .eq('tenant_id', user.tenant_id)
         .order('created_at', { ascending: false });
+
+      if (user.role === 'super_admin') {
+        // Super admin peut voir toutes les blacklists
+        console.log('Super admin - fetching all blacklists');
+      } else {
+        if (!user.tenant_id) {
+          console.error('User tenant_id not found:', user);
+          throw new Error('Utilisateur sans tenant associé');
+        }
+        query = query.eq('tenant_id', user.tenant_id);
+      }
 
       if (type) {
         query = query.eq('type', type);
@@ -45,20 +57,33 @@ export function useBlacklists(type?: 'email' | 'domain') {
       }
       return data as Blacklist[];
     },
-    enabled: !!user?.tenant_id,
+    enabled: !!user,
   });
 
   // Ajouter à la blacklist
   const addToBlacklist = useMutation({
     mutationFn: async (blacklistData: Omit<Blacklist, 'id' | 'created_at' | 'tenant_id'>) => {
-      if (!user?.tenant_id || !user?.id) {
+      if (!user?.id) {
         console.error('User data missing:', { user });
         throw new Error('Utilisateur non authentifié ou données manquantes');
       }
 
+      // Pour les super_admin, on peut utiliser un tenant_id par défaut ou null
+      // Pour les autres, on vérifie qu'ils ont un tenant_id
+      let tenantId = user.tenant_id;
+      
+      if (user.role === 'super_admin' && !tenantId) {
+        // Pour les super_admin, on peut créer une blacklist globale avec tenant_id null
+        // Ou bien utiliser un tenant_id par défaut
+        console.log('Super admin adding to global blacklist');
+        tenantId = null;
+      } else if (!tenantId) {
+        throw new Error('Utilisateur sans tenant associé');
+      }
+
       const dataToInsert = {
         ...blacklistData,
-        tenant_id: user.tenant_id,
+        tenant_id: tenantId,
         created_by: user.id
       };
 
@@ -84,15 +109,24 @@ export function useBlacklists(type?: 'email' | 'domain') {
   // Supprimer de la blacklist
   const removeFromBlacklist = useMutation({
     mutationFn: async (blacklistId: string) => {
-      if (!user?.tenant_id) {
+      if (!user) {
         throw new Error('Utilisateur non authentifié');
       }
 
-      const { error } = await supabase
+      let query = supabase
         .from('blacklists')
         .delete()
-        .eq('id', blacklistId)
-        .eq('tenant_id', user.tenant_id);
+        .eq('id', blacklistId);
+
+      // Pour les super_admin, pas de filtre par tenant_id
+      if (user.role !== 'super_admin') {
+        if (!user.tenant_id) {
+          throw new Error('Utilisateur sans tenant associé');
+        }
+        query = query.eq('tenant_id', user.tenant_id);
+      }
+
+      const { error } = await query;
 
       if (error) {
         console.error('Error deleting blacklist:', error);
@@ -106,17 +140,25 @@ export function useBlacklists(type?: 'email' | 'domain') {
 
   // Vérifier si un email/domaine est blacklisté
   const checkBlacklist = async (value: string, type: 'email' | 'domain'): Promise<boolean> => {
-    if (!user?.tenant_id) {
+    if (!user) {
       throw new Error('Utilisateur non authentifié');
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('blacklists')
       .select('id')
-      .eq('tenant_id', user.tenant_id)
       .eq('type', type)
-      .eq('value', value)
-      .single();
+      .eq('value', value);
+
+    // Pour les super_admin, on check dans toutes les blacklists
+    if (user.role !== 'super_admin') {
+      if (!user.tenant_id) {
+        throw new Error('Utilisateur sans tenant associé');
+      }
+      query = query.eq('tenant_id', user.tenant_id);
+    }
+
+    const { data, error } = await query.single();
 
     if (error && error.code !== 'PGRST116') {
       console.error('Error checking blacklist:', error);
@@ -132,12 +174,22 @@ export function useBlacklists(type?: 'email' | 'domain') {
       type: 'email' | 'domain'; 
       category: Blacklist['category'] 
     }) => {
-      if (!user?.tenant_id || !user?.id) {
+      if (!user?.id) {
         throw new Error('Utilisateur non authentifié ou données manquantes');
       }
 
+      // Pour les super_admin, on peut utiliser un tenant_id par défaut ou null
+      let tenantId = user.tenant_id;
+      
+      if (user.role === 'super_admin' && !tenantId) {
+        console.log('Super admin bulk importing to global blacklist');
+        tenantId = null;
+      } else if (!tenantId) {
+        throw new Error('Utilisateur sans tenant associé');
+      }
+
       const blacklistItems = items.map(value => ({
-        tenant_id: user.tenant_id,
+        tenant_id: tenantId,
         type,
         value: value.trim().toLowerCase(),
         category,

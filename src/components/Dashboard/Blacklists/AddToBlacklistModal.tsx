@@ -43,6 +43,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
       console.log('Current user:', user);
       console.log('Current session:', session);
       console.log('User tenant_id:', user?.tenant_id);
+      console.log('User role:', user?.role);
       console.log('Session user:', session?.user);
 
       // Vérifier que l'utilisateur est authentifié
@@ -50,7 +51,8 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
         throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.');
       }
 
-      if (!user.tenant_id) {
+      // Pour les super_admin, on peut permettre l'ajout sans tenant_id
+      if (!user.tenant_id && user.role !== 'super_admin') {
         throw new Error('Aucun tenant associé à votre compte. Veuillez contacter l\'administrateur.');
       }
 
@@ -118,8 +120,11 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
     onClose();
   };
 
+  // Condition pour désactiver le bouton : pas d'utilisateur OU (pas de tenant_id ET pas super_admin)
+  const isButtonDisabled = !user || (!user.tenant_id && user.role !== 'super_admin');
+
   // Show user debug info if there's an issue
-  const showDebugInfo = !user?.tenant_id && user;
+  const showDebugInfo = !user?.tenant_id && user && user.role !== 'super_admin';
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -140,7 +145,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               Debug: Utilisateur connecté mais sans tenant_id. 
-              Email: {user.email}, ID: {user.id}
+              Email: {user.email}, ID: {user.id}, Role: {user.role}
             </AlertDescription>
           </Alert>
         )}
@@ -204,7 +209,7 @@ const AddToBlacklistModal = ({ isOpen, onClose, defaultType = 'email', defaultVa
             <Button type="button" variant="outline" onClick={handleClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={isLoading || !value.trim() || !user?.tenant_id}>
+            <Button type="submit" disabled={isLoading || !value.trim() || isButtonDisabled}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ajouter
             </Button>
