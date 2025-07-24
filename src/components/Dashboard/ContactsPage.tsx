@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Plus, Upload, Download, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,9 @@ export default function ContactsPage() {
 
   const { contacts, isLoading } = useContacts(selectedList || undefined, searchTerm, statusFilter);
   const { contactLists } = useContactLists();
+
+  // Ensure contactLists is always an array
+  const safeContactLists = Array.isArray(contactLists) ? contactLists : [];
 
   // Calculer les métriques
   const totalContacts = contacts.length;
@@ -108,10 +112,10 @@ export default function ContactsPage() {
                 <SelectValue placeholder="Toutes les listes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Toutes les listes</SelectItem>
-                {contactLists.map((list) => (
+                <SelectItem value="all-lists">Toutes les listes</SelectItem>
+                {safeContactLists.map((list) => (
                   <SelectItem key={list.id} value={list.id}>
-                    {list.name} ({list.total_contacts})
+                    {list.name} ({list.total_contacts || 0})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -121,7 +125,7 @@ export default function ContactsPage() {
                 <SelectValue placeholder="Tous statuts" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous statuts</SelectItem>
+                <SelectItem value="all-status">Tous statuts</SelectItem>
                 <SelectItem value="active">Actif</SelectItem>
                 <SelectItem value="bounced">Bounce</SelectItem>
                 <SelectItem value="unsubscribed">Désabonné</SelectItem>
