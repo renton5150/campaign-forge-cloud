@@ -69,6 +69,15 @@ serve(async (req) => {
 
     if (authError) {
       console.error('Auth creation error:', authError)
+      
+      // Gérer spécifiquement l'erreur d'email déjà existant
+      if (authError.message.includes('already been registered') || authError.message.includes('email_exists')) {
+        return new Response(
+          JSON.stringify({ error: 'Un utilisateur avec cet email existe déjà' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
       return new Response(
         JSON.stringify({ error: authError.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
