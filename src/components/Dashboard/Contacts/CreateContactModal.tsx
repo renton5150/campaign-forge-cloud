@@ -34,9 +34,8 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
     notes: '',
     listId: defaultListId || '',
   });
-  const [isConfiguring, setIsConfiguring] = useState(false);
 
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
   const { createContact, addToList } = useContacts();
   const { contactLists } = useContactLists();
   const { toast } = useToast();
@@ -54,40 +53,20 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
       return;
     }
 
-    // Gestion spéciale pour les super_admin (ils n'ont pas de tenant_id)
-    if (user.role === 'super_admin') {
+    // Pour les super_admin, on utilise un tenant_id fictif ou on permet la création sans tenant_id
+    let tenantId = user.tenant_id;
+    if (user.role === 'super_admin' && !tenantId) {
+      // Les super_admin peuvent créer des contacts sans tenant_id spécifique
+      tenantId = '00000000-0000-0000-0000-000000000000'; // UUID fictif pour les super_admin
+    }
+
+    if (!tenantId && user.role !== 'super_admin') {
       toast({
         title: 'Erreur',
-        description: 'Les super administrateurs ne peuvent pas créer de contacts directement',
+        description: 'Votre compte n\'est pas encore configuré. Veuillez contacter l\'administrateur.',
         variant: 'destructive',
       });
       return;
-    }
-
-    // Si l'utilisateur n'a pas de tenant_id, on tente de rafraîchir
-    if (!user.tenant_id) {
-      console.log('User has no tenant_id, attempting to refresh user data...');
-      setIsConfiguring(true);
-      
-      try {
-        await refreshUser();
-        
-        // Attendre un moment pour que le rafraîchissement se termine
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Recharger la page si le tenant_id n'est toujours pas présent
-        window.location.reload();
-        return;
-      } catch (error) {
-        console.error('Error refreshing user:', error);
-        toast({
-          title: 'Erreur de configuration',
-          description: 'Impossible de configurer votre compte. Veuillez rafraîchir la page.',
-          variant: 'destructive',
-        });
-        setIsConfiguring(false);
-        return;
-      }
     }
 
     if (!formData.email) {
@@ -101,8 +80,9 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
 
     try {
       console.log('Submitting contact creation...');
+      console.log('User role:', user.role);
       console.log('User tenant_id:', user.tenant_id);
-      console.log('User id:', user.id);
+      console.log('Using tenant_id:', tenantId);
       
       const contact = await createContact.mutateAsync({
         email: formData.email.toLowerCase().trim(),
@@ -262,9 +242,9 @@ export default function CreateContactModal({ open, onOpenChange, defaultListId }
             </Button>
             <Button 
               type="submit" 
-              disabled={createContact.isPending || addToList.isPending || isConfiguring}
+              disabled={createContact.isPending || addToList.isPending}
             >
-              {isConfiguring ? 'Configuration du compte...' : createContact.isPending ? 'Création...' : 'Créer le contact'}
+              {createContact.isPending ? 'Création...' : 'Créer le contact'}
             </Button>
           </DialogFooter>
         </form>

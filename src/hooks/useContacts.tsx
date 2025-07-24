@@ -55,13 +55,19 @@ export function useContacts(listId?: string, searchTerm?: string, status?: strin
         throw new Error('ID utilisateur manquant');
       }
 
-      if (!user.tenant_id) {
+      // Pour les super_admin, on utilise un tenant_id fictif
+      let tenantId = user.tenant_id;
+      if (user.role === 'super_admin' && !tenantId) {
+        tenantId = '00000000-0000-0000-0000-000000000000';
+      }
+
+      if (!tenantId && user.role !== 'super_admin') {
         throw new Error('Tenant ID manquant pour l\'utilisateur');
       }
 
       const insertData = {
         ...contactData,
-        tenant_id: user.tenant_id,
+        tenant_id: tenantId,
         created_by: user.id
       };
 
