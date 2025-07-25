@@ -32,13 +32,10 @@ export function useEmailTemplates() {
   const { data: templates, isLoading } = useQuery({
     queryKey: ['email_templates', user?.tenant_id],
     queryFn: async () => {
+      // First, get the basic template data
       const { data, error } = await supabase
         .from('email_templates')
-        .select(`
-          *,
-          missions(name),
-          template_categories(name)
-        `)
+        .select('*')
         .order('updated_at', { ascending: false });
       
       if (error) throw error;
@@ -46,8 +43,8 @@ export function useEmailTemplates() {
       // Transform the data to match our ExtendedEmailTemplate interface
       return data.map(template => ({
         ...template,
-        missions: template.missions as { name: string } | null,
-        template_categories: template.template_categories as { name: string } | null
+        missions: null, // Set to null for now since relation might not exist
+        template_categories: null // Set to null for now since relation might not exist
       })) as ExtendedEmailTemplate[];
     },
     enabled: !!user,
