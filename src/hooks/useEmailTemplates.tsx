@@ -2,36 +2,61 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { EmailTemplate } from '@/types/database';
+
+export interface ExtendedEmailTemplate {
+  id: string;
+  tenant_id: string | null;
+  name: string;
+  description: string | null;
+  category: string;
+  html_content: string;
+  preview_text: string | null;
+  is_system_template: boolean;
+  thumbnail_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  mission_id: string | null;
+  tags: string[];
+  usage_count: number;
+  is_favorite: boolean;
+  last_used_at: string | null;
+  missions?: { name: string };
+  template_categories?: { name: string };
+}
 
 export function useEmailTemplates() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Récupérer tous les templates
   const { data: templates, isLoading } = useQuery({
     queryKey: ['email_templates', user?.tenant_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_templates')
-        .select('*')
-        .order('name');
+        .select(`
+          *,
+          missions(name),
+          template_categories(name)
+        `)
+        .order('updated_at', { ascending: false });
       
       if (error) throw error;
-      return data as EmailTemplate[];
+      return data as ExtendedEmailTemplate[];
     },
     enabled: !!user,
   });
 
-  // Créer un template
   const createTemplate = useMutation({
-    mutationFn: async (templateData: Omit<EmailTemplate, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (templateData: Omit<ExtendedEmailTemplate, 'id' | 'created_at' | 'updated_at' | 'usage_count' | 'last_used_at'>) => {
       const { data, error } = await supabase
         .from('email_templates')
         .insert({
           ...templateData,
           tenant_id: user?.tenant_id,
-          created_by: user?.id
+          created_by: user?.id,
+          usage_count: 0,
+          is_favorite: false
         })
         .select()
         .single();
@@ -44,9 +69,117 @@ export function useEmailTemplates() {
     },
   });
 
+  const updateTemplate = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<ExtendedEmailTemplate> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('email_templates')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_templates'] });
+    },
+  });
+
+  const deleteTemplate = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('email_templates')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_templates'] });
+    },
+  });
+
+  const duplicateTemplate = useMutation({
+    mutationFn: async (templateId: string) => {
+      const { data: original, error: fetchError } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('id', templateId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { data, error } = await supabase
+        .from('email_templates')
+        .insert({
+          ...original,
+          id: undefined,
+          name: `${original.name} (Copie)`,
+          created_by: user?.id,
+          tenant_id: user?.tenant_id,
+          usage_count: 0,
+          is_favorite: false,
+          created_at: undefined,
+          updated_at: undefined,
+          last_used_at: null
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_templates'] });
+    },
+  });
+
+  const toggleFavorite = useMutation({
+    mutationFn: async ({ id, is_favorite }: { id: string; is_favorite: boolean }) => {
+      const { data, error } = await supabase
+        .from('email_templates')
+        .update({ is_favorite })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_templates'] });
+    },
+  });
+
+  const incrementUsage = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('email_templates')
+        .update({ 
+          usage_count: supabase.raw('usage_count + 1'),
+          last_used_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_templates'] });
+    },
+  });
+
   return {
-    templates,
+    templates: templates || [],
     isLoading,
     createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    duplicateTemplate,
+    toggleFavorite,
+    incrementUsage,
   };
 }

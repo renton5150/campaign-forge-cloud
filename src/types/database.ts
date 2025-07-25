@@ -165,6 +165,32 @@ export interface EmailTemplate {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  mission_id: string | null;
+  tags: string[];
+  usage_count: number;
+  is_favorite: boolean;
+  last_used_at: string | null;
+}
+
+export interface Mission {
+  id: string;
+  tenant_id: string | null;
+  name: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateCategory {
+  id: string;
+  tenant_id: string | null;
+  name: string;
+  description: string | null;
+  is_system_category: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Campaign {

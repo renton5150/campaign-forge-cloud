@@ -827,12 +827,17 @@ export type Database = {
           description: string | null
           html_content: string
           id: string
+          is_favorite: boolean | null
           is_system_template: boolean | null
+          last_used_at: string | null
+          mission_id: string | null
           name: string
           preview_text: string | null
+          tags: string[] | null
           tenant_id: string | null
           thumbnail_url: string | null
           updated_at: string
+          usage_count: number | null
         }
         Insert: {
           category?: string | null
@@ -841,12 +846,17 @@ export type Database = {
           description?: string | null
           html_content: string
           id?: string
+          is_favorite?: boolean | null
           is_system_template?: boolean | null
+          last_used_at?: string | null
+          mission_id?: string | null
           name: string
           preview_text?: string | null
+          tags?: string[] | null
           tenant_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string
+          usage_count?: number | null
         }
         Update: {
           category?: string | null
@@ -855,12 +865,17 @@ export type Database = {
           description?: string | null
           html_content?: string
           id?: string
+          is_favorite?: boolean | null
           is_system_template?: boolean | null
+          last_used_at?: string | null
+          mission_id?: string | null
           name?: string
           preview_text?: string | null
+          tags?: string[] | null
           tenant_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string
+          usage_count?: number | null
         }
         Relationships: [
           {
@@ -868,6 +883,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_templates_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
             referencedColumns: ["id"]
           },
           {
@@ -940,6 +962,44 @@ export type Database = {
             columns: ["target_list_id"]
             isOneToOne: false
             referencedRelation: "contact_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missions: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1248,6 +1308,47 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      template_categories: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_system_category: boolean
+          name: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system_category?: boolean
+          name: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system_category?: boolean
+          name?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenants: {
         Row: {
