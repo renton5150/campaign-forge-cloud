@@ -1,9 +1,9 @@
 
 import { useState } from 'react';
-import { Plus, Search, Filter, Grid, List, Star, Copy, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Grid, List, Star, Copy, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,6 +20,7 @@ const TemplatesPage = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<any>(null);
 
   const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate, duplicateTemplate, toggleFavorite } = useEmailTemplates();
   const { missions } = useMissions();
@@ -61,18 +62,22 @@ const TemplatesPage = () => {
     setEditingTemplate(null);
   };
 
-  const handleDeleteTemplate = async (id: string) => {
+  const handleDeleteTemplate = async (template: any) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce template ?')) {
-      await deleteTemplate.mutateAsync(id);
+      await deleteTemplate.mutateAsync(template.id);
     }
   };
 
-  const handleDuplicateTemplate = async (id: string) => {
-    await duplicateTemplate.mutateAsync(id);
+  const handleDuplicateTemplate = async (template: any) => {
+    await duplicateTemplate.mutateAsync(template.id);
   };
 
-  const handleToggleFavorite = async (id: string, is_favorite: boolean) => {
-    await toggleFavorite.mutateAsync({ id, is_favorite: !is_favorite });
+  const handleToggleFavorite = async (template: any) => {
+    await toggleFavorite.mutateAsync({ id: template.id, is_favorite: template.is_favorite });
+  };
+
+  const handlePreviewTemplate = (template: any) => {
+    setPreviewTemplate(template);
   };
 
   if (showEditor) {
@@ -80,7 +85,7 @@ const TemplatesPage = () => {
       <TemplateEditor
         template={editingTemplate}
         onSave={handleSaveTemplate}
-        onCancel={() => {
+        onClose={() => {
           setShowEditor(false);
           setEditingTemplate(null);
         }}
@@ -88,8 +93,33 @@ const TemplatesPage = () => {
     );
   }
 
+  if (previewTemplate) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] flex flex-col">
+          <div className="p-6 border-b">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Aperçu du template</h2>
+              <Button variant="ghost" size="sm" onClick={() => setPreviewTemplate(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-2xl mx-auto bg-white border rounded-lg p-6">
+              <div 
+                dangerouslySetInnerHTML={{ __html: previewTemplate.html_content || '' }}
+                className="prose max-w-none"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -235,6 +265,7 @@ const TemplatesPage = () => {
                   onDelete={handleDeleteTemplate}
                   onDuplicate={handleDuplicateTemplate}
                   onToggleFavorite={handleToggleFavorite}
+                  onPreview={handlePreviewTemplate}
                 />
               ))}
             </div>
@@ -269,14 +300,14 @@ const TemplatesPage = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleToggleFavorite(template.id, template.is_favorite)}
+                        onClick={() => handleToggleFavorite(template)}
                       >
                         <Star className={`h-4 w-4 ${template.is_favorite ? 'text-yellow-500 fill-current' : ''}`} />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDuplicateTemplate(template.id)}
+                        onClick={() => handleDuplicateTemplate(template)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -290,7 +321,7 @@ const TemplatesPage = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteTemplate(template.id)}
+                        onClick={() => handleDeleteTemplate(template)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -312,6 +343,7 @@ const TemplatesPage = () => {
                 onDelete={handleDeleteTemplate}
                 onDuplicate={handleDuplicateTemplate}
                 onToggleFavorite={handleToggleFavorite}
+                onPreview={handlePreviewTemplate}
               />
             ))}
           </div>
@@ -327,6 +359,7 @@ const TemplatesPage = () => {
                 onDelete={handleDeleteTemplate}
                 onDuplicate={handleDuplicateTemplate}
                 onToggleFavorite={handleToggleFavorite}
+                onPreview={handlePreviewTemplate}
               />
             ))}
           </div>
@@ -342,6 +375,7 @@ const TemplatesPage = () => {
                 onDelete={handleDeleteTemplate}
                 onDuplicate={handleDuplicateTemplate}
                 onToggleFavorite={handleToggleFavorite}
+                onPreview={handlePreviewTemplate}
               />
             ))}
           </div>

@@ -8,8 +8,7 @@ import {
   Edit, 
   Copy, 
   Trash2, 
-  Eye, 
-  Star,
+  Eye,
   Calendar,
   Tag,
   BarChart3

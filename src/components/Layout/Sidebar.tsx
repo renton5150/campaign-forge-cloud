@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Home, Users, Globe, Mail, ListChecks, FileText, Shield, Settings } from 'lucide-react';
+import { Home, Users, Globe, Mail, ListChecks, FileText, Shield, Settings, Filter, Upload } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 interface SidebarProps {
