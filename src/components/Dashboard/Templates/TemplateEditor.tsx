@@ -1,19 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { Editor } from '@tinymce/tinymce-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
 import { useAuth } from '@/hooks/useAuth';
 import { EmailTemplate } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
 import { Tag } from 'lucide-react';
+import TinyMCEEditor from '../EmailEditor/TinyMCEEditor';
 
 interface TemplateEditorProps {
   templateId?: string;
@@ -111,12 +110,13 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
+    <div className="h-full flex flex-col">
+      {/* En-tête avec les informations du template */}
+      <Card className="mb-6 flex-shrink-0">
         <CardHeader>
           <CardTitle>{templateId ? 'Modifier' : 'Nouveau'} Template</CardTitle>
           <CardDescription>
-            Créez et personnalisez vos templates d'email
+            Créez et personnalisez vos templates d'email avec variables de personnalisation
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -128,6 +128,7 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
                 id="templateName"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Ex: Template de bienvenue"
               />
             </div>
             <div>
@@ -144,14 +145,17 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
               </Select>
             </div>
           </div>
+          
           <div>
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Décrivez l'usage de ce template..."
             />
           </div>
+          
           <div>
             <Label htmlFor="previewText">Texte de prévisualisation</Label>
             <Input
@@ -159,8 +163,10 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
               id="previewText"
               value={previewText}
               onChange={(e) => setPreviewText(e.target.value)}
+              placeholder="Ex: Bonjour {{PRENOM}}, découvrez nos nouveautés..."
             />
           </div>
+          
           <div>
             <Label>Tags</Label>
             <div className="flex items-center space-x-2">
@@ -188,31 +194,23 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
               ))}
             </div>
           </div>
-          <div>
-            <Label htmlFor="content">Contenu HTML</Label>
-            <Editor
-              apiKey="bjlp8x727u9vmqvrd8pj9k0d04x2ycincthiln1kde17yxc6"
-              value={content}
-              onEditorChange={(newContent) => setContent(newContent)}
-              init={{
-                height: 500,
-                menubar: true,
-                plugins: [
-                  'advlist autolink lists link image charmap print preview anchor',
-                  'searchreplace visualblocks code fullscreen',
-                  'insertdatetime media table paste code help wordcount'
-                ],
-                toolbar:
-                  'undo redo | formatselect | ' +
-                  'bold italic backcolor | alignleft aligncenter ' +
-                  'alignright alignjustify | bullist numlist outdent indent | ' +
-                  'removeformat | help'
-              }}
-            />
-          </div>
         </CardContent>
       </Card>
-      <div className="flex justify-end space-x-2">
+
+      {/* Éditeur avec panneau de personnalisation */}
+      <div className="flex-1 min-h-0">
+        <TinyMCEEditor
+          value={content}
+          onChange={setContent}
+          onSave={handleSave}
+          showTabs={true}
+          showToolbar={true}
+          availableContacts={[]} // Vous pouvez passer des contacts ici si nécessaire
+        />
+      </div>
+
+      {/* Boutons d'action */}
+      <div className="flex justify-end space-x-2 mt-4 pt-4 border-t flex-shrink-0">
         <Button variant="outline" onClick={onClose}>
           Annuler
         </Button>
