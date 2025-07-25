@@ -20,7 +20,7 @@ const TemplatesPage = () => {
   const [selectedMission, setSelectedMission] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showEditor, setShowEditor] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | undefined>(undefined);
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
   const [deleteConfirmTemplate, setDeleteConfirmTemplate] = useState<any>(null);
 
@@ -44,39 +44,18 @@ const TemplatesPage = () => {
   const customTemplates = templates.filter(t => !t.is_system_template).length;
 
   const handleCreateTemplate = () => {
-    setEditingTemplate(null);
+    setEditingTemplateId(undefined);
     setShowEditor(true);
   };
 
   const handleEditTemplate = (template: any) => {
-    setEditingTemplate(template);
+    setEditingTemplateId(template.id);
     setShowEditor(true);
   };
 
-  const handleSaveTemplate = async (templateData: any) => {
-    try {
-      if (editingTemplate) {
-        await updateTemplate.mutateAsync({ id: editingTemplate.id, ...templateData });
-        toast({
-          title: "Template mis à jour",
-          description: "Le template a été mis à jour avec succès.",
-        });
-      } else {
-        await createTemplate.mutateAsync(templateData);
-        toast({
-          title: "Template créé",
-          description: "Le template a été créé avec succès.",
-        });
-      }
-      setShowEditor(false);
-      setEditingTemplate(null);
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Une erreur s'est produite lors de la sauvegarde du template.",
-        variant: "destructive",
-      });
-    }
+  const handleBackFromEditor = () => {
+    setShowEditor(false);
+    setEditingTemplateId(undefined);
   };
 
   const handleDeleteTemplate = (template: any) => {
@@ -149,12 +128,8 @@ const TemplatesPage = () => {
   if (showEditor) {
     return (
       <TemplateEditor
-        template={editingTemplate}
-        onSave={handleSaveTemplate}
-        onClose={() => {
-          setShowEditor(false);
-          setEditingTemplate(null);
-        }}
+        templateId={editingTemplateId}
+        onBack={handleBackFromEditor}
       />
     );
   }

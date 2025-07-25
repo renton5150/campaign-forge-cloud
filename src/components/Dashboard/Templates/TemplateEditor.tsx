@@ -12,6 +12,7 @@ import { Eye, Save, ArrowLeft, Palette, Type, Image, Settings } from 'lucide-rea
 import { useToast } from '@/hooks/use-toast';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
 import { useTemplateCategories } from '@/hooks/useTemplateCategories';
+import { useAuth } from '@/hooks/useAuth';
 import TinyMCEEditor from '../EmailEditor/TinyMCEEditor';
 
 interface TemplateEditorProps {
@@ -33,6 +34,7 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
   const [newTag, setNewTag] = useState('');
 
   const { toast } = useToast();
+  const { user } = useAuth();
   const { createTemplate, updateTemplate, templates } = useEmailTemplates();
   const { categories } = useTemplateCategories();
 
@@ -72,6 +74,15 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
       return;
     }
 
+    if (!user) {
+      toast({
+        title: 'Erreur',
+        description: 'Utilisateur non connecté',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (templateId) {
@@ -84,7 +95,17 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
           description: 'Template mis à jour avec succès',
         });
       } else {
-        await createTemplate.mutateAsync(templateData);
+        // Créer un objet complet pour la création
+        const completeTemplateData = {
+          ...templateData,
+          tenant_id: user.tenant_id,
+          created_by: user.id,
+          is_system_template: false,
+          is_favorite: false,
+          thumbnail_url: null,
+          mission_id: null,
+        };
+        await createTemplate.mutateAsync(completeTemplateData);
         toast({
           title: 'Succès',
           description: 'Template créé avec succès',
@@ -180,7 +201,7 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
           .tinymce-preview {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
             font-size: 14px;
-            line-height: 1.3;
+            line-height: 1.4;
             color: #333333;
             word-wrap: break-word;
             text-align: left;
@@ -194,33 +215,33 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
           }
           
           .tinymce-preview p {
-            margin: 0 0 10px 0;
+            margin: 0 0 6px 0;
             padding: 0;
-            line-height: 1.3;
+            line-height: 1.4;
           }
           
           .tinymce-preview ul {
-            margin: 0 0 10px 0;
-            padding: 0 0 0 20px;
+            margin: 0 0 6px 0;
+            padding: 0 0 0 16px;
             list-style-type: disc;
           }
           
           .tinymce-preview ol {
-            margin: 0 0 10px 0;
-            padding: 0 0 0 20px;
+            margin: 0 0 6px 0;
+            padding: 0 0 0 16px;
             list-style-type: decimal;
           }
           
           .tinymce-preview li {
-            margin: 0 0 2px 0;
+            margin: 0;
             padding: 0;
-            line-height: 1.3;
+            line-height: 1.4;
           }
           
           .tinymce-preview ul li {
-            margin: 0 0 2px 0;
+            margin: 0;
             padding: 0;
-            line-height: 1.3;
+            line-height: 1.4;
           }
           
           .tinymce-preview strong, .tinymce-preview b {
@@ -236,7 +257,7 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
           }
           
           .tinymce-preview h1, .tinymce-preview h2, .tinymce-preview h3, .tinymce-preview h4, .tinymce-preview h5, .tinymce-preview h6 {
-            margin: 0 0 10px 0;
+            margin: 0 0 6px 0;
             padding: 0;
             font-weight: bold;
             line-height: 1.2;
@@ -277,13 +298,13 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
             max-width: 100%;
             height: auto;
             display: block;
-            margin: 10px 0;
+            margin: 6px 0;
           }
           
           .tinymce-preview table {
             width: 100%;
             border-collapse: collapse;
-            margin: 10px 0;
+            margin: 6px 0;
           }
           
           .tinymce-preview td, .tinymce-preview th {
@@ -298,7 +319,7 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
           }
           
           .tinymce-preview blockquote {
-            margin: 10px 0;
+            margin: 6px 0;
             padding-left: 16px;
             border-left: 4px solid #ddd;
             font-style: italic;
@@ -311,7 +332,7 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
             overflow-x: auto;
             font-family: 'Courier New', monospace;
             font-size: 13px;
-            margin: 10px 0;
+            margin: 6px 0;
           }
           
           .tinymce-preview code {
@@ -325,7 +346,7 @@ export default function TemplateEditor({ templateId, onBack }: TemplateEditorPro
           .tinymce-preview hr {
             border: none;
             border-top: 1px solid #ddd;
-            margin: 10px 0;
+            margin: 6px 0;
           }
           
           .tinymce-preview div {
