@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Upload, FileText, Check, X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useToast } from '@/hooks/use-toast';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface ImportContactsModalProps {
   open: boolean;
@@ -55,7 +58,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
-    if (!selectedFile.name.match(/\.(csv|xlsx)$/i)) {
+    if (!selectedFile.name.match(/\.(csv|xlsx|xls)$/i)) {
       toast({
         title: 'Format non supporté',
         description: 'Veuillez sélectionner un fichier CSV ou Excel',
@@ -69,45 +72,105 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
   };
 
   const parseFile = async (file: File) => {
-    // Simulation de parsing - en production, vous utiliseriez une vraie librairie CSV/Excel
-    const text = await file.text();
-    const lines = text.split('\n').filter(line => line.trim());
-    
-    if (lines.length === 0) {
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      
+      if (extension === 'csv') {
+        // Parse CSV file
+        const text = await file.text();
+        
+        Papa.parse(text, {
+          complete: (results) => {
+            if (results.errors.length > 0) {
+              toast({
+                title: 'Erreur de parsing',
+                description: 'Erreur lors de la lecture du fichier CSV',
+                variant: 'destructive',
+              });
+              return;
+            }
+
+            const data = results.data as string[][];
+            if (data.length === 0) {
+              toast({
+                title: 'Fichier vide',
+                description: 'Le fichier sélectionné ne contient aucune donnée',
+                variant: 'destructive',
+              });
+              return;
+            }
+
+            const headers = data[0];
+            const rows = data.slice(1, Math.min(6, data.length)).filter(row => row.some(cell => cell.trim()));
+
+            setPreview({
+              headers,
+              rows,
+              totalRows: data.length - 1
+            });
+
+            autoMapColumns(headers);
+          },
+          header: false,
+          skipEmptyLines: true,
+          encoding: 'UTF-8'
+        });
+      } else if (extension === 'xlsx' || extension === 'xls') {
+        // Parse Excel file
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false }) as string[][];
+
+        if (data.length === 0) {
+          toast({
+            title: 'Fichier vide',
+            description: 'Le fichier sélectionné ne contient aucune donnée',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const headers = data[0];
+        const rows = data.slice(1, Math.min(6, data.length)).filter(row => row.some(cell => cell && cell.toString().trim()));
+
+        setPreview({
+          headers,
+          rows,
+          totalRows: data.length - 1
+        });
+
+        autoMapColumns(headers);
+      }
+    } catch (error) {
+      console.error('Erreur lors du parsing du fichier:', error);
       toast({
-        title: 'Fichier vide',
-        description: 'Le fichier sélectionné ne contient aucune donnée',
+        title: 'Erreur de parsing',
+        description: 'Impossible de lire le fichier. Vérifiez le format.',
         variant: 'destructive',
       });
-      return;
     }
+  };
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/['"]/g, ''));
-    const rows = lines.slice(1, 6).map(line => 
-      line.split(',').map(cell => cell.trim().replace(/['"]/g, ''))
-    );
-
-    setPreview({
-      headers,
-      rows,
-      totalRows: lines.length - 1
-    });
-
-    // Auto-mapping intelligent
+  const autoMapColumns = (headers: string[]) => {
     const autoMapping: ColumnMapping = {};
+    
     headers.forEach((header, index) => {
-      const lowerHeader = header.toLowerCase();
-      if (lowerHeader.includes('email') || lowerHeader.includes('e-mail')) {
+      if (!header) return;
+      
+      const lowerHeader = header.toLowerCase().trim();
+      
+      if (lowerHeader.includes('email') || lowerHeader.includes('e-mail') || lowerHeader.includes('mail')) {
         autoMapping[index] = 'email';
-      } else if (lowerHeader.includes('prénom') || lowerHeader.includes('prenom') || lowerHeader.includes('first')) {
+      } else if (lowerHeader.includes('prénom') || lowerHeader.includes('prenom') || lowerHeader.includes('first') || lowerHeader.includes('firstname')) {
         autoMapping[index] = 'first_name';
-      } else if (lowerHeader.includes('nom') && !lowerHeader.includes('prénom') || lowerHeader.includes('last')) {
+      } else if ((lowerHeader.includes('nom') && !lowerHeader.includes('prénom') && !lowerHeader.includes('prenom')) || lowerHeader.includes('last') || lowerHeader.includes('lastname')) {
         autoMapping[index] = 'last_name';
-      } else if (lowerHeader.includes('entreprise') || lowerHeader.includes('company') || lowerHeader.includes('société')) {
+      } else if (lowerHeader.includes('entreprise') || lowerHeader.includes('company') || lowerHeader.includes('société') || lowerHeader.includes('societe')) {
         autoMapping[index] = 'company';
-      } else if (lowerHeader.includes('téléphone') || lowerHeader.includes('phone') || lowerHeader.includes('tel')) {
+      } else if (lowerHeader.includes('téléphone') || lowerHeader.includes('telephone') || lowerHeader.includes('phone') || lowerHeader.includes('tel')) {
         autoMapping[index] = 'phone';
-      } else if (lowerHeader.includes('note')) {
+      } else if (lowerHeader.includes('note') || lowerHeader.includes('commentaire') || lowerHeader.includes('comment')) {
         autoMapping[index] = 'notes';
       }
     });
@@ -193,7 +256,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
               <CardHeader>
                 <CardTitle className="text-lg">Sélectionner un fichier</CardTitle>
                 <CardDescription>
-                  Formats supportés : CSV, Excel (.xlsx)
+                  Formats supportés : CSV, Excel (.xlsx, .xls)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -207,7 +270,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                         Parcourir les fichiers
                         <input
                           type="file"
-                          accept=".csv,.xlsx"
+                          accept=".csv,.xlsx,.xls"
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -254,7 +317,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                   {preview.headers.map((header, index) => (
                     <div key={index} className="flex items-center gap-4">
                       <div className="w-1/3">
-                        <Label className="font-medium">{header}</Label>
+                        <Label className="font-medium">{header || `Colonne ${index + 1}`}</Label>
                         <div className="text-sm text-muted-foreground">
                           Ex: {preview.rows[0]?.[index] || 'N/A'}
                         </div>
@@ -286,7 +349,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                         {mapping[index] === 'email' && (
                           <Badge className="bg-green-100 text-green-800">Obligatoire</Badge>
                         )}
-                        {mapping[index] && mapping[index] !== 'email' && (
+                        {mapping[index] && mapping[index] !== 'email' && mapping[index] !== 'ignore' && (
                           <Badge variant="outline">Optionnel</Badge>
                         )}
                       </div>
@@ -301,21 +364,29 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                 <CardTitle className="text-lg">Aperçu des données</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-sm">
-                  <div className="grid grid-cols-5 gap-2 font-medium border-b pb-2 mb-2">
-                    {preview.headers.slice(0, 5).map((header, index) => (
-                      <div key={index}>{header}</div>
-                    ))}
-                  </div>
-                  {preview.rows.map((row, rowIndex) => (
-                    <div key={rowIndex} className="grid grid-cols-5 gap-2 py-1">
-                      {row.slice(0, 5).map((cell, cellIndex) => (
-                        <div key={cellIndex} className="text-muted-foreground truncate">
-                          {cell || '-'}
-                        </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        {preview.headers.slice(0, 6).map((header, index) => (
+                          <th key={index} className="text-left p-2 font-medium">
+                            {header || `Colonne ${index + 1}`}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.rows.slice(0, 5).map((row, rowIndex) => (
+                        <tr key={rowIndex} className="border-b">
+                          {row.slice(0, 6).map((cell, cellIndex) => (
+                            <td key={cellIndex} className="p-2 text-muted-foreground">
+                              {cell || '-'}
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </div>
-                  ))}
+                    </tbody>
+                  </table>
                 </div>
                 <div className="mt-4 text-sm text-muted-foreground">
                   Total : {preview.totalRows} lignes à importer
