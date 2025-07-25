@@ -180,6 +180,9 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
         autoMapping[index] = 'phone';
       } else if (lowerHeader.includes('note') || lowerHeader.includes('commentaire') || lowerHeader.includes('comment')) {
         autoMapping[index] = 'notes';
+      } else {
+        // Set unmapped columns to 'ignore' by default
+        autoMapping[index] = 'ignore';
       }
     });
 
@@ -316,6 +319,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
 
   const getSelectDisplayValue = (columnIndex: string) => {
     const mappedField = mapping[columnIndex];
+    // Always return a valid string, default to ignore if undefined
     if (!mappedField || mappedField === 'ignore') return "Ignorer cette colonne";
     
     const customField = customFields.find(f => f.id === mappedField);
