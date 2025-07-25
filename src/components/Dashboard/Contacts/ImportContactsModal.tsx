@@ -235,6 +235,12 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
     });
   };
 
+  const handleCancelCreateField = () => {
+    setShowCreateField(null);
+    setNewFieldName('');
+    setNewFieldType('text');
+  };
+
   const validateMapping = () => {
     const mappedFields = Object.values(mapping);
     const hasEmail = mappedFields.includes('email');
@@ -306,6 +312,16 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
       case 'notes': return 'Notes';
       default: return field;
     }
+  };
+
+  const getSelectDisplayValue = (columnIndex: string) => {
+    const mappedField = mapping[columnIndex];
+    if (!mappedField) return "Ignorer cette colonne";
+    
+    const customField = customFields.find(f => f.id === mappedField);
+    if (customField) return customField.name;
+    
+    return getFieldDisplayName(mappedField);
   };
 
   return (
@@ -396,10 +412,12 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                           onValueChange={(value) => handleMappingChange(String(index), value)}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Ignorer cette colonne" />
+                            <SelectValue>
+                              {getSelectDisplayValue(String(index))}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="ignore">Ignorer</SelectItem>
+                            <SelectItem value="">Ignorer cette colonne</SelectItem>
                             {systemFields.map((field) => (
                               <SelectItem key={field} value={field}>
                                 {getFieldDisplayName(field)}
@@ -466,7 +484,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                           <Button onClick={handleCreateCustomField}>
                             Créer le champ
                           </Button>
-                          <Button variant="outline" onClick={() => setShowCreateField(null)}>
+                          <Button variant="outline" onClick={handleCancelCreateField}>
                             Annuler
                           </Button>
                         </div>
