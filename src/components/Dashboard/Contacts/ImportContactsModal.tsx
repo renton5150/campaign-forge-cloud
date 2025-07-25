@@ -319,6 +319,12 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
 
   const getSelectDisplayValue = (columnIndex: string) => {
     const mappedField = mapping[columnIndex];
+    
+    // Handle the create_new case specifically
+    if (mappedField === 'create_new') {
+      return "Créer un nouveau champ";
+    }
+    
     // Always return a valid string, default to ignore if undefined
     if (!mappedField || mappedField === 'ignore') return "Ignorer cette colonne";
     
@@ -445,7 +451,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                         {mapping[index] === 'email' && (
                           <Badge className="bg-green-100 text-green-800">Obligatoire</Badge>
                         )}
-                        {mapping[index] && mapping[index] !== 'email' && mapping[index] !== 'ignore' && (
+                        {mapping[index] && mapping[index] !== 'email' && mapping[index] !== 'ignore' && mapping[index] !== 'create_new' && (
                           <Badge variant="outline">
                             {customFields.find(f => f.id === mapping[index]) ? 'Personnalisé' : 'Optionnel'}
                           </Badge>
