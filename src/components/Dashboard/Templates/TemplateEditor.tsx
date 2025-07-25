@@ -136,37 +136,37 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
 
         <form onSubmit={handleSubmit} className="flex-1 flex overflow-hidden min-h-0">
           {/* Sidebar avec les paramètres */}
-          <div className="w-72 border-r bg-gray-50 p-4 overflow-y-auto flex-shrink-0">
-            <div className="space-y-4">
+          <div className="w-64 border-r bg-gray-50 p-3 overflow-y-auto flex-shrink-0">
+            <div className="space-y-3">
               <div>
-                <Label htmlFor="name" className="text-sm font-medium">Nom du template *</Label>
+                <Label htmlFor="name" className="text-xs font-medium">Nom du template *</Label>
                 <Input
                   id="name"
                   value={formData.name || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   required
-                  className="mt-1"
+                  className="mt-1 text-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+                <Label htmlFor="description" className="text-xs font-medium">Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={2}
-                  className="mt-1"
+                  className="mt-1 text-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="category" className="text-sm font-medium">Catégorie</Label>
+                <Label htmlFor="category" className="text-xs font-medium">Catégorie</Label>
                 <Select
                   value={formData.category || 'custom'}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -180,7 +180,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
               </div>
 
               <div>
-                <Label htmlFor="mission" className="text-sm font-medium">Mission</Label>
+                <Label htmlFor="mission" className="text-xs font-medium">Mission</Label>
                 <Select
                   value={formData.mission_id || 'none'}
                   onValueChange={(value) => setFormData(prev => ({ 
@@ -188,7 +188,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
                     mission_id: value === 'none' ? null : value 
                   }))}
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -203,26 +203,26 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
               </div>
 
               <div>
-                <Label htmlFor="preview_text" className="text-sm font-medium">Texte d'aperçu</Label>
+                <Label htmlFor="preview_text" className="text-xs font-medium">Texte d'aperçu</Label>
                 <Textarea
                   id="preview_text"
                   value={formData.preview_text || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, preview_text: e.target.value }))}
                   rows={2}
                   placeholder="Texte affiché dans l'aperçu de l'email"
-                  className="mt-1"
+                  className="mt-1 text-sm"
                 />
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Tags</Label>
+                <Label className="text-xs font-medium">Tags</Label>
                 <div className="flex gap-2 mt-1 mb-2">
                   <Input
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Ajouter un tag"
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleTagAdd())}
-                    className="flex-1"
+                    className="flex-1 text-sm"
                   />
                   <Button type="button" onClick={handleTagAdd} size="sm">
                     <Plus className="h-4 w-4" />
@@ -250,7 +250,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
                   checked={formData.is_favorite || false}
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_favorite: checked }))}
                 />
-                <Label htmlFor="is_favorite" className="text-sm font-medium">Template favori</Label>
+                <Label htmlFor="is_favorite" className="text-xs font-medium">Template favori</Label>
               </div>
             </div>
           </div>
@@ -299,12 +299,6 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
                       <div 
                         dangerouslySetInnerHTML={{ __html: formData.html_content || '' }}
                         className="email-preview"
-                        style={{
-                          fontFamily: 'Arial, sans-serif',
-                          fontSize: '14px',
-                          lineHeight: '1.6',
-                          color: '#333333'
-                        }}
                       />
                     </div>
                   </div>
@@ -333,72 +327,95 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
       </div>
       
       {/* Styles CSS pour l'aperçu */}
-      <style jsx>{`
-        .email-preview {
-          word-wrap: break-word;
-          white-space: pre-wrap;
-        }
-        
-        .email-preview p {
-          margin: 0 0 16px 0;
-          line-height: 1.6;
-        }
-        
-        .email-preview ul, .email-preview ol {
-          margin: 16px 0;
-          padding-left: 24px;
-        }
-        
-        .email-preview li {
-          margin-bottom: 8px;
-          line-height: 1.6;
-        }
-        
-        .email-preview strong, .email-preview b {
-          font-weight: bold;
-        }
-        
-        .email-preview em, .email-preview i {
-          font-style: italic;
-        }
-        
-        .email-preview h1, .email-preview h2, .email-preview h3, .email-preview h4 {
-          margin: 24px 0 16px 0;
-          font-weight: bold;
-        }
-        
-        .email-preview h1 {
-          font-size: 24px;
-        }
-        
-        .email-preview h2 {
-          font-size: 20px;
-        }
-        
-        .email-preview h3 {
-          font-size: 18px;
-        }
-        
-        .email-preview h4 {
-          font-size: 16px;
-        }
-        
-        .email-preview a {
-          color: #007bff;
-          text-decoration: underline;
-        }
-        
-        .email-preview br {
-          line-height: 1.6;
-        }
-        
-        .email-preview blockquote {
-          margin: 16px 0;
-          padding-left: 16px;
-          border-left: 4px solid #ddd;
-          font-style: italic;
-        }
-      `}</style>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .email-preview {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333333;
+            word-wrap: break-word;
+          }
+          
+          .email-preview p {
+            margin: 0 0 16px 0;
+            line-height: 1.6;
+          }
+          
+          .email-preview ul, .email-preview ol {
+            margin: 16px 0;
+            padding-left: 24px;
+          }
+          
+          .email-preview li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+          }
+          
+          .email-preview strong, .email-preview b {
+            font-weight: bold;
+          }
+          
+          .email-preview em, .email-preview i {
+            font-style: italic;
+          }
+          
+          .email-preview h1, .email-preview h2, .email-preview h3, .email-preview h4 {
+            margin: 24px 0 16px 0;
+            font-weight: bold;
+          }
+          
+          .email-preview h1 {
+            font-size: 24px;
+          }
+          
+          .email-preview h2 {
+            font-size: 20px;
+          }
+          
+          .email-preview h3 {
+            font-size: 18px;
+          }
+          
+          .email-preview h4 {
+            font-size: 16px;
+          }
+          
+          .email-preview a {
+            color: #007bff;
+            text-decoration: underline;
+          }
+          
+          .email-preview img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 16px 0;
+          }
+          
+          .email-preview table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+          }
+          
+          .email-preview td, .email-preview th {
+            padding: 8px;
+            border: 1px solid #ddd;
+          }
+          
+          .email-preview blockquote {
+            margin: 16px 0;
+            padding-left: 16px;
+            border-left: 4px solid #ddd;
+            font-style: italic;
+          }
+          
+          .email-preview div {
+            margin: 8px 0;
+          }
+        `
+      }} />
     </div>
   );
 }
