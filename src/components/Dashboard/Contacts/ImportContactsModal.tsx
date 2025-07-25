@@ -192,6 +192,11 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
 
   const handleMappingChange = (columnIndex: string, field: string) => {
     if (field === 'create_new') {
+      // Set the mapping to create_new temporarily so the select shows the correct value
+      setMapping(prev => ({
+        ...prev,
+        [columnIndex]: 'create_new'
+      }));
       setShowCreateField(columnIndex);
       return;
     }
@@ -239,6 +244,13 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
   };
 
   const handleCancelCreateField = () => {
+    // When canceling, reset the mapping to 'ignore' instead of keeping 'create_new'
+    if (showCreateField) {
+      setMapping(prev => ({
+        ...prev,
+        [showCreateField]: 'ignore'
+      }));
+    }
     setShowCreateField(null);
     setNewFieldName('');
     setNewFieldType('text');
