@@ -298,7 +298,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
                     <div className="p-8">
                       <div 
                         dangerouslySetInnerHTML={{ __html: formData.html_content || '' }}
-                        className="email-preview"
+                        className="tinymce-preview"
                       />
                     </div>
                   </div>
@@ -326,93 +326,143 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
         </div>
       </div>
       
-      {/* Styles CSS pour l'aperçu */}
+      {/* Styles CSS pour reproduire exactement le rendu TinyMCE */}
       <style dangerouslySetInnerHTML={{
         __html: `
-          .email-preview {
-            font-family: Arial, sans-serif;
+          .tinymce-preview {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
             font-size: 14px;
-            line-height: 1.6;
+            line-height: 1.4;
             color: #333333;
             word-wrap: break-word;
+            text-align: left;
           }
           
-          .email-preview p {
-            margin: 0 0 16px 0;
-            line-height: 1.6;
+          .tinymce-preview p {
+            margin: 0 0 1em 0;
+            padding: 0;
+            line-height: 1.4;
           }
           
-          .email-preview ul, .email-preview ol {
-            margin: 16px 0;
-            padding-left: 24px;
+          .tinymce-preview ul {
+            margin: 0 0 1em 0;
+            padding-left: 30px;
+            list-style-type: disc;
           }
           
-          .email-preview li {
-            margin-bottom: 8px;
-            line-height: 1.6;
+          .tinymce-preview ol {
+            margin: 0 0 1em 0;
+            padding-left: 30px;
+            list-style-type: decimal;
           }
           
-          .email-preview strong, .email-preview b {
+          .tinymce-preview li {
+            margin: 0 0 0.5em 0;
+            padding: 0;
+            line-height: 1.4;
+          }
+          
+          .tinymce-preview strong, .tinymce-preview b {
             font-weight: bold;
           }
           
-          .email-preview em, .email-preview i {
+          .tinymce-preview em, .tinymce-preview i {
             font-style: italic;
           }
           
-          .email-preview h1, .email-preview h2, .email-preview h3, .email-preview h4 {
-            margin: 24px 0 16px 0;
+          .tinymce-preview h1, .tinymce-preview h2, .tinymce-preview h3, .tinymce-preview h4, .tinymce-preview h5, .tinymce-preview h6 {
+            margin: 0 0 0.5em 0;
+            padding: 0;
             font-weight: bold;
+            line-height: 1.3;
           }
           
-          .email-preview h1 {
-            font-size: 24px;
+          .tinymce-preview h1 {
+            font-size: 2em;
           }
           
-          .email-preview h2 {
-            font-size: 20px;
+          .tinymce-preview h2 {
+            font-size: 1.5em;
           }
           
-          .email-preview h3 {
-            font-size: 18px;
+          .tinymce-preview h3 {
+            font-size: 1.3em;
           }
           
-          .email-preview h4 {
-            font-size: 16px;
+          .tinymce-preview h4 {
+            font-size: 1.1em;
           }
           
-          .email-preview a {
-            color: #007bff;
+          .tinymce-preview a {
+            color: #0066cc;
             text-decoration: underline;
           }
           
-          .email-preview img {
+          .tinymce-preview a:hover {
+            text-decoration: none;
+          }
+          
+          .tinymce-preview img {
             max-width: 100%;
             height: auto;
             display: block;
-            margin: 16px 0;
+            margin: 0.5em 0;
           }
           
-          .email-preview table {
+          .tinymce-preview table {
             width: 100%;
             border-collapse: collapse;
-            margin: 16px 0;
+            margin: 1em 0;
           }
           
-          .email-preview td, .email-preview th {
+          .tinymce-preview td, .tinymce-preview th {
             padding: 8px;
             border: 1px solid #ddd;
+            text-align: left;
           }
           
-          .email-preview blockquote {
-            margin: 16px 0;
+          .tinymce-preview th {
+            font-weight: bold;
+            background-color: #f5f5f5;
+          }
+          
+          .tinymce-preview blockquote {
+            margin: 1em 0;
             padding-left: 16px;
             border-left: 4px solid #ddd;
             font-style: italic;
           }
           
-          .email-preview div {
-            margin: 8px 0;
+          .tinymce-preview pre {
+            background-color: #f5f5f5;
+            padding: 1em;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+          }
+          
+          .tinymce-preview code {
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+          }
+          
+          .tinymce-preview hr {
+            border: none;
+            border-top: 1px solid #ddd;
+            margin: 1em 0;
+          }
+          
+          .tinymce-preview div {
+            margin: 0;
+            padding: 0;
+          }
+          
+          .tinymce-preview br {
+            line-height: 1.4;
           }
         `
       }} />
