@@ -42,7 +42,13 @@ export function useEmailTemplates() {
         .order('updated_at', { ascending: false });
       
       if (error) throw error;
-      return data as ExtendedEmailTemplate[];
+      
+      // Transform the data to match our ExtendedEmailTemplate interface
+      return data.map(template => ({
+        ...template,
+        missions: template.missions as { name: string } | null,
+        template_categories: template.template_categories as { name: string } | null
+      })) as ExtendedEmailTemplate[];
     },
     enabled: !!user,
   });
