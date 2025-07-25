@@ -183,7 +183,7 @@ export default function PersonalizationPanel({
 
         <div className="pt-4 border-t">
           <p className="text-xs text-gray-500">
-            💡 Utilisez les variables sous la forme {{`{VARIABLE}`}} dans votre contenu.
+            💡 Utilisez les variables sous la forme {"{{"} VARIABLE {"}}"} dans votre contenu.
             Elles seront automatiquement remplacées par les données du contact lors de l'envoi.
           </p>
         </div>
