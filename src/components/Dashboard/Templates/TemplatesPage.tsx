@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useEmailTemplates } from '@/hooks/useEmailTemplates';
 import { useMissions } from '@/hooks/useMissions';
 import { useTemplateCategories } from '@/hooks/useTemplateCategories';
+import { useToast } from '@/hooks/use-toast';
 import TemplateCard from './TemplateCard';
 import TemplateEditor from './TemplateEditor';
 
@@ -20,12 +22,13 @@ const TemplatesPage = () => {
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
+  const [deleteConfirmTemplate, setDeleteConfirmTemplate] = useState<any>(null);
 
   const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate, duplicateTemplate, toggleFavorite } = useEmailTemplates();
   const { missions } = useMissions();
   const { categories } = useTemplateCategories();
+  const { toast } = useToast();
 
-  // Filtrer les templates
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          template.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -35,7 +38,6 @@ const TemplatesPage = () => {
     return matchesSearch && matchesCategory && matchesMission;
   });
 
-  // Calculer les statistiques
   const totalTemplates = templates.length;
   const favoriteTemplates = templates.filter(t => t.is_favorite).length;
   const systemTemplates = templates.filter(t => t.is_system_template).length;
@@ -52,27 +54,92 @@ const TemplatesPage = () => {
   };
 
   const handleSaveTemplate = async (templateData: any) => {
-    if (editingTemplate) {
-      await updateTemplate.mutateAsync({ id: editingTemplate.id, ...templateData });
-    } else {
-      await createTemplate.mutateAsync(templateData);
+    try {
+      if (editingTemplate) {
+        await updateTemplate.mutateAsync({ id: editingTemplate.id, ...templateData });
+        toast({
+          title: "Template mis à jour",
+          description: "Le template a été mis à jour avec succès.",
+        });
+      } else {
+        await createTemplate.mutateAsync(templateData);
+        toast({
+          title: "Template créé",
+          description: "Le template a été créé avec succès.",
+        });
+      }
+      setShowEditor(false);
+      setEditingTemplate(null);
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la sauvegarde du template.",
+        variant: "destructive",
+      });
     }
-    setShowEditor(false);
-    setEditingTemplate(null);
   };
 
-  const handleDeleteTemplate = async (template: any) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce template ?')) {
-      await deleteTemplate.mutateAsync(template.id);
+  const handleDeleteTemplate = (template: any) => {
+    if (template.is_system_template) {
+      toast({
+        title: "Suppression impossible",
+        description: "Les templates système ne peuvent pas être supprimés.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDeleteConfirmTemplate(template);
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!deleteConfirmTemplate) return;
+    
+    try {
+      await deleteTemplate.mutateAsync(deleteConfirmTemplate.id);
+      toast({
+        title: "Template supprimé",
+        description: "Le template a été supprimé avec succès.",
+      });
+      setDeleteConfirmTemplate(null);
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la suppression du template.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDuplicateTemplate = async (template: any) => {
-    await duplicateTemplate.mutateAsync(template.id);
+    try {
+      await duplicateTemplate.mutateAsync(template.id);
+      toast({
+        title: "Template dupliqué",
+        description: "Le template a été dupliqué avec succès.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la duplication du template.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleToggleFavorite = async (template: any) => {
-    await toggleFavorite.mutateAsync({ id: template.id, is_favorite: template.is_favorite });
+    try {
+      await toggleFavorite.mutateAsync({ id: template.id, is_favorite: !template.is_favorite });
+      toast({
+        title: template.is_favorite ? "Retiré des favoris" : "Ajouté aux favoris",
+        description: `Le template a été ${template.is_favorite ? 'retiré des' : 'ajouté aux'} favoris.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la mise à jour des favoris.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePreviewTemplate = (template: any) => {
@@ -317,13 +384,16 @@ const TemplatesPage = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteTemplate(template)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {!template.is_system_template && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteTemplate(template)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -380,6 +450,28 @@ const TemplatesPage = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de confirmation de suppression */}
+      <AlertDialog open={!!deleteConfirmTemplate} onOpenChange={() => setDeleteConfirmTemplate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer le template "{deleteConfirmTemplate?.name}" ? 
+              Cette action est irréversible et le template sera définitivement supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteTemplate}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
