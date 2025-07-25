@@ -15,6 +15,7 @@ import ContactsImportPage from '@/components/Dashboard/ContactsImportPage';
 import ContactsBlacklistsPage from '@/components/Dashboard/ContactsBlacklistsPage';
 import ContactsSegmentsPage from '@/components/Dashboard/ContactsSegmentsPage';
 import SmtpServersPage from '@/components/Dashboard/SmtpServersPage';
+import TemplatesPage from '@/components/Dashboard/Templates/TemplatesPage';
 
 const Index = () => {
   const { user } = useAuth();
@@ -52,6 +53,8 @@ const Index = () => {
         return <ContactsSegmentsPage />;
       case 'smtp-servers':
         return <SmtpServersPage />;
+      case 'templates':
+        return <TemplatesPage />;
       case 'tenants':
         return <TenantsManagement />;
       case 'users':
@@ -68,7 +71,10 @@ const Index = () => {
   return (
     <AuthGuard>
       <div className="flex h-screen bg-gray-100">
-        <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+        <Sidebar 
+          currentPage={currentPage} 
+          onPageChange={setCurrentPage}
+        />
         <main className="flex-1 overflow-auto">
           {renderContent()}
         </main>

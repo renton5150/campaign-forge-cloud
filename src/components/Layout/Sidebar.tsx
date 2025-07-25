@@ -1,79 +1,153 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, List, Filter, FileText, Mail, Upload, Ban, Server } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { Home, Users, Globe, Mail, ListChecks, FileText, Shield, Settings } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
 
-const Sidebar = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
+interface SidebarProps {
+  currentPage: string;
+  onPageChange: (page: string) => void;
+}
 
-  const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/dashboard' },
-    { icon: Users, label: 'Contacts', path: '/contacts' },
-    { icon: List, label: 'Listes', path: '/contact-lists' },
-    { icon: Filter, label: 'Segments', path: '/segments' },
-    { icon: FileText, label: 'Templates', path: '/templates' },
-    { icon: Mail, label: 'Campagnes', path: '/campaigns' },
-    { icon: Upload, label: 'Import', path: '/import' },
-    { icon: Ban, label: 'Blacklists', path: '/blacklists' },
-    { icon: Server, label: 'Serveurs SMTP', path: '/smtp-servers' },
-  ];
-
-  const adminMenuItems = [
-    { icon: Users, label: 'Tenants', path: '/tenants' },
-  ];
-
-  const handleNavigation = (path: string) => {
-    navigate(path);
-  };
-
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
-
+const Sidebar = ({ currentPage, onPageChange }: SidebarProps) => {
   return (
-    <div className="w-64 bg-white shadow-lg h-screen overflow-y-auto">
+    <aside className="w-64 bg-gray-800 text-white flex flex-col">
       <div className="p-4">
-        <h1 className="text-2xl font-bold text-gray-800">GrowthLoop</h1>
+        <h1 className="text-lg font-bold">CRM Emailing</h1>
       </div>
-      <nav className="py-4">
-        {menuItems.map((item) => (
-          <div
-            key={item.label}
-            className={`flex items-center p-3 hover:bg-gray-100 cursor-pointer ${
-              isActive(item.path) ? 'bg-gray-100 font-semibold' : ''
-            }`}
-            onClick={() => handleNavigation(item.path)}
-          >
-            <item.icon className="w-5 h-5 mr-3 text-gray-500" />
-            <span>{item.label}</span>
-          </div>
-        ))}
+      <nav className="flex-1 overflow-y-auto py-6 px-4">
+        <ul>
+          <li className="mb-2">
+            <NavLink
+              to="/dashboard"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'dashboard' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('dashboard')}
+            >
+              <Home className="mr-2 h-4 w-4" />
+              Dashboard
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/campaigns"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'campaigns' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('campaigns')}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Campagnes
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/contacts"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'contacts' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('contacts')}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Contacts
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/contact-lists"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'contacts-lists' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('contacts-lists')}
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              Listes de contacts
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/segments"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'contacts-segments' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('contacts-segments')}
+            >
+              <Filter className="mr-2 h-4 w-4" />
+              Segments
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/templates"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'templates' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('templates')}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Templates
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/import"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'contacts-import' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('contacts-import')}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/blacklists"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'contacts-blacklists' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('contacts-blacklists')}
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              Blacklists
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/smtp-servers"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'smtp-servers' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('smtp-servers')}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Serveurs SMTP
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/tenants"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'tenants' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('tenants')}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Tenants
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/users"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'users' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('users')}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Utilisateurs
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/domains"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'domains' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('domains')}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Domaines
+            </NavLink>
+          </li>
+          <li className="mb-2">
+            <NavLink
+              to="/roles"
+              className={`flex items-center p-2 rounded-md hover:bg-gray-700 ${currentPage === 'roles' ? 'bg-gray-700' : ''}`}
+              onClick={() => onPageChange('roles')}
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              Roles
+            </NavLink>
+          </li>
+        </ul>
       </nav>
-
-      {user?.role === 'super_admin' && (
-        <>
-          <div className="p-3 font-semibold text-gray-500 uppercase text-xs">
-            Administration
-          </div>
-          <nav className="py-2">
-            {adminMenuItems.map((item) => (
-              <div
-                key={item.label}
-                className={`flex items-center p-3 hover:bg-gray-100 cursor-pointer ${
-                  isActive(item.path) ? 'bg-gray-100 font-semibold' : ''
-                }`}
-                onClick={() => handleNavigation(item.path)}
-              >
-                <item.icon className="w-5 h-5 mr-3 text-gray-500" />
-                <span>{item.label}</span>
-              </div>
-            ))}
-          </nav>
-        </>
-      )}
-    </div>
+    </aside>
   );
 };
 

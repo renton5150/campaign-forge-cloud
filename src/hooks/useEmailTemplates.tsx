@@ -21,8 +21,8 @@ export interface ExtendedEmailTemplate {
   usage_count: number;
   is_favorite: boolean;
   last_used_at: string | null;
-  missions?: { name: string };
-  template_categories?: { name: string };
+  missions?: { name: string } | null;
+  template_categories?: { name: string } | null;
 }
 
 export function useEmailTemplates() {
@@ -157,7 +157,7 @@ export function useEmailTemplates() {
       const { data, error } = await supabase
         .from('email_templates')
         .update({ 
-          usage_count: supabase.raw('usage_count + 1'),
+          usage_count: (templates?.find(t => t.id === id)?.usage_count || 0) + 1,
           last_used_at: new Date().toISOString()
         })
         .eq('id', id)
