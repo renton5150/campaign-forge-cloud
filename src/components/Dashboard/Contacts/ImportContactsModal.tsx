@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { Upload, FileText, Check, X, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Check, X, AlertCircle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
@@ -35,6 +35,12 @@ interface ColumnMapping {
   [key: string]: string;
 }
 
+interface CustomField {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'date' | 'boolean';
+}
+
 export default function ImportContactsModal({ open, onOpenChange, targetListId }: ImportContactsModalProps) {
   const [step, setStep] = useState<'upload' | 'mapping' | 'importing' | 'complete'>('upload');
   const [file, setFile] = useState<File | null>(null);
@@ -43,6 +49,10 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
   const [selectedList, setSelectedList] = useState(targetListId || '');
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState<any>(null);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [showCreateField, setShowCreateField] = useState<string | null>(null);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState<'text' | 'number' | 'date' | 'boolean'>('text');
 
   const { contactLists } = useContactLists();
   const { toast } = useToast();
@@ -76,7 +86,6 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
       const extension = file.name.split('.').pop()?.toLowerCase();
       
       if (extension === 'csv') {
-        // Parse CSV file
         const text = await file.text();
         
         Papa.parse(text, {
@@ -116,7 +125,6 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
           encoding: 'UTF-8'
         });
       } else if (extension === 'xlsx' || extension === 'xls') {
-        // Parse Excel file
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -180,10 +188,51 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
   };
 
   const handleMappingChange = (columnIndex: string, field: string) => {
+    if (field === 'create_new') {
+      setShowCreateField(columnIndex);
+      return;
+    }
+    
     setMapping(prev => ({
       ...prev,
       [columnIndex]: field
     }));
+  };
+
+  const handleCreateCustomField = () => {
+    if (!newFieldName.trim()) {
+      toast({
+        title: 'Erreur',
+        description: 'Le nom du champ est obligatoire',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const fieldId = `custom_${Date.now()}`;
+    const newField: CustomField = {
+      id: fieldId,
+      name: newFieldName,
+      type: newFieldType
+    };
+
+    setCustomFields(prev => [...prev, newField]);
+    
+    if (showCreateField) {
+      setMapping(prev => ({
+        ...prev,
+        [showCreateField]: fieldId
+      }));
+    }
+
+    setNewFieldName('');
+    setNewFieldType('text');
+    setShowCreateField(null);
+
+    toast({
+      title: 'Champ créé',
+      description: `Le champ "${newFieldName}" a été créé avec succès`,
+    });
   };
 
   const validateMapping = () => {
@@ -233,11 +282,30 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
     setMapping({});
     setImportProgress(0);
     setImportResults(null);
+    setCustomFields([]);
+    setShowCreateField(null);
+    setNewFieldName('');
+    setNewFieldType('text');
   };
 
   const closeModal = () => {
     resetImport();
     onOpenChange(false);
+  };
+
+  const getFieldDisplayName = (field: string) => {
+    const customField = customFields.find(f => f.id === field);
+    if (customField) return customField.name;
+    
+    switch (field) {
+      case 'email': return 'Email *';
+      case 'first_name': return 'Prénom';
+      case 'last_name': return 'Nom';
+      case 'company': return 'Entreprise';
+      case 'phone': return 'Téléphone';
+      case 'notes': return 'Notes';
+      default: return field;
+    }
   };
 
   return (
@@ -334,14 +402,20 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                             <SelectItem value="ignore">Ignorer</SelectItem>
                             {systemFields.map((field) => (
                               <SelectItem key={field} value={field}>
-                                {field === 'email' ? 'Email *' : 
-                                 field === 'first_name' ? 'Prénom' :
-                                 field === 'last_name' ? 'Nom' :
-                                 field === 'company' ? 'Entreprise' :
-                                 field === 'phone' ? 'Téléphone' :
-                                 field === 'notes' ? 'Notes' : field}
+                                {getFieldDisplayName(field)}
                               </SelectItem>
                             ))}
+                            {customFields.map((field) => (
+                              <SelectItem key={field.id} value={field.id}>
+                                {field.name} (personnalisé)
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="create_new">
+                              <div className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Créer un nouveau champ
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -350,12 +424,56 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                           <Badge className="bg-green-100 text-green-800">Obligatoire</Badge>
                         )}
                         {mapping[index] && mapping[index] !== 'email' && mapping[index] !== 'ignore' && (
-                          <Badge variant="outline">Optionnel</Badge>
+                          <Badge variant="outline">
+                            {customFields.find(f => f.id === mapping[index]) ? 'Personnalisé' : 'Optionnel'}
+                          </Badge>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {showCreateField && (
+                  <Card className="mt-4">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Créer un nouveau champ</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Nom du champ</Label>
+                          <Input
+                            value={newFieldName}
+                            onChange={(e) => setNewFieldName(e.target.value)}
+                            placeholder="Ex: Titre du poste"
+                          />
+                        </div>
+                        <div>
+                          <Label>Type de champ</Label>
+                          <Select value={newFieldType} onValueChange={(value: any) => setNewFieldType(value)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Texte</SelectItem>
+                              <SelectItem value="number">Nombre</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="boolean">Oui/Non</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={handleCreateCustomField}>
+                            Créer le champ
+                          </Button>
+                          <Button variant="outline" onClick={() => setShowCreateField(null)}>
+                            Annuler
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </CardContent>
             </Card>
 
