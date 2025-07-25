@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { X, Plus, Save, Eye } from 'lucide-react';
+import { X, Plus, Save, Eye, Maximize2, Minimize2 } from 'lucide-react';
 import { useMissions } from '@/hooks/useMissions';
 import { useTemplateCategories } from '@/hooks/useTemplateCategories';
 import { ExtendedEmailTemplate } from '@/hooks/useEmailTemplates';
@@ -39,6 +39,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
 
   const [newTag, setNewTag] = useState('');
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (template) {
@@ -70,22 +71,33 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col">
-        <div className="p-6 border-b">
+      <div className={`bg-white rounded-lg flex flex-col transition-all duration-300 ${
+        isFullscreen ? 'w-full h-full max-w-none max-h-none' : 'w-full max-w-7xl h-[95vh]'
+      }`}>
+        <div className="p-4 border-b flex-shrink-0">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">
               {template ? 'Modifier le template' : 'Créer un template'}
             </h2>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsFullscreen(!isFullscreen)}
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex overflow-hidden">
+        <form onSubmit={handleSubmit} className="flex-1 flex overflow-hidden min-h-0">
           {/* Sidebar avec les paramètres */}
-          <div className="w-80 border-r p-6 overflow-y-auto">
-            <div className="space-y-6">
+          <div className="w-80 border-r p-4 overflow-y-auto flex-shrink-0">
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="name">Nom du template *</Label>
                 <Input
@@ -102,7 +114,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
                   id="description"
                   value={formData.description || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
+                  rows={2}
                 />
               </div>
 
@@ -200,8 +212,8 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           </div>
 
           {/* Zone d'édition */}
-          <div className="flex-1 flex flex-col">
-            <div className="p-4 border-b">
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="p-4 border-b flex-shrink-0">
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -221,18 +233,25 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
               </div>
             </div>
 
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden min-h-0">
               {activeTab === 'editor' ? (
-                <TinyMCEEditor
-                  value={formData.html_content || ''}
-                  onChange={(content) => setFormData(prev => ({ ...prev, html_content: content }))}
-                />
+                <div className="h-full">
+                  <TinyMCEEditor
+                    value={formData.html_content || ''}
+                    onChange={(content) => setFormData(prev => ({ ...prev, html_content: content }))}
+                  />
+                </div>
               ) : (
                 <div className="p-6 h-full overflow-y-auto">
-                  <div className="max-w-2xl mx-auto bg-white border rounded-lg p-6">
+                  <div className="max-w-4xl mx-auto bg-white border rounded-lg p-6">
                     <div 
                       dangerouslySetInnerHTML={{ __html: formData.html_content || '' }}
                       className="prose max-w-none"
+                      style={{
+                        fontFamily: 'Arial, sans-serif',
+                        lineHeight: '1.6',
+                        color: '#333333'
+                      }}
                     />
                   </div>
                 </div>
@@ -241,7 +260,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           </div>
         </form>
 
-        <div className="p-6 border-t">
+        <div className="p-4 border-t flex-shrink-0">
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Annuler
