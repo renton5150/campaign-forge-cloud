@@ -332,49 +332,66 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           .tinymce-preview {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
             font-size: 14px;
-            line-height: 1.4;
+            line-height: 1.3;
             color: #333333;
             word-wrap: break-word;
             text-align: left;
+            margin: 0;
+            padding: 0;
+          }
+          
+          .tinymce-preview > * {
+            margin: 0;
+            padding: 0;
           }
           
           .tinymce-preview p {
-            margin: 0 0 1em 0;
+            margin: 0 0 10px 0;
             padding: 0;
-            line-height: 1.4;
+            line-height: 1.3;
           }
           
           .tinymce-preview ul {
-            margin: 0 0 1em 0;
-            padding-left: 30px;
+            margin: 0 0 10px 0;
+            padding: 0 0 0 20px;
             list-style-type: disc;
           }
           
           .tinymce-preview ol {
-            margin: 0 0 1em 0;
-            padding-left: 30px;
+            margin: 0 0 10px 0;
+            padding: 0 0 0 20px;
             list-style-type: decimal;
           }
           
           .tinymce-preview li {
-            margin: 0 0 0.5em 0;
+            margin: 0 0 2px 0;
             padding: 0;
-            line-height: 1.4;
+            line-height: 1.3;
+          }
+          
+          .tinymce-preview ul li {
+            margin: 0 0 2px 0;
+            padding: 0;
+            line-height: 1.3;
           }
           
           .tinymce-preview strong, .tinymce-preview b {
             font-weight: bold;
+            margin: 0;
+            padding: 0;
           }
           
           .tinymce-preview em, .tinymce-preview i {
             font-style: italic;
+            margin: 0;
+            padding: 0;
           }
           
           .tinymce-preview h1, .tinymce-preview h2, .tinymce-preview h3, .tinymce-preview h4, .tinymce-preview h5, .tinymce-preview h6 {
-            margin: 0 0 0.5em 0;
+            margin: 0 0 10px 0;
             padding: 0;
             font-weight: bold;
-            line-height: 1.3;
+            line-height: 1.2;
           }
           
           .tinymce-preview h1 {
@@ -396,6 +413,8 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           .tinymce-preview a {
             color: #0066cc;
             text-decoration: underline;
+            margin: 0;
+            padding: 0;
           }
           
           .tinymce-preview a:hover {
@@ -406,13 +425,13 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
             max-width: 100%;
             height: auto;
             display: block;
-            margin: 0.5em 0;
+            margin: 10px 0;
           }
           
           .tinymce-preview table {
             width: 100%;
             border-collapse: collapse;
-            margin: 1em 0;
+            margin: 10px 0;
           }
           
           .tinymce-preview td, .tinymce-preview th {
@@ -427,7 +446,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           }
           
           .tinymce-preview blockquote {
-            margin: 1em 0;
+            margin: 10px 0;
             padding-left: 16px;
             border-left: 4px solid #ddd;
             font-style: italic;
@@ -435,11 +454,12 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           
           .tinymce-preview pre {
             background-color: #f5f5f5;
-            padding: 1em;
+            padding: 10px;
             border-radius: 4px;
             overflow-x: auto;
             font-family: 'Courier New', monospace;
             font-size: 13px;
+            margin: 10px 0;
           }
           
           .tinymce-preview code {
@@ -453,7 +473,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           .tinymce-preview hr {
             border: none;
             border-top: 1px solid #ddd;
-            margin: 1em 0;
+            margin: 10px 0;
           }
           
           .tinymce-preview div {
@@ -462,7 +482,8 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           }
           
           .tinymce-preview br {
-            line-height: 1.4;
+            margin: 0;
+            padding: 0;
           }
         `
       }} />
