@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import { usePersonalTemplates } from '@/hooks/usePersonalTemplates';
 import TinyMCEEditor from './EmailEditor/TinyMCEEditor';
 import ContactListSelector from './ContactListSelector';
 import SaveTemplateModal from './EmailEditor/SaveTemplateModal';
+import SubjectPersonalization from './EmailEditor/SubjectPersonalization';
 
 interface CampaignEditorProps {
   campaign?: Campaign | null;
@@ -64,6 +66,34 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [activeTab, setActiveTab] = useState('content');
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+
+  // Simuler des contacts disponibles pour la personnalisation
+  const [availableContacts] = useState([
+    {
+      email: 'john.doe@example.com',
+      first_name: 'John',
+      last_name: 'Doe',
+      company: 'Acme Corp',
+      phone: '+33 1 23 45 67 89',
+      custom_fields: {
+        poste: 'Développeur',
+        secteur: 'Technologie',
+        anciennete: '5 ans'
+      }
+    },
+    {
+      email: 'jane.smith@example.com',
+      first_name: 'Jane',
+      last_name: 'Smith',
+      company: 'Tech Solutions',
+      phone: '+33 1 23 45 67 90',
+      custom_fields: {
+        poste: 'Manager',
+        secteur: 'IT',
+        anciennete: '3 ans'
+      }
+    }
+  ]);
 
   useEffect(() => {
     if (campaign) {
@@ -116,7 +146,6 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
       onClose();
     } catch (error) {
       console.error('❌ Erreur sauvegarde campagne:', error);
-      // TODO: Afficher toast d'erreur à l'utilisateur
     }
   };
 
@@ -204,6 +233,9 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
             value={formData.html_content}
             onChange={(content) => setFormData({ ...formData, html_content: content })}
             onSave={handleSave}
+            availableContacts={availableContacts}
+            subject={formData.subject}
+            onSubjectChange={(subject) => setFormData({ ...formData, subject })}
           />
         </div>
       </div>
@@ -249,7 +281,6 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
         </TabsList>
 
         <TabsContent value="content" className="space-y-6">
-          {/* Le contenu sera géré par l'EmailEditor */}
           <div className="text-center py-8">
             <Button onClick={() => setActiveTab('content')} size="lg">
               Ouvrir l'éditeur d'email
@@ -282,15 +313,11 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="subject">Objet de l'email</Label>
-                  <Input
-                    id="subject"
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder="Ex: Découvrez nos nouveautés"
-                  />
-                </div>
+                <SubjectPersonalization
+                  subject={formData.subject}
+                  onSubjectChange={(subject) => setFormData({ ...formData, subject })}
+                  availableContacts={availableContacts}
+                />
 
                 <div>
                   <Label htmlFor="preview_text">Texte de prévisualisation</Label>
@@ -409,15 +436,11 @@ export default function CampaignEditor({ campaign, onClose }: CampaignEditorProp
 
               {formData.is_ab_test && (
                 <>
-                  <div>
-                    <Label htmlFor="ab_subject_b">Objet B (variante)</Label>
-                    <Input
-                      id="ab_subject_b"
-                      value={formData.ab_subject_b}
-                      onChange={(e) => setFormData({ ...formData, ab_subject_b: e.target.value })}
-                      placeholder="Objet alternatif pour le test"
-                    />
-                  </div>
+                  <SubjectPersonalization
+                    subject={formData.ab_subject_b}
+                    onSubjectChange={(subject) => setFormData({ ...formData, ab_subject_b: subject })}
+                    availableContacts={availableContacts}
+                  />
 
                   <div>
                     <Label htmlFor="ab_split_percentage">Pourcentage pour le test (%)</Label>

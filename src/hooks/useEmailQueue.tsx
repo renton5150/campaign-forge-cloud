@@ -1,7 +1,9 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { cleanContactsForCampaign, ContactCleaningResult } from '@/utils/contactCleaning';
+import { replaceVariables, ContactPersonalizationData } from '@/utils/emailPersonalization';
 
 export interface EmailQueueItem {
   id: string;
@@ -73,7 +75,19 @@ export function useEmailQueue() {
     enabled: !!user,
   });
 
-  // Envoyer une campagne avec nettoyage de blacklist
+  // Fonction pour préparer les données de personnalisation d'un contact
+  const prepareContactPersonalizationData = (contact: any): ContactPersonalizationData => {
+    return {
+      email: contact.email,
+      first_name: contact.first_name,
+      last_name: contact.last_name,
+      company: contact.company,
+      phone: contact.phone,
+      custom_fields: contact.custom_fields || {}
+    };
+  };
+
+  // Envoyer une campagne avec nettoyage de blacklist et personnalisation
   const sendCampaign = useMutation({
     mutationFn: async ({ 
       campaignId, 
@@ -89,6 +103,8 @@ export function useEmailQueue() {
       blacklistListIds?: string[];
     }): Promise<{ queued: number; uniqueContacts: number; cleaningResult: ContactCleaningResult }> => {
       
+      console.log('🚀 Début de l\'envoi de campagne avec personnalisation');
+      
       // Nettoyer les contacts avec la blacklist
       const cleaningResult = await cleanContactsForCampaign(
         contactListIds,
@@ -100,19 +116,34 @@ export function useEmailQueue() {
         throw new Error('Aucun contact valide trouvé après nettoyage de la blacklist');
       }
 
-      // Créer les entrées en queue avec les contacts nettoyés
+      console.log(`📧 Préparation de ${cleaningResult.cleanedContacts.length} emails personnalisés`);
+
+      // Créer les entrées en queue avec les contacts nettoyés et personnalisés
       const timestamp = new Date().getTime();
       const queueEntries = cleaningResult.cleanedContacts.map((contact, index) => {
         const contactName = contact.first_name || contact.last_name 
           ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
           : null;
 
+        // Préparer les données de personnalisation
+        const personalizationData = prepareContactPersonalizationData(contact);
+
+        // Personnaliser l'objet et le contenu
+        const personalizedSubject = replaceVariables(subject, personalizationData, '');
+        const personalizedHtmlContent = replaceVariables(htmlContent, personalizationData, '');
+
+        console.log(`📝 Personnalisation pour ${contact.email}:`, {
+          originalSubject: subject,
+          personalizedSubject,
+          hasCustomFields: Object.keys(personalizationData.custom_fields || {}).length > 0
+        });
+
         return {
           campaign_id: campaignId,
           contact_email: contact.email,
           contact_name: contactName,
-          subject: subject,
-          html_content: htmlContent,
+          subject: personalizedSubject,
+          html_content: personalizedHtmlContent,
           message_id: `${campaignId}-${contact.email}-${timestamp}-${index}`,
           status: 'pending' as const,
           scheduled_for: new Date().toISOString(),
@@ -125,6 +156,8 @@ export function useEmailQueue() {
         .select();
 
       if (error) throw error;
+
+      console.log('✅ Campagne personnalisée mise en queue avec succès');
 
       return {
         queued: queueEntries.length,

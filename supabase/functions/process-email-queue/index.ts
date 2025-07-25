@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.3';
 import nodemailer from 'npm:nodemailer@7.0.4';
@@ -50,6 +51,9 @@ async function logEmailStatus(queueId: string, status: string, message: string) 
 
 async function sendViaSmtp(queueItem: QueueItem, smtpServer: SmtpServer): Promise<boolean> {
   try {
+    console.log(`📧 Envoi email personnalisé pour ${queueItem.contact_email}`);
+    console.log(`📋 Objet personnalisé: ${queueItem.subject}`);
+    
     const transportConfig: any = {
       host: smtpServer.host,
       port: smtpServer.port || 587,
@@ -70,18 +74,24 @@ async function sendViaSmtp(queueItem: QueueItem, smtpServer: SmtpServer): Promis
     const mailOptions = {
       from: `${smtpServer.from_name} <${smtpServer.from_email}>`,
       to: queueItem.contact_email,
-      subject: queueItem.subject,
-      html: queueItem.html_content,
+      subject: queueItem.subject, // Utilise l'objet déjà personnalisé
+      html: queueItem.html_content, // Utilise le contenu déjà personnalisé
       messageId: queueItem.message_id,
     };
 
     const result = await transporter.sendMail(mailOptions);
     
-    await logEmailStatus(queueItem.id, 'sent', `Message envoyé: ${result.messageId}`);
+    await logEmailStatus(
+      queueItem.id, 
+      'sent', 
+      `Email personnalisé envoyé: ${result.messageId} - Objet: ${queueItem.subject}`
+    );
+    
+    console.log('✅ Email personnalisé envoyé avec succès:', result.messageId);
     return true;
   } catch (error: any) {
     await logEmailStatus(queueItem.id, 'failed', `Erreur SMTP: ${error.message}`);
-    console.error('Erreur SMTP:', error);
+    console.error('❌ Erreur SMTP:', error);
     return false;
   }
 }
@@ -92,7 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('🚀 Démarrage du traitement de la queue email');
+    console.log('🚀 Démarrage du traitement de la queue email avec personnalisation');
 
     // Récupérer les 5 premiers emails en attente
     const { data: queueItems, error: queueError } = await supabase
@@ -117,7 +127,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    console.log(`📧 ${queueItems.length} emails à traiter`);
+    console.log(`📧 ${queueItems.length} emails personnalisés à traiter`);
 
     let processed = 0;
     let succeeded = 0;
@@ -125,7 +135,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const queueItem of queueItems) {
       try {
-        console.log(`📤 Traitement email ${queueItem.id} pour ${queueItem.contact_email}`);
+        console.log(`📤 Traitement email personnalisé ${queueItem.id} pour ${queueItem.contact_email}`);
+        console.log(`📋 Sujet: ${queueItem.subject}`);
 
         // Marquer comme en cours de traitement
         await supabase
@@ -161,11 +172,10 @@ const handler = async (req: Request): Promise<Response> => {
 
         let success = false;
 
-        // Envoyer via SMTP
+        // Envoyer via SMTP (contenu déjà personnalisé)
         if (smtpServer.type === 'smtp') {
           success = await sendViaSmtp(queueItem, smtpServer);
         } else {
-          // Pour l'instant, on ne supporte que SMTP
           throw new Error(`Type de serveur non supporté: ${smtpServer.type}`);
         }
 
@@ -180,7 +190,7 @@ const handler = async (req: Request): Promise<Response> => {
             .eq('id', queueItem.id);
           
           succeeded++;
-          console.log(`✅ Email ${queueItem.id} envoyé avec succès`);
+          console.log(`✅ Email personnalisé ${queueItem.id} envoyé avec succès`);
         } else {
           await supabase
             .from('email_queue')
@@ -192,13 +202,13 @@ const handler = async (req: Request): Promise<Response> => {
             .eq('id', queueItem.id);
           
           failed++;
-          console.log(`❌ Échec envoi email ${queueItem.id}`);
+          console.log(`❌ Échec envoi email personnalisé ${queueItem.id}`);
         }
 
         processed++;
 
       } catch (error: any) {
-        console.error(`❌ Erreur traitement email ${queueItem.id}:`, error);
+        console.error(`❌ Erreur traitement email personnalisé ${queueItem.id}:`, error);
         
         // Marquer comme échoué
         await supabase
@@ -216,14 +226,14 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    console.log(`✅ Traitement terminé: ${processed} emails traités (${succeeded} réussis, ${failed} échoués)`);
+    console.log(`✅ Traitement terminé: ${processed} emails personnalisés traités (${succeeded} réussis, ${failed} échoués)`);
 
     return new Response(JSON.stringify({
       success: true,
       processed,
       succeeded,
       failed,
-      message: `Traitement terminé: ${succeeded} réussis, ${failed} échoués`
+      message: `Traitement terminé: ${succeeded} emails personnalisés réussis, ${failed} échoués`
     }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
