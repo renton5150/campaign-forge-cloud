@@ -12,6 +12,7 @@ import { X, Plus, Save, Eye, Maximize2, Minimize2 } from 'lucide-react';
 import { useMissions } from '@/hooks/useMissions';
 import { useTemplateCategories } from '@/hooks/useTemplateCategories';
 import { ExtendedEmailTemplate } from '@/hooks/useEmailTemplates';
+import { useToast } from '@/hooks/use-toast';
 import TinyMCEEditor from '../EmailEditor/TinyMCEEditor';
 
 interface TemplateEditorProps {
@@ -23,6 +24,7 @@ interface TemplateEditorProps {
 export default function TemplateEditor({ template, onSave, onClose }: TemplateEditorProps) {
   const { missions } = useMissions();
   const { categories } = useTemplateCategories();
+  const { toast } = useToast();
   
   const [formData, setFormData] = useState<Partial<ExtendedEmailTemplate>>({
     name: '',
@@ -40,6 +42,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
   const [newTag, setNewTag] = useState('');
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (template) {
@@ -64,9 +67,45 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    
+    if (!formData.name?.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le nom du template est requis",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.html_content?.trim()) {
+      toast({
+        title: "Erreur", 
+        description: "Le contenu HTML est requis",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      await onSave(formData);
+      toast({
+        title: "Succès",
+        description: "Template sauvegardé avec succès",
+      });
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la sauvegarde du template",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -96,8 +135,8 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 flex overflow-hidden min-h-0">
-          {/* Sidebar avec les paramètres - largeur réduite */}
-          <div className="w-64 border-r bg-gray-50 p-4 overflow-y-auto flex-shrink-0">
+          {/* Sidebar avec les paramètres */}
+          <div className="w-72 border-r bg-gray-50 p-4 overflow-y-auto flex-shrink-0">
             <div className="space-y-4">
               <div>
                 <Label htmlFor="name" className="text-sm font-medium">Nom du template *</Label>
@@ -250,7 +289,7 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
                     onChange={(content) => setFormData(prev => ({ ...prev, html_content: content }))}
                     showTabs={false}
                     showToolbar={false}
-                    height={600}
+                    height="100%"
                   />
                 </div>
               ) : (
@@ -277,12 +316,16 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
         {/* Footer avec les boutons */}
         <div className="p-4 border-t bg-gray-50 flex-shrink-0">
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} disabled={isSaving}>
               Annuler
             </Button>
-            <Button type="submit" onClick={handleSubmit}>
+            <Button 
+              type="submit" 
+              onClick={handleSubmit}
+              disabled={isSaving}
+            >
               <Save className="h-4 w-4 mr-2" />
-              Sauvegarder
+              {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
             </Button>
           </div>
         </div>
