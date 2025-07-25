@@ -316,7 +316,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
 
   const getSelectDisplayValue = (columnIndex: string) => {
     const mappedField = mapping[columnIndex];
-    if (!mappedField) return "Ignorer cette colonne";
+    if (!mappedField || mappedField === 'ignore') return "Ignorer cette colonne";
     
     const customField = customFields.find(f => f.id === mappedField);
     if (customField) return customField.name;
@@ -408,7 +408,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                       </div>
                       <div className="w-1/3">
                         <Select 
-                          value={mapping[index] || ''} 
+                          value={mapping[index] || 'ignore'} 
                           onValueChange={(value) => handleMappingChange(String(index), value)}
                         >
                           <SelectTrigger>
@@ -417,7 +417,7 @@ export default function ImportContactsModal({ open, onOpenChange, targetListId }
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Ignorer cette colonne</SelectItem>
+                            <SelectItem value="ignore">Ignorer cette colonne</SelectItem>
                             {systemFields.map((field) => (
                               <SelectItem key={field} value={field}>
                                 {getFieldDisplayName(field)}
