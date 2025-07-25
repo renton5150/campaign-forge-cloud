@@ -298,9 +298,10 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
                     <div className="p-8">
                       <div 
                         dangerouslySetInnerHTML={{ __html: formData.html_content || '' }}
-                        className="prose max-w-none"
+                        className="email-preview"
                         style={{
                           fontFamily: 'Arial, sans-serif',
+                          fontSize: '14px',
                           lineHeight: '1.6',
                           color: '#333333'
                         }}
@@ -330,6 +331,74 @@ export default function TemplateEditor({ template, onSave, onClose }: TemplateEd
           </div>
         </div>
       </div>
+      
+      {/* Styles CSS pour l'aperçu */}
+      <style jsx>{`
+        .email-preview {
+          word-wrap: break-word;
+          white-space: pre-wrap;
+        }
+        
+        .email-preview p {
+          margin: 0 0 16px 0;
+          line-height: 1.6;
+        }
+        
+        .email-preview ul, .email-preview ol {
+          margin: 16px 0;
+          padding-left: 24px;
+        }
+        
+        .email-preview li {
+          margin-bottom: 8px;
+          line-height: 1.6;
+        }
+        
+        .email-preview strong, .email-preview b {
+          font-weight: bold;
+        }
+        
+        .email-preview em, .email-preview i {
+          font-style: italic;
+        }
+        
+        .email-preview h1, .email-preview h2, .email-preview h3, .email-preview h4 {
+          margin: 24px 0 16px 0;
+          font-weight: bold;
+        }
+        
+        .email-preview h1 {
+          font-size: 24px;
+        }
+        
+        .email-preview h2 {
+          font-size: 20px;
+        }
+        
+        .email-preview h3 {
+          font-size: 18px;
+        }
+        
+        .email-preview h4 {
+          font-size: 16px;
+        }
+        
+        .email-preview a {
+          color: #007bff;
+          text-decoration: underline;
+        }
+        
+        .email-preview br {
+          line-height: 1.6;
+        }
+        
+        .email-preview blockquote {
+          margin: 16px 0;
+          padding-left: 16px;
+          border-left: 4px solid #ddd;
+          font-style: italic;
+        }
+      `}</style>
     </div>
   );
 }
