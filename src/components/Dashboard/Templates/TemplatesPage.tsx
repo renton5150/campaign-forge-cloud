@@ -53,7 +53,7 @@ const TemplatesPage = () => {
     setShowEditor(true);
   };
 
-  const handleBackFromEditor = () => {
+  const handleCloseEditor = () => {
     setShowEditor(false);
     setEditingTemplateId(undefined);
   };
@@ -129,7 +129,7 @@ const TemplatesPage = () => {
     return (
       <TemplateEditor
         templateId={editingTemplateId}
-        onBack={handleBackFromEditor}
+        onClose={handleCloseEditor}
       />
     );
   }

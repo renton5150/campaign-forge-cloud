@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,15 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { useTemplates } from '@/hooks/useTemplates';
+import { useEmailTemplates } from '@/hooks/useEmailTemplates';
 import { useAuth } from '@/hooks/useAuth';
-import { Template } from '@/types/database';
+import { EmailTemplate } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
 import { Tag } from 'lucide-react';
 
 interface TemplateEditorProps {
   templateId?: string;
-  onSave: (templateData: Partial<Template>) => Promise<void>;
+  onSave?: (templateData: Partial<EmailTemplate>) => Promise<void>;
   onClose: () => void;
 }
 
@@ -28,26 +29,23 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [previewText, setPreviewText] = useState('');
-  const { getTemplateById } = useTemplates();
+  const { templates, createTemplate, updateTemplate } = useEmailTemplates();
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (templateId) {
-      const fetchTemplate = async () => {
-        const template = await getTemplateById(templateId);
-        if (template) {
-          setTemplateName(template.name);
-          setDescription(template.description || '');
-          setContent(template.html_content || '');
-          setCategory(template.category || 'transactional');
-          setTags(template.tags || []);
-          setPreviewText(template.preview_text || '');
-        }
-      };
-      fetchTemplate();
+    if (templateId && templates.length > 0) {
+      const template = templates.find(t => t.id === templateId);
+      if (template) {
+        setTemplateName(template.name);
+        setDescription(template.description || '');
+        setContent(template.html_content || '');
+        setCategory(template.category || 'transactional');
+        setTags(template.tags || []);
+        setPreviewText(template.preview_text || '');
+      }
     }
-  }, [templateId, getTemplateById]);
+  }, [templateId, templates]);
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if ((e.key === 'Enter' || e.key === ',') && newTag.trim() !== '') {
@@ -84,11 +82,19 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
         is_system_template: false,
         is_favorite: false,
         mission_id: null,
-        usage_count: 0,
         thumbnail_url: null
       };
 
-      await onSave(templateData);
+      if (templateId) {
+        await updateTemplate.mutateAsync({ id: templateId, ...templateData });
+      } else {
+        await createTemplate.mutateAsync(templateData);
+      }
+
+      if (onSave) {
+        await onSave(templateData);
+      }
+
       toast({
         title: "Succès",
         description: "Template sauvegardé avec succès",
