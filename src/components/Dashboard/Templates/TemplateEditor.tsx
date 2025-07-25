@@ -191,7 +191,7 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
           <div>
             <Label htmlFor="content">Contenu HTML</Label>
             <Editor
-              apiKey={import.meta.env.VITE_TINYMCE_API_KEY}
+              apiKey="bjlp8x727u9vmqvrd8pj9k0d04x2ycincthiln1kde17yxc6"
               value={content}
               onEditorChange={(newContent) => setContent(newContent)}
               init={{
