@@ -93,15 +93,15 @@ export default function CampaignTableRow({
           <div className="space-y-1">
             <div className="flex justify-between">
               <span className="text-gray-600">Envoyés:</span>
-              <span className="font-medium text-green-600">{queueStats?.sent || campaign.sent_count || 0}</span>
+              <span className="font-medium text-green-600">{queueStats?.sent || 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Échecs:</span>
-              <span className="font-medium text-red-600">{queueStats?.failed || campaign.failed_count || 0}</span>
+              <span className="font-medium text-red-600">{queueStats?.failed || 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total:</span>
-              <span className="font-medium">{queueStats?.total || campaign.total_recipients || 0}</span>
+              <span className="font-medium">{queueStats?.total || 0}</span>
             </div>
           </div>
         </TableCell>
