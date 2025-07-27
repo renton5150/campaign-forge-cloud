@@ -287,8 +287,11 @@ export default function TinyMCEEditor({
                           fontFamily: 'Arial, Helvetica, sans-serif',
                           fontSize: '14px',
                           lineHeight: '1.6',
-                          color: '#333333'
+                          color: '#333333',
+                          wordWrap: 'break-word',
+                          whiteSpace: 'pre-wrap'
                         }}
+                        className="[&_p]:mb-4 [&_p]:leading-relaxed [&_br]:block [&_div]:mb-2 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-4 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-blue-600 [&_a]:underline"
                       />
                     </div>
                   </div>
