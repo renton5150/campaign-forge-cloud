@@ -133,8 +133,8 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     // 7. Envoyer DATA
     const dataResponse = await sendCommand('DATA\r\n');
     if (!dataResponse.startsWith('354')) {
-      // Gestion spécifique de l'erreur 566 (limite SMTP)
-      if (dataResponse.includes('566')) {
+      // Gestion spécifique des erreurs SMTP
+      if (dataResponse.includes('566') || dataResponse.includes('limit exceeded')) {
         throw new Error('SMTP_LIMIT_EXCEEDED');
       }
       throw new Error(`Erreur DATA: ${dataResponse.trim()}`);
@@ -281,12 +281,13 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error('❌ Erreur lors de l\'envoi du test:', error);
     
+    // IMPORTANT: Toujours retourner une réponse HTTP valide, même en cas d'erreur
     let errorMessage = 'Erreur lors de l\'envoi du test';
     let statusCode = 500;
     let errorDetails = error.message || 'Erreur inconnue';
 
     // Gestion spécifique des erreurs SMTP avec codes de statut appropriés
-    if (error.message === 'SMTP_LIMIT_EXCEEDED' || error.message?.includes('566')) {
+    if (error.message === 'SMTP_LIMIT_EXCEEDED' || error.message?.includes('566') || error.message?.includes('limit exceeded')) {
       errorMessage = 'Limite SMTP atteinte';
       errorDetails = 'Votre serveur SMTP a atteint sa limite d\'envoi quotidienne ou horaire. Veuillez attendre ou contacter votre fournisseur SMTP.';
       statusCode = 429; // Too Many Requests
@@ -304,6 +305,7 @@ const handler = async (req: Request): Promise<Response> => {
       statusCode = 503; // Service Unavailable
     }
 
+    // CRUCIAL: Retourner une réponse HTTP valide avec les en-têtes CORS
     return new Response(JSON.stringify({
       success: false,
       error: errorMessage,

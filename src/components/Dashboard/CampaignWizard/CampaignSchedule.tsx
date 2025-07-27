@@ -59,14 +59,16 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         console.error('Erreur lors de l\'envoi du test:', error);
         let errorMessage = 'Impossible d\'envoyer l\'email de test';
         
-        // Gestion des erreurs basée sur le code de statut
-        if (error.message?.includes('429') || error.message?.includes('Too Many Requests')) {
+        // Gestion des erreurs spécifiques
+        if (error.message?.includes('Edge Function returned a non-2xx status code')) {
+          errorMessage = 'Erreur du serveur d\'envoi. Veuillez réessayer.';
+        } else if (error.message?.includes('429')) {
           errorMessage = 'Limite SMTP atteinte. Veuillez attendre avant de réessayer.';
-        } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        } else if (error.message?.includes('401')) {
           errorMessage = 'Erreur d\'authentification SMTP. Vérifiez vos identifiants.';
-        } else if (error.message?.includes('503') || error.message?.includes('Service Unavailable')) {
+        } else if (error.message?.includes('503')) {
           errorMessage = 'Serveur SMTP indisponible. Vérifiez la configuration.';
-        } else if (error.message?.includes('400') || error.message?.includes('Bad Request')) {
+        } else if (error.message?.includes('400')) {
           errorMessage = 'Configuration SMTP invalide ou adresse email refusée.';
         }
         
@@ -180,8 +182,8 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               <Alert>
                 <TestTube className="h-4 w-4" />
                 <AlertDescription>
-                  Nous recommandons fortement de tester votre campagne avant l'envoi définitif. 
-                  Vous pouvez envoyer autant de tests que nécessaire.
+                  Vous pouvez envoyer autant de tests que nécessaire. 
+                  Il n'y a aucune limite sur le nombre d'emails de test.
                 </AlertDescription>
               </Alert>
             </div>
