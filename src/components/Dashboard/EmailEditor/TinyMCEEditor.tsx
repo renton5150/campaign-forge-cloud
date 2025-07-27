@@ -283,9 +283,9 @@ export default function TinyMCEEditor({
                     <div className="p-4">
                       <div 
                         dangerouslySetInnerHTML={{ __html: previewContent }}
-                        className="prose max-w-none"
                         style={{
-                          fontFamily: 'Arial, sans-serif',
+                          fontFamily: 'Arial, Helvetica, sans-serif',
+                          fontSize: '14px',
                           lineHeight: '1.6',
                           color: '#333333'
                         }}
