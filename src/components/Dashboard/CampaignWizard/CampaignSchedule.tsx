@@ -18,6 +18,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
   const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [lastSuccess, setLastSuccess] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleSendTest = async () => {
@@ -41,6 +42,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
 
     setSendingTest(true);
     setLastError(null);
+    setLastSuccess(null);
     
     try {
       console.log('Envoi du test email vers:', testEmail);
@@ -73,18 +75,23 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         console.error('Erreur d\'envoi:', data);
         setLastError(errorMessage);
         
-        // Messages d'erreur spécifiques
+        // Messages d'erreur spécifiques selon le type d'erreur
         let userMessage = errorMessage;
-        if (data?.code === 'SMTP_ERROR' && data?.details?.includes('limite')) {
-          userMessage = 'Limite SMTP atteinte. Veuillez attendre avant de réessayer.';
-        } else if (data?.details?.includes('authentification')) {
-          userMessage = 'Erreur d\'authentification SMTP. Vérifiez la configuration.';
-        } else if (data?.details?.includes('connexion')) {
+        let toastTitle = 'Erreur d\'envoi';
+        
+        if (errorMessage.includes('limite') || errorMessage.includes('limit') || data?.details?.includes('limite')) {
+          userMessage = 'Limite SMTP atteinte. Attendez quelques minutes avant de réessayer ou vérifiez votre quota d\'envoi.';
+          toastTitle = 'Limite SMTP atteinte';
+        } else if (errorMessage.includes('authentification') || errorMessage.includes('auth')) {
+          userMessage = 'Erreur d\'authentification SMTP. Vérifiez la configuration du serveur.';
+          toastTitle = 'Erreur d\'authentification';
+        } else if (errorMessage.includes('connexion') || errorMessage.includes('connection')) {
           userMessage = 'Erreur de connexion SMTP. Vérifiez la configuration du serveur.';
+          toastTitle = 'Erreur de connexion';
         }
         
         toast({
-          title: 'Erreur d\'envoi',
+          title: toastTitle,
           description: userMessage,
           variant: 'destructive',
         });
@@ -92,6 +99,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       }
 
       console.log('Test email envoyé avec succès:', data);
+      setLastSuccess(`Email de test envoyé avec succès à ${testEmail}`);
       toast({
         title: '✅ Test envoyé',
         description: `Email de test envoyé à ${testEmail}`,
@@ -178,11 +186,20 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
                 </Alert>
               )}
 
+              {lastSuccess && (
+                <Alert>
+                  <TestTube className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Succès:</strong> {lastSuccess}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <Alert>
                 <TestTube className="h-4 w-4" />
                 <AlertDescription>
-                  Vous pouvez envoyer autant de tests que nécessaire. 
-                  Il n'y a aucune limite sur le nombre d'emails de test.
+                  <strong>Tests illimités:</strong> Vous pouvez envoyer autant de tests que nécessaire. 
+                  Si vous atteignez une limite SMTP, attendez quelques minutes avant de réessayer.
                 </AlertDescription>
               </Alert>
             </div>
