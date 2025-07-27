@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,45 +11,27 @@ import {
   Clock, 
   Archive, 
   BarChart3,
-  Eye,
-  MousePointer,
-  Users,
-  TrendingUp,
-  AlertCircle,
   RefreshCw,
-  List,
-  Shield
+  Edit
 } from 'lucide-react';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useEmailQueue } from '@/hooks/useEmailQueue';
-import { useContactLists } from '@/hooks/useContactLists';
 import { useQueueProcessor } from '@/hooks/useQueueProcessor';
-import { useAuth } from '@/hooks/useAuth';
 import { Campaign } from '@/types/database';
-import CampaignEditor from './CampaignEditor';
+import { CampaignWizard } from './CampaignWizard';
 import CampaignStats from './CampaignStats';
 import { useToast } from '@/hooks/use-toast';
-import BlacklistListSelector from './BlacklistListSelector';
-import ContactCleaningStats from './ContactCleaningStats';
-import { ContactCleaningResult } from '@/utils/contactCleaning';
 
 export default function CampaignsManagement() {
   const { campaigns, isLoading } = useCampaigns();
-  const { sendCampaign, getCampaignQueueStats, retryFailedEmails } = useEmailQueue();
-  const { contactLists } = useContactLists();
+  const { getCampaignQueueStats, retryFailedEmails } = useEmailQueue();
   const { processQueue } = useQueueProcessor();
-  const { user } = useAuth();
   const { toast } = useToast();
   
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [showEditor, setShowEditor] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [selectedLists, setSelectedLists] = useState<string[]>([]);
   const [queueStats, setQueueStats] = useState<Record<string, any>>({});
-  const [selectedBlacklistLists, setSelectedBlacklistLists] = useState<string[]>([]);
-  const [cleaningResult, setCleaningResult] = useState<ContactCleaningResult | null>(null);
-  const [showCleaningPreview, setShowCleaningPreview] = useState(false);
 
   useEffect(() => {
     if (campaigns) {
@@ -66,66 +49,6 @@ export default function CampaignsManagement() {
       loadStats();
     }
   }, [campaigns, getCampaignQueueStats]);
-
-  const handleSendCampaign = async (campaign: Campaign) => {
-    if (!selectedLists.length) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez sélectionner au moins une liste de contacts",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const result = await sendCampaign.mutateAsync({
-        campaignId: campaign.id,
-        subject: campaign.subject,
-        htmlContent: campaign.html_content,
-        contactListIds: selectedLists,
-        blacklistListIds: selectedBlacklistLists,
-      });
-
-      toast({
-        title: "✅ Campagne mise en queue",
-        description: `${result.queued} emails ajoutés à la queue après nettoyage de la blacklist`,
-      });
-
-      setShowSendModal(false);
-      setSelectedLists([]);
-      setSelectedBlacklistLists([]);
-      setSelectedCampaign(null);
-      setCleaningResult(null);
-      setShowCleaningPreview(false);
-    } catch (error: any) {
-      toast({
-        title: "Erreur",
-        description: error.message || "Erreur lors de l'envoi de la campagne",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePreviewCleaning = async () => {
-    if (!selectedCampaign || !selectedLists.length) return;
-
-    try {
-      const { cleanContactsForCampaign } = await import('@/utils/contactCleaning');
-      const result = await cleanContactsForCampaign(
-        selectedLists,
-        selectedBlacklistLists,
-        user?.tenant_id || null
-      );
-      setCleaningResult(result);
-      setShowCleaningPreview(true);
-    } catch (error: any) {
-      toast({
-        title: "Erreur",
-        description: error.message || "Erreur lors de l'aperçu du nettoyage",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleRetryFailed = async (campaignId: string) => {
     try {
@@ -172,12 +95,12 @@ export default function CampaignsManagement() {
   const sentCampaigns = campaigns?.filter(c => c.status === 'sent').length || 0;
   const scheduledCampaigns = campaigns?.filter(c => c.status === 'scheduled').length || 0;
 
-  if (showEditor) {
+  if (showWizard) {
     return (
-      <CampaignEditor
+      <CampaignWizard
         campaign={selectedCampaign}
         onClose={() => {
-          setShowEditor(false);
+          setShowWizard(false);
           setSelectedCampaign(null);
         }}
       />
@@ -213,7 +136,7 @@ export default function CampaignsManagement() {
             <RefreshCw className="h-4 w-4 mr-2" />
             {processQueue.isPending ? 'Traitement...' : 'Traiter Queue'}
           </Button>
-          <Button onClick={() => setShowEditor(true)}>
+          <Button onClick={() => setShowWizard(true)} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="h-4 w-4 mr-2" />
             Nouvelle Campagne
           </Button>
@@ -351,21 +274,6 @@ export default function CampaignsManagement() {
                        ))}
                      </div>
                      <div className="flex space-x-2">
-                       {campaign.status === 'draft' && (
-                         <Button
-                           variant="default"
-                           size="sm"
-                           onClick={() => {
-                             setSelectedCampaign(campaign);
-                             setShowSendModal(true);
-                           }}
-                           disabled={sendCampaign.isPending}
-                         >
-                           <Send className="h-4 w-4 mr-1" />
-                           {sendCampaign.isPending ? 'Envoi...' : 'Envoyer Campagne'}
-                         </Button>
-                       )}
-                       
                        {queueStats[campaign.id]?.failed > 0 && (
                          <Button
                            variant="outline"
@@ -391,14 +299,16 @@ export default function CampaignsManagement() {
                            Stats
                          </Button>
                        )}
+                       
                        <Button
                          variant="outline"
                          size="sm"
                          onClick={() => {
                            setSelectedCampaign(campaign);
-                           setShowEditor(true);
+                           setShowWizard(true);
                          }}
                        >
+                         <Edit className="h-4 w-4 mr-1" />
                          Modifier
                        </Button>
                      </div>
@@ -426,114 +336,6 @@ export default function CampaignsManagement() {
           )}
         </TabsContent>
       </Tabs>
-
-      {showSendModal && selectedCampaign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Envoyer la campagne</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowSendModal(false);
-                  setSelectedLists([]);
-                  setSelectedBlacklistLists([]);
-                  setSelectedCampaign(null);
-                  setCleaningResult(null);
-                  setShowCleaningPreview(false);
-                }}
-              >
-                ✕
-              </Button>
-            </div>
-            
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">
-                Campagne: <strong>{selectedCampaign.name}</strong>
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-medium mb-3">Listes de contacts destinataires</h4>
-                <div className="max-h-48 overflow-y-auto border rounded-lg p-3">
-                  {contactLists?.map((list) => (
-                    <div key={list.id} className="flex items-center space-x-2 mb-2">
-                      <input
-                        type="checkbox"
-                        id={`list-${list.id}`}
-                        checked={selectedLists.includes(list.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedLists([...selectedLists, list.id]);
-                          } else {
-                            setSelectedLists(selectedLists.filter(id => id !== list.id));
-                          }
-                        }}
-                        className="rounded border-gray-300"
-                      />
-                      <label htmlFor={`list-${list.id}`} className="flex-1 cursor-pointer">
-                        <div className="text-sm text-gray-900">{list.name}</div>
-                        <div className="text-xs text-gray-500">{list.total_contacts} contacts</div>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <BlacklistListSelector
-                  selectedListIds={selectedBlacklistLists}
-                  onSelectionChange={setSelectedBlacklistLists}
-                />
-              </div>
-            </div>
-
-            {selectedLists.length > 0 && (
-              <div className="mt-4">
-                <Button
-                  variant="outline"
-                  onClick={handlePreviewCleaning}
-                  className="w-full"
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Aperçu du nettoyage
-                </Button>
-              </div>
-            )}
-
-            {showCleaningPreview && cleaningResult && (
-              <div className="mt-4">
-                <ContactCleaningStats cleaningResult={cleaningResult} />
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowSendModal(false);
-                  setSelectedLists([]);
-                  setSelectedBlacklistLists([]);
-                  setSelectedCampaign(null);
-                  setCleaningResult(null);
-                  setShowCleaningPreview(false);
-                }}
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={() => handleSendCampaign(selectedCampaign)}
-                disabled={selectedLists.length === 0 || sendCampaign.isPending}
-              >
-                <Send className="h-4 w-4 mr-1" />
-                {sendCampaign.isPending ? 'Envoi...' : `Envoyer ${cleaningResult ? `(${cleaningResult.stats.cleanedCount} contacts)` : `(${selectedLists.length} listes)`}`}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
