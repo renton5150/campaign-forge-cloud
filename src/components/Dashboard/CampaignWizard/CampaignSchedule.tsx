@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Clock, Send, Mail, Calendar, TestTube } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CampaignScheduleProps {
   formData: any;
@@ -29,17 +29,49 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       return;
     }
 
+    if (!formData.html_content) {
+      toast({
+        title: 'Erreur',
+        description: 'Le contenu de l\'email est requis pour le test',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSendingTest(true);
     try {
-      // Simuler l'envoi du test
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Envoi du test email vers:', testEmail);
       
+      // Appel à la fonction edge pour envoyer le test
+      const { data, error } = await supabase.functions.invoke('send-test-email', {
+        body: {
+          to: testEmail,
+          subject: formData.subject || 'Test - ' + formData.name,
+          html_content: formData.html_content,
+          from_name: formData.from_name || 'Test',
+          from_email: formData.from_email || 'test@example.com'
+        }
+      });
+
+      if (error) {
+        console.error('Erreur lors de l\'envoi du test:', error);
+        toast({
+          title: 'Erreur',
+          description: error.message || 'Impossible d\'envoyer l\'email de test',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      console.log('Test email envoyé avec succès:', data);
       toast({
         title: '✅ Test envoyé',
         description: `Email de test envoyé à ${testEmail}`,
       });
       setTestEmail('');
+      
     } catch (error) {
+      console.error('Erreur lors de l\'envoi du test:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'envoyer l\'email de test',
@@ -56,7 +88,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
 
   const getMinDateTime = () => {
     const now = new Date();
-    now.setMinutes(now.getMinutes() + 15); // Minimum 15 minutes dans le futur
+    now.setMinutes(now.getMinutes() + 15);
     return formatDateTime(now);
   };
 
@@ -90,7 +122,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               
               <Button 
                 onClick={handleSendTest}
-                disabled={!testEmail || sendingTest}
+                disabled={!testEmail || sendingTest || !formData.html_content}
                 className="w-full"
               >
                 {sendingTest ? (
