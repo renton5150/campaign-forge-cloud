@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.3';
-import nodemailer from 'npm:nodemailer@7.0.4';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +48,9 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    // Importer nodemailer dynamiquement
+    const { default: nodemailer } = await import('https://esm.sh/nodemailer@6.9.8');
 
     // Configuration du transporteur SMTP
     const transportConfig: any = {
@@ -99,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Gestion spécifique des erreurs SMTP
     if (error.code === 'EENVELOPE' || error.responseCode === 566) {
       errorMessage = 'Limite SMTP atteinte. Votre serveur SMTP a atteint sa limite d\'envoi quotidienne ou horaire. Veuillez attendre ou vérifier votre quota.';
-      statusCode = 429; // Too Many Requests
+      statusCode = 429;
     } else if (error.responseCode === 535) {
       errorMessage = 'Erreur d\'authentification SMTP. Vérifiez vos identifiants dans la configuration du serveur SMTP.';
       statusCode = 401;
