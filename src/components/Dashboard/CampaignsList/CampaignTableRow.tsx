@@ -4,18 +4,32 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, BarChart3 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, BarChart3, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Campaign } from '@/types/database';
 import DeleteCampaignModal from './DeleteCampaignModal';
 
 interface CampaignTableRowProps {
-  campaign: any;
-  onEdit: (campaign: any) => void;
-  onViewStats: (campaign: any) => void;
+  campaign: Campaign & {
+    email_templates: { name: string } | null;
+    users: { full_name: string };
+  };
+  queueStats?: any;
+  onEdit: (campaign: Campaign) => void;
+  onViewStats: (campaign: Campaign) => void;
+  onRetryFailed?: (campaignId: string) => void;
+  isRetrying?: boolean;
 }
 
-export default function CampaignTableRow({ campaign, onEdit, onViewStats }: CampaignTableRowProps) {
+export default function CampaignTableRow({ 
+  campaign, 
+  queueStats,
+  onEdit, 
+  onViewStats,
+  onRetryFailed,
+  isRetrying = false
+}: CampaignTableRowProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const getStatusBadge = (status: string) => {
@@ -39,6 +53,8 @@ export default function CampaignTableRow({ campaign, onEdit, onViewStats }: Camp
     if (!dateString) return '-';
     return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: fr });
   };
+
+  const hasFailedEmails = queueStats?.failed > 0;
 
   return (
     <>
@@ -77,15 +93,15 @@ export default function CampaignTableRow({ campaign, onEdit, onViewStats }: Camp
           <div className="space-y-1">
             <div className="flex justify-between">
               <span className="text-gray-600">Envoyés:</span>
-              <span className="font-medium text-green-600">{campaign.sent_count || 0}</span>
+              <span className="font-medium text-green-600">{queueStats?.sent || campaign.sent_count || 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Échecs:</span>
-              <span className="font-medium text-red-600">{campaign.failed_count || 0}</span>
+              <span className="font-medium text-red-600">{queueStats?.failed || campaign.failed_count || 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total:</span>
-              <span className="font-medium">{campaign.total_recipients || 0}</span>
+              <span className="font-medium">{queueStats?.total || campaign.total_recipients || 0}</span>
             </div>
           </div>
         </TableCell>
@@ -106,6 +122,15 @@ export default function CampaignTableRow({ campaign, onEdit, onViewStats }: Camp
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Statistiques
               </DropdownMenuItem>
+              {hasFailedEmails && onRetryFailed && (
+                <DropdownMenuItem 
+                  onClick={() => onRetryFailed(campaign.id)}
+                  disabled={isRetrying}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
+                  Relancer les échecs
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem 
                 onClick={() => setShowDeleteModal(true)}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
