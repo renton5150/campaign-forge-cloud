@@ -133,6 +133,10 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     // 7. Envoyer DATA
     const dataResponse = await sendCommand('DATA\r\n');
     if (!dataResponse.startsWith('354')) {
+      // Gestion spécifique de l'erreur 566 (limite SMTP)
+      if (dataResponse.includes('566')) {
+        throw new Error('SMTP_LIMIT_EXCEEDED');
+      }
       throw new Error(`Erreur DATA: ${dataResponse.trim()}`);
     }
 
@@ -281,21 +285,23 @@ const handler = async (req: Request): Promise<Response> => {
     let statusCode = 500;
     let errorDetails = error.message || 'Erreur inconnue';
 
-    // Gestion spécifique des erreurs SMTP
-    if (error.message?.includes('Limite SMTP atteinte') || error.message?.includes('566')) {
-      errorMessage = 'Limite SMTP atteinte. Votre serveur SMTP a atteint sa limite d\'envoi quotidienne ou horaire.';
-      statusCode = 429;
+    // Gestion spécifique des erreurs SMTP avec codes de statut appropriés
+    if (error.message === 'SMTP_LIMIT_EXCEEDED' || error.message?.includes('566')) {
+      errorMessage = 'Limite SMTP atteinte';
+      errorDetails = 'Votre serveur SMTP a atteint sa limite d\'envoi quotidienne ou horaire. Veuillez attendre ou contacter votre fournisseur SMTP.';
+      statusCode = 429; // Too Many Requests
     } else if (error.message?.includes('authentification') || error.message?.includes('535')) {
-      errorMessage = 'Erreur d\'authentification SMTP. Vérifiez vos identifiants dans la configuration du serveur SMTP.';
-      statusCode = 401;
+      errorMessage = 'Erreur d\'authentification SMTP';
+      errorDetails = 'Vérifiez vos identifiants SMTP dans la configuration du serveur.';
+      statusCode = 401; // Unauthorized
     } else if (error.message?.includes('550')) {
-      errorMessage = 'Adresse email refusée par le serveur SMTP. Vérifiez l\'adresse de destination.';
-      statusCode = 400;
+      errorMessage = 'Adresse email refusée';
+      errorDetails = 'L\'adresse email de destination a été refusée par le serveur SMTP.';
+      statusCode = 400; // Bad Request
     } else if (error.message?.includes('Impossible de se connecter') || error.message?.includes('ECONNECTION')) {
-      errorMessage = 'Impossible de se connecter au serveur SMTP. Vérifiez la configuration du serveur.';
-      statusCode = 503;
-    } else if (error.message) {
-      errorMessage = error.message;
+      errorMessage = 'Erreur de connexion SMTP';
+      errorDetails = 'Impossible de se connecter au serveur SMTP. Vérifiez la configuration du serveur.';
+      statusCode = 503; // Service Unavailable
     }
 
     return new Response(JSON.stringify({

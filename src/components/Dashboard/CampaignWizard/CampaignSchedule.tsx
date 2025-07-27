@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,41 +57,25 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
 
       if (error) {
         console.error('Erreur lors de l\'envoi du test:', error);
-        const errorMessage = error.message || 'Impossible d\'envoyer l\'email de test';
-        setLastError(errorMessage);
+        let errorMessage = 'Impossible d\'envoyer l\'email de test';
         
-        // Messages d'erreur spécifiques basés sur le code d'erreur
-        if (error.message?.includes('Limite SMTP atteinte') || error.message?.includes('566')) {
-          toast({
-            title: 'Limite SMTP atteinte',
-            description: 'Votre serveur SMTP a atteint sa limite d\'envoi. Veuillez attendre ou vérifier votre quota.',
-            variant: 'destructive',
-          });
-        } else if (error.message?.includes('authentification') || error.message?.includes('535')) {
-          toast({
-            title: 'Erreur d\'authentification',
-            description: 'Vérifiez vos identifiants SMTP dans la configuration.',
-            variant: 'destructive',
-          });
-        } else if (error.message?.includes('Aucun serveur SMTP configuré')) {
-          toast({
-            title: 'Serveur SMTP manquant',
-            description: 'Aucun serveur SMTP configuré. Allez dans Configuration > Serveurs SMTP.',
-            variant: 'destructive',
-          });
-        } else if (error.message?.includes('connexion') || error.message?.includes('ECONNECTION')) {
-          toast({
-            title: 'Erreur de connexion',
-            description: 'Impossible de se connecter au serveur SMTP. Vérifiez la configuration.',
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Erreur d\'envoi',
-            description: errorMessage,
-            variant: 'destructive',
-          });
+        // Gestion des erreurs basée sur le code de statut
+        if (error.message?.includes('429') || error.message?.includes('Too Many Requests')) {
+          errorMessage = 'Limite SMTP atteinte. Veuillez attendre avant de réessayer.';
+        } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+          errorMessage = 'Erreur d\'authentification SMTP. Vérifiez vos identifiants.';
+        } else if (error.message?.includes('503') || error.message?.includes('Service Unavailable')) {
+          errorMessage = 'Serveur SMTP indisponible. Vérifiez la configuration.';
+        } else if (error.message?.includes('400') || error.message?.includes('Bad Request')) {
+          errorMessage = 'Configuration SMTP invalide ou adresse email refusée.';
         }
+        
+        setLastError(errorMessage);
+        toast({
+          title: 'Erreur d\'envoi',
+          description: errorMessage,
+          variant: 'destructive',
+        });
         return;
       }
 
@@ -101,7 +84,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         setLastError(errorMessage);
         toast({
           title: 'Erreur d\'envoi',
-          description: errorMessage,
+          description: data?.details || errorMessage,
           variant: 'destructive',
         });
         return;
@@ -174,7 +157,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               >
                 {sendingTest ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Envoi en cours...
                   </>
                 ) : (
@@ -197,7 +180,8 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               <Alert>
                 <TestTube className="h-4 w-4" />
                 <AlertDescription>
-                  Nous recommandons fortement de tester votre campagne avant l'envoi définitif.
+                  Nous recommandons fortement de tester votre campagne avant l'envoi définitif. 
+                  Vous pouvez envoyer autant de tests que nécessaire.
                 </AlertDescription>
               </Alert>
             </div>
