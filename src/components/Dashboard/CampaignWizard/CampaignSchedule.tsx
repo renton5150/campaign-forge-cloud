@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, Send, Mail, Calendar, TestTube, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Clock, Send, Mail, Calendar, TestTube, AlertTriangle, RefreshCw, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -80,13 +81,13 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         let toastTitle = 'Erreur d\'envoi';
         
         if (errorMessage.includes('limite') || errorMessage.includes('limit') || data?.details?.includes('limite')) {
-          userMessage = 'Limite SMTP atteinte. Attendez quelques minutes avant de réessayer ou vérifiez votre quota d\'envoi.';
+          userMessage = 'Limite SMTP atteinte. Votre serveur SMTP a atteint sa limite quotidienne ou horaire. Attendez quelques minutes ou vérifiez votre quota avec votre fournisseur SMTP.';
           toastTitle = 'Limite SMTP atteinte';
         } else if (errorMessage.includes('authentification') || errorMessage.includes('auth')) {
-          userMessage = 'Erreur d\'authentification SMTP. Vérifiez la configuration du serveur.';
+          userMessage = 'Erreur d\'authentification SMTP. Vérifiez la configuration du serveur dans les paramètres.';
           toastTitle = 'Erreur d\'authentification';
         } else if (errorMessage.includes('connexion') || errorMessage.includes('connection')) {
-          userMessage = 'Erreur de connexion SMTP. Vérifiez la configuration du serveur.';
+          userMessage = 'Erreur de connexion SMTP. Vérifiez la configuration du serveur dans les paramètres.';
           toastTitle = 'Erreur de connexion';
         }
         
@@ -187,19 +188,19 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               )}
 
               {lastSuccess && (
-                <Alert>
-                  <TestTube className="h-4 w-4" />
-                  <AlertDescription>
+                <Alert className="border-green-200 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
                     <strong>Succès:</strong> {lastSuccess}
                   </AlertDescription>
                 </Alert>
               )}
 
-              <Alert>
-                <TestTube className="h-4 w-4" />
-                <AlertDescription>
+              <Alert className="border-blue-200 bg-blue-50">
+                <TestTube className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
                   <strong>Tests illimités:</strong> Vous pouvez envoyer autant de tests que nécessaire. 
-                  Si vous atteignez une limite SMTP, attendez quelques minutes avant de réessayer.
+                  Si vous atteignez une limite SMTP, c'est lié à votre serveur d'envoi et non à cette application.
                 </AlertDescription>
               </Alert>
             </div>
