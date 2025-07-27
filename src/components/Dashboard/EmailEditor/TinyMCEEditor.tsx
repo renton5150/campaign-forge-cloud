@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -286,9 +287,10 @@ export default function TinyMCEEditor({
                           fontFamily: 'Arial, Helvetica, sans-serif',
                           fontSize: '14px',
                           lineHeight: '1.4',
-                          color: '#333333'
+                          color: '#333333',
+                          whiteSpace: 'pre-wrap'
                         }}
-                        className="[&_p]:m-0 [&_p]:mb-2 [&_p]:last:mb-0 [&_br]:block [&_div]:m-0 [&_div]:mb-1 [&_div]:last:mb-0 [&_ul]:m-0 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:m-0 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:m-0 [&_li]:mb-1 [&_li]:last:mb-0 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-blue-600 [&_a]:underline"
+                        className="[&_p]:m-0 [&_p]:mb-1 [&_p]:last:mb-0 [&_br]:block [&_div]:m-0 [&_div]:mb-1 [&_div]:last:mb-0 [&_ul]:m-0 [&_ul]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:m-0 [&_ol]:mb-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:m-0 [&_li]:mb-0 [&_li]:last:mb-0 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-blue-600 [&_a]:underline"
                       />
                     </div>
                   </div>
