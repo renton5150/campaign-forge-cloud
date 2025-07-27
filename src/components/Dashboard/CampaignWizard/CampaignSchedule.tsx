@@ -55,38 +55,37 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         }
       });
 
+      // Gérer les erreurs de connexion
       if (error) {
-        console.error('Erreur lors de l\'envoi du test:', error);
-        let errorMessage = 'Impossible d\'envoyer l\'email de test';
-        
-        // Gestion des erreurs spécifiques
-        if (error.message?.includes('Edge Function returned a non-2xx status code')) {
-          errorMessage = 'Erreur du serveur d\'envoi. Veuillez réessayer.';
-        } else if (error.message?.includes('429')) {
-          errorMessage = 'Limite SMTP atteinte. Veuillez attendre avant de réessayer.';
-        } else if (error.message?.includes('401')) {
-          errorMessage = 'Erreur d\'authentification SMTP. Vérifiez vos identifiants.';
-        } else if (error.message?.includes('503')) {
-          errorMessage = 'Serveur SMTP indisponible. Vérifiez la configuration.';
-        } else if (error.message?.includes('400')) {
-          errorMessage = 'Configuration SMTP invalide ou adresse email refusée.';
-        }
-        
-        setLastError(errorMessage);
+        console.error('Erreur de connexion:', error);
+        setLastError('Erreur de connexion au serveur. Veuillez réessayer.');
         toast({
-          title: 'Erreur d\'envoi',
-          description: errorMessage,
+          title: 'Erreur de connexion',
+          description: 'Impossible de contacter le serveur d\'envoi. Veuillez réessayer.',
           variant: 'destructive',
         });
         return;
       }
 
+      // Vérifier si l'envoi a réussi
       if (!data?.success) {
         const errorMessage = data?.error || 'Erreur inconnue lors de l\'envoi';
+        console.error('Erreur d\'envoi:', data);
         setLastError(errorMessage);
+        
+        // Messages d'erreur spécifiques
+        let userMessage = errorMessage;
+        if (data?.code === 'SMTP_ERROR' && data?.details?.includes('limite')) {
+          userMessage = 'Limite SMTP atteinte. Veuillez attendre avant de réessayer.';
+        } else if (data?.details?.includes('authentification')) {
+          userMessage = 'Erreur d\'authentification SMTP. Vérifiez la configuration.';
+        } else if (data?.details?.includes('connexion')) {
+          userMessage = 'Erreur de connexion SMTP. Vérifiez la configuration du serveur.';
+        }
+        
         toast({
           title: 'Erreur d\'envoi',
-          description: data?.details || errorMessage,
+          description: userMessage,
           variant: 'destructive',
         });
         return;

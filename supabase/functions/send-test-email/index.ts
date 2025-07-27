@@ -42,7 +42,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     console.log('✅ Connexion TCP établie');
   } catch (error) {
     console.error('❌ Erreur de connexion TCP:', error);
-    throw new Error(`Impossible de se connecter au serveur SMTP: ${error.message}`);
+    throw new Error(`CONNECTION_ERROR: ${error.message}`);
   }
 
   const encoder = new TextEncoder();
@@ -69,20 +69,20 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     console.log('👋 Bienvenue:', welcomeResponse.trim());
     
     if (!welcomeResponse.startsWith('220')) {
-      throw new Error(`Erreur de connexion SMTP: ${welcomeResponse.trim()}`);
+      throw new Error(`SMTP_WELCOME_ERROR: ${welcomeResponse.trim()}`);
     }
 
     // 2. Envoyer EHLO
     const ehloResponse = await sendCommand(`EHLO ${host}\r\n`);
     if (!ehloResponse.startsWith('250')) {
-      throw new Error(`Erreur EHLO: ${ehloResponse.trim()}`);
+      throw new Error(`SMTP_EHLO_ERROR: ${ehloResponse.trim()}`);
     }
 
     // 3. Démarrer TLS si nécessaire
     if (encryption === 'tls') {
       const startTlsResponse = await sendCommand('STARTTLS\r\n');
       if (!startTlsResponse.startsWith('220')) {
-        throw new Error(`Erreur STARTTLS: ${startTlsResponse.trim()}`);
+        throw new Error(`SMTP_TLS_ERROR: ${startTlsResponse.trim()}`);
       }
       
       // Upgrade vers TLS
@@ -92,7 +92,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
       // Renvoyer EHLO après TLS
       const ehloTlsResponse = await sendCommand(`EHLO ${host}\r\n`);
       if (!ehloTlsResponse.startsWith('250')) {
-        throw new Error(`Erreur EHLO après TLS: ${ehloTlsResponse.trim()}`);
+        throw new Error(`SMTP_EHLO_TLS_ERROR: ${ehloTlsResponse.trim()}`);
       }
     }
 
@@ -100,19 +100,19 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     if (username && password) {
       const authResponse = await sendCommand('AUTH LOGIN\r\n');
       if (!authResponse.startsWith('334')) {
-        throw new Error(`Erreur AUTH LOGIN: ${authResponse.trim()}`);
+        throw new Error(`SMTP_AUTH_ERROR: ${authResponse.trim()}`);
       }
 
       // Envoyer le nom d'utilisateur
       const userResponse = await sendCommand(`${encodeBase64(username)}\r\n`);
       if (!userResponse.startsWith('334')) {
-        throw new Error(`Erreur authentification utilisateur: ${userResponse.trim()}`);
+        throw new Error(`SMTP_AUTH_USER_ERROR: ${userResponse.trim()}`);
       }
 
       // Envoyer le mot de passe
       const passResponse = await sendCommand(`${encodeBase64(password)}\r\n`);
       if (!passResponse.startsWith('235')) {
-        throw new Error(`Erreur authentification mot de passe: ${passResponse.trim()}`);
+        throw new Error(`SMTP_AUTH_PASS_ERROR: ${passResponse.trim()}`);
       }
       
       console.log('🔐 Authentification réussie');
@@ -121,13 +121,13 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     // 5. Envoyer MAIL FROM
     const mailFromResponse = await sendCommand(`MAIL FROM:<${emailData.from_email}>\r\n`);
     if (!mailFromResponse.startsWith('250')) {
-      throw new Error(`Erreur MAIL FROM: ${mailFromResponse.trim()}`);
+      throw new Error(`SMTP_MAIL_FROM_ERROR: ${mailFromResponse.trim()}`);
     }
 
     // 6. Envoyer RCPT TO
     const rcptToResponse = await sendCommand(`RCPT TO:<${emailData.to}>\r\n`);
     if (!rcptToResponse.startsWith('250')) {
-      throw new Error(`Erreur RCPT TO: ${rcptToResponse.trim()}`);
+      throw new Error(`SMTP_RCPT_TO_ERROR: ${rcptToResponse.trim()}`);
     }
 
     // 7. Envoyer DATA
@@ -137,7 +137,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
       if (dataResponse.includes('566') || dataResponse.includes('limit exceeded')) {
         throw new Error('SMTP_LIMIT_EXCEEDED');
       }
-      throw new Error(`Erreur DATA: ${dataResponse.trim()}`);
+      throw new Error(`SMTP_DATA_ERROR: ${dataResponse.trim()}`);
     }
 
     // 8. Envoyer le contenu de l'email
@@ -155,7 +155,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
 
     const contentResponse = await sendCommand(emailContent);
     if (!contentResponse.startsWith('250')) {
-      throw new Error(`Erreur envoi contenu: ${contentResponse.trim()}`);
+      throw new Error(`SMTP_CONTENT_ERROR: ${contentResponse.trim()}`);
     }
 
     // 9. Envoyer QUIT
@@ -281,31 +281,31 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error('❌ Erreur lors de l\'envoi du test:', error);
     
-    // IMPORTANT: Toujours retourner une réponse HTTP valide, même en cas d'erreur
+    // Toujours retourner une réponse HTTP valide, même en cas d'erreur
     let errorMessage = 'Erreur lors de l\'envoi du test';
     let statusCode = 500;
     let errorDetails = error.message || 'Erreur inconnue';
 
-    // Gestion spécifique des erreurs SMTP avec codes de statut appropriés
+    // Gestion spécifique des erreurs SMTP
     if (error.message === 'SMTP_LIMIT_EXCEEDED' || error.message?.includes('566') || error.message?.includes('limit exceeded')) {
       errorMessage = 'Limite SMTP atteinte';
       errorDetails = 'Votre serveur SMTP a atteint sa limite d\'envoi quotidienne ou horaire. Veuillez attendre ou contacter votre fournisseur SMTP.';
-      statusCode = 429; // Too Many Requests
-    } else if (error.message?.includes('authentification') || error.message?.includes('535')) {
+      statusCode = 200; // Retourner 200 avec success: false
+    } else if (error.message?.includes('AUTH') || error.message?.includes('535')) {
       errorMessage = 'Erreur d\'authentification SMTP';
       errorDetails = 'Vérifiez vos identifiants SMTP dans la configuration du serveur.';
-      statusCode = 401; // Unauthorized
+      statusCode = 200; // Retourner 200 avec success: false
     } else if (error.message?.includes('550')) {
       errorMessage = 'Adresse email refusée';
       errorDetails = 'L\'adresse email de destination a été refusée par le serveur SMTP.';
-      statusCode = 400; // Bad Request
-    } else if (error.message?.includes('Impossible de se connecter') || error.message?.includes('ECONNECTION')) {
+      statusCode = 200; // Retourner 200 avec success: false
+    } else if (error.message?.includes('CONNECTION_ERROR')) {
       errorMessage = 'Erreur de connexion SMTP';
       errorDetails = 'Impossible de se connecter au serveur SMTP. Vérifiez la configuration du serveur.';
-      statusCode = 503; // Service Unavailable
+      statusCode = 200; // Retourner 200 avec success: false
     }
 
-    // CRUCIAL: Retourner une réponse HTTP valide avec les en-têtes CORS
+    // CRUCIAL: Retourner un statut 200 avec success: false pour éviter l'erreur "non-2xx"
     return new Response(JSON.stringify({
       success: false,
       error: errorMessage,
