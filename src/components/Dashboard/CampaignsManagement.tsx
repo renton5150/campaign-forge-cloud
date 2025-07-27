@@ -2,13 +2,14 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Activity } from 'lucide-react';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useEmailQueue } from '@/hooks/useEmailQueue';
 import { useQueueProcessor } from '@/hooks/useQueueProcessor';
 import { Campaign } from '@/types/database';
 import { CampaignWizard } from './CampaignWizard';
 import CampaignStats from './CampaignStats';
+import { EmailQueueDashboard } from './EmailQueueDashboard';
 import { useToast } from '@/hooks/use-toast';
 import { CampaignsHeader } from './CampaignsList/CampaignsHeader';
 import { CampaignsStats } from './CampaignsList/CampaignsStats';
@@ -114,6 +115,10 @@ export default function CampaignsManagement() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="queue">
+            <Activity className="h-4 w-4 mr-2" />
+            Queue d'emails
+          </TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -136,6 +141,10 @@ export default function CampaignsManagement() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="queue" className="space-y-4">
+          <EmailQueueDashboard campaignId={selectedCampaign?.id} />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">

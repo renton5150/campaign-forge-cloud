@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +22,8 @@ export interface SmtpServerFormData {
   from_name: string;
   from_email: string;
   is_active: boolean;
+  daily_limit?: number;
+  hourly_limit?: number;
 }
 
 export const useSmtpServers = () => {
@@ -109,12 +112,14 @@ export const useSmtpServers = () => {
 
       console.log('Creating SMTP server with tenant_id:', tenantId);
 
-      // Créer le serveur SMTP
+      // Créer le serveur SMTP avec les nouvelles colonnes
       const { data, error } = await supabase
         .from('smtp_servers')
         .insert({
           ...serverData,
-          tenant_id: tenantId
+          tenant_id: tenantId,
+          daily_limit: serverData.daily_limit || 10000,
+          hourly_limit: serverData.hourly_limit || 1000
         })
         .select()
         .single();
@@ -151,7 +156,11 @@ export const useSmtpServers = () => {
     try {
       const { data, error } = await supabase
         .from('smtp_servers')
-        .update(serverData)
+        .update({
+          ...serverData,
+          daily_limit: serverData.daily_limit || 10000,
+          hourly_limit: serverData.hourly_limit || 1000
+        })
         .eq('id', id)
         .select()
         .single();
