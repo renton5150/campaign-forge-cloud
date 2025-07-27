@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, Send, Mail, Calendar, TestTube } from 'lucide-react';
+import { Clock, Send, Mail, Calendar, TestTube, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -17,6 +17,7 @@ interface CampaignScheduleProps {
 export default function CampaignSchedule({ formData, updateFormData }: CampaignScheduleProps) {
   const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleSendTest = async () => {
@@ -39,10 +40,11 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
     }
 
     setSendingTest(true);
+    setLastError(null);
+    
     try {
       console.log('Envoi du test email vers:', testEmail);
       
-      // Appel à la fonction edge pour envoyer le test
       const { data, error } = await supabase.functions.invoke('send-test-email', {
         body: {
           to: testEmail,
@@ -55,9 +57,44 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
 
       if (error) {
         console.error('Erreur lors de l\'envoi du test:', error);
+        const errorMessage = error.message || 'Impossible d\'envoyer l\'email de test';
+        setLastError(errorMessage);
+        
+        // Messages d'erreur spécifiques
+        if (errorMessage.includes('SMTP limit exceeded') || errorMessage.includes('566')) {
+          toast({
+            title: 'Limite SMTP atteinte',
+            description: 'Votre serveur SMTP a atteint sa limite d\'envoi. Veuillez attendre ou vérifier votre quota.',
+            variant: 'destructive',
+          });
+        } else if (errorMessage.includes('Authentication failed') || errorMessage.includes('535')) {
+          toast({
+            title: 'Erreur d\'authentification',
+            description: 'Vérifiez vos identifiants SMTP dans la configuration.',
+            variant: 'destructive',
+          });
+        } else if (errorMessage.includes('Aucun serveur SMTP configuré')) {
+          toast({
+            title: 'Serveur SMTP manquant',
+            description: 'Aucun serveur SMTP configuré. Allez dans Configuration > Serveurs SMTP.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Erreur d\'envoi',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        }
+        return;
+      }
+
+      if (!data?.success) {
+        const errorMessage = data?.error || 'Erreur inconnue lors de l\'envoi';
+        setLastError(errorMessage);
         toast({
-          title: 'Erreur',
-          description: error.message || 'Impossible d\'envoyer l\'email de test',
+          title: 'Erreur d\'envoi',
+          description: errorMessage,
           variant: 'destructive',
         });
         return;
@@ -69,12 +106,15 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         description: `Email de test envoyé à ${testEmail}`,
       });
       setTestEmail('');
+      setLastError(null);
       
     } catch (error) {
       console.error('Erreur lors de l\'envoi du test:', error);
+      const errorMessage = 'Erreur de connexion. Vérifiez votre connexion internet.';
+      setLastError(errorMessage);
       toast({
-        title: 'Erreur',
-        description: 'Impossible d\'envoyer l\'email de test',
+        title: 'Erreur de connexion',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -137,6 +177,15 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
                   </>
                 )}
               </Button>
+
+              {lastError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Erreur d'envoi:</strong> {lastError}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <Alert>
                 <TestTube className="h-4 w-4" />
