@@ -66,7 +66,7 @@ const handler = async (req: Request): Promise<Response> => {
       transportConfig.requireTLS = true;
     }
 
-    const transporter = nodemailer.createTransporter(transportConfig);
+    const transporter = nodemailer.createTransport(transportConfig);
 
     // Préparation du message
     const mailOptions = {
