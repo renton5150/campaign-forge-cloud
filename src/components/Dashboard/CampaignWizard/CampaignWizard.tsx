@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Save, Send } from 'lucide-react';
 import { Campaign } from '@/types/database';
 import { useCampaigns } from '@/hooks/useCampaigns';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import CampaignBasicInfo from './CampaignBasicInfo';
 import CampaignRecipients from './CampaignRecipients';
@@ -45,6 +46,7 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
   });
 
   const { createCampaign, updateCampaign } = useCampaigns();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const steps = [
@@ -71,6 +73,15 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
   };
 
   const handleSave = async () => {
+    if (!user) {
+      toast({
+        title: 'Erreur',
+        description: 'Utilisateur non connecté',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       const campaignData = {
         name: formData.name,
@@ -91,6 +102,8 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
         ab_test_duration_hours: 24,
         tags: [],
         notes: '',
+        tenant_id: user.tenant_id,
+        created_by: user.id,
       };
 
       if (campaign) {
