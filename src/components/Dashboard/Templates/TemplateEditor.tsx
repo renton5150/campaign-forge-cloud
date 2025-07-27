@@ -110,113 +110,123 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* En-tête avec les informations du template */}
-      <Card className="mb-6 flex-shrink-0">
-        <CardHeader>
-          <CardTitle>{templateId ? 'Modifier' : 'Nouveau'} Template</CardTitle>
-          <CardDescription>
-            Créez et personnalisez vos templates d'email avec variables de personnalisation
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="templateName">Nom du template</Label>
-              <Input
-                type="text"
-                id="templateName"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="Ex: Template de bienvenue"
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* En-tête fixe avec les informations du template */}
+      <div className="flex-shrink-0 bg-white border-b">
+        <Card className="border-0 shadow-none">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">{templateId ? 'Modifier' : 'Nouveau'} Template</CardTitle>
+            <CardDescription>
+              Créez et personnalisez vos templates d'email avec variables de personnalisation
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="templateName">Nom du template</Label>
+                <Input
+                  type="text"
+                  id="templateName"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Ex: Template de bienvenue"
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Catégorie</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choisir une catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="transactional">Transactionnel</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="autres">Autres</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Décrivez l'usage de ce template..."
+                rows={2}
+                className="resize-none"
               />
             </div>
-            <div>
-              <Label htmlFor="category">Catégorie</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choisir une catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="transactional">Transactionnel</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                  <SelectItem value="autres">Autres</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Décrivez l'usage de ce template..."
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="previewText">Texte de prévisualisation</Label>
-            <Input
-              type="text"
-              id="previewText"
-              value={previewText}
-              onChange={(e) => setPreviewText(e.target.value)}
-              placeholder="Ex: Bonjour {{PRENOM}}, découvrez nos nouveautés..."
-            />
-          </div>
-          
-          <div>
-            <Label>Tags</Label>
-            <div className="flex items-center space-x-2">
+            
+            <div className="space-y-2">
+              <Label htmlFor="previewText">Texte de prévisualisation</Label>
               <Input
                 type="text"
-                placeholder="Ajouter un tag"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                onKeyDown={handleTagKeyDown}
+                id="previewText"
+                value={previewText}
+                onChange={(e) => setPreviewText(e.target.value)}
+                placeholder="Ex: Bonjour {{PRENOM}}, découvrez nos nouveautés..."
+                className="w-full"
               />
             </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="flex items-center space-x-1">
-                  <Tag className="h-3 w-3" />
-                  <span>{tag}</span>
-                  <button
-                    type="button"
-                    className="ml-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => removeTag(tag)}
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              ))}
+            
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="text"
+                  placeholder="Ajouter un tag"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  className="flex-1"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="flex items-center space-x-1">
+                    <Tag className="h-3 w-3" />
+                    <span>{tag}</span>
+                    <button
+                      type="button"
+                      className="ml-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => removeTag(tag)}
+                    >
+                      &times;
+                    </button>
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Éditeur avec panneau de personnalisation */}
-      <div className="flex-1 min-h-0">
+      {/* Éditeur avec panneau de personnalisation - zone extensible */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         <TinyMCEEditor
           value={content}
           onChange={setContent}
           onSave={handleSave}
           showTabs={true}
           showToolbar={true}
-          availableContacts={[]} // Vous pouvez passer des contacts ici si nécessaire
+          availableContacts={[]}
+          height={undefined} // Laisse TinyMCE gérer la hauteur automatiquement
         />
       </div>
 
-      {/* Boutons d'action */}
-      <div className="flex justify-end space-x-2 mt-4 pt-4 border-t flex-shrink-0">
-        <Button variant="outline" onClick={onClose}>
-          Annuler
-        </Button>
-        <Button onClick={handleSave}>
-          {templateId ? 'Enregistrer' : 'Créer'}
-        </Button>
+      {/* Boutons d'action fixes en bas */}
+      <div className="flex-shrink-0 bg-white border-t p-4">
+        <div className="flex justify-end space-x-2">
+          <Button variant="outline" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button onClick={handleSave}>
+            {templateId ? 'Enregistrer' : 'Créer'}
+          </Button>
+        </div>
       </div>
     </div>
   );
