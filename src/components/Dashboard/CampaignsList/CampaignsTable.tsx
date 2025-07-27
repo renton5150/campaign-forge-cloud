@@ -7,7 +7,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Campaign } from '@/types/database';
-import { CampaignTableRow } from './CampaignTableRow';
+import CampaignTableRow from './CampaignTableRow';
 
 interface CampaignsTableProps {
   campaigns: (Campaign & {
