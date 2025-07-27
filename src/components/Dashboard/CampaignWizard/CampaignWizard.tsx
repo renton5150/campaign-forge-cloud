@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Save, Send } from 'lucide-react';
@@ -7,10 +7,14 @@ import { Campaign } from '@/types/database';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { useFormBackup } from '@/hooks/useLocalStorage';
 import CampaignBasicInfo from './CampaignBasicInfo';
 import CampaignRecipients from './CampaignRecipients';
 import CampaignContent from './CampaignContent';
 import CampaignSchedule from './CampaignSchedule';
+import SaveStatusIndicator from './SaveStatusIndicator';
+import ExitConfirmation from './ExitConfirmation';
 
 interface CampaignWizardProps {
   campaign?: Campaign | null;
@@ -45,9 +49,33 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
     send_immediately: true,
   });
 
+  const [lastSaved, setLastSaved] = useState<Date | undefined>(campaign ? new Date() : undefined);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [autoSaveError, setAutoSaveError] = useState<string>('');
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+
   const { createCampaign, updateCampaign } = useCampaigns();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { backup, hasBackup, clearBackup } = useFormBackup(formData, campaign?.id);
+
+  const handleAutoSaveSuccess = useCallback(() => {
+    setLastSaved(new Date());
+    setHasUnsavedChanges(false);
+    setAutoSaveError('');
+  }, []);
+
+  const handleAutoSaveError = useCallback((error: any) => {
+    setAutoSaveError(error.message || 'Erreur de sauvegarde');
+  }, []);
+
+  const { isAutoSaving } = useAutoSave({
+    formData,
+    campaign,
+    onSaveSuccess: handleAutoSaveSuccess,
+    onSaveError: handleAutoSaveError,
+    debounceMs: 3000
+  });
 
   const steps = [
     { id: 1, title: 'Informations de base', subtitle: 'Nom, expéditeur et objet' },
@@ -56,9 +84,10 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
     { id: 4, title: 'Planification', subtitle: 'Envoi et programmation' },
   ];
 
-  const updateFormData = (updates: Partial<CampaignFormData>) => {
+  const updateFormData = useCallback((updates: Partial<CampaignFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
-  };
+    setHasUnsavedChanges(true);
+  }, []);
 
   const handleNext = () => {
     if (currentStep < 4) {
@@ -83,6 +112,8 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
     }
 
     try {
+      console.log('💾 Sauvegarde manuelle...', formData);
+      
       const campaignData = {
         name: formData.name,
         subject: formData.subject,
@@ -112,6 +143,10 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
         await createCampaign.mutateAsync(campaignData);
       }
 
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+      clearBackup();
+      
       toast({
         title: '✅ Campagne sauvegardée',
         description: 'Votre campagne a été sauvegardée avec succès',
@@ -125,6 +160,24 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
         variant: 'destructive',
       });
     }
+  };
+
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      setShowExitConfirmation(true);
+    } else {
+      clearBackup();
+      onClose();
+    }
+  };
+
+  const handleConfirmExit = () => {
+    clearBackup();
+    onClose();
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirmation(false);
   };
 
   const canProceed = () => {
@@ -163,7 +216,7 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
       <div className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleClose}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour
             </Button>
@@ -176,7 +229,13 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
               </p>
             </div>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-4">
+            <SaveStatusIndicator
+              lastSaved={lastSaved}
+              isAutoSaving={isAutoSaving}
+              hasUnsavedChanges={hasUnsavedChanges}
+              error={autoSaveError}
+            />
             <Button variant="outline" onClick={handleSave}>
               <Save className="h-4 w-4 mr-2" />
               Sauvegarder
@@ -212,6 +271,17 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
           ))}
         </div>
       </div>
+
+      {/* Backup notification */}
+      {hasBackup && !campaign && (
+        <div className="bg-yellow-50 border-b px-6 py-3">
+          <div className="max-w-4xl mx-auto">
+            <p className="text-sm text-yellow-800">
+              💾 Une sauvegarde locale a été trouvée. Les données ont été restaurées automatiquement.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="max-w-4xl mx-auto py-8 px-6">
@@ -255,6 +325,13 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
           </div>
         </div>
       </div>
+
+      <ExitConfirmation
+        hasUnsavedChanges={hasUnsavedChanges}
+        onConfirmExit={handleConfirmExit}
+        onCancelExit={handleCancelExit}
+        isOpen={showExitConfirmation}
+      />
     </div>
   );
 }
