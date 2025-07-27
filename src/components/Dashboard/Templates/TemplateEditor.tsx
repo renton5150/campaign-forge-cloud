@@ -110,7 +110,7 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col">
       {/* En-tête fixe avec les informations du template */}
       <div className="flex-shrink-0 bg-white border-b">
         <Card className="border-0 shadow-none">
@@ -204,8 +204,8 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
         </Card>
       </div>
 
-      {/* Éditeur avec panneau de personnalisation - zone extensible */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* Éditeur - zone extensible */}
+      <div className="flex-1 overflow-hidden">
         <TinyMCEEditor
           value={content}
           onChange={setContent}
@@ -213,7 +213,6 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
           showTabs={true}
           showToolbar={true}
           availableContacts={[]}
-          height={undefined} // Laisse TinyMCE gérer la hauteur automatiquement
         />
       </div>
 
