@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, Send, Mail, Calendar, TestTube, AlertTriangle } from 'lucide-react';
+import { Clock, Send, Mail, Calendar, TestTube, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,6 +19,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
   const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
 
   const handleSendTest = async () => {
@@ -60,23 +62,29 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         const errorMessage = error.message || 'Impossible d\'envoyer l\'email de test';
         setLastError(errorMessage);
         
-        // Messages d'erreur spécifiques
-        if (errorMessage.includes('SMTP limit exceeded') || errorMessage.includes('566')) {
+        // Messages d'erreur spécifiques basés sur le code d'erreur
+        if (error.message?.includes('Limite SMTP atteinte') || error.message?.includes('566')) {
           toast({
             title: 'Limite SMTP atteinte',
             description: 'Votre serveur SMTP a atteint sa limite d\'envoi. Veuillez attendre ou vérifier votre quota.',
             variant: 'destructive',
           });
-        } else if (errorMessage.includes('Authentication failed') || errorMessage.includes('535')) {
+        } else if (error.message?.includes('authentification') || error.message?.includes('535')) {
           toast({
             title: 'Erreur d\'authentification',
             description: 'Vérifiez vos identifiants SMTP dans la configuration.',
             variant: 'destructive',
           });
-        } else if (errorMessage.includes('Aucun serveur SMTP configuré')) {
+        } else if (error.message?.includes('Aucun serveur SMTP configuré')) {
           toast({
             title: 'Serveur SMTP manquant',
             description: 'Aucun serveur SMTP configuré. Allez dans Configuration > Serveurs SMTP.',
+            variant: 'destructive',
+          });
+        } else if (error.message?.includes('connexion') || error.message?.includes('ECONNECTION')) {
+          toast({
+            title: 'Erreur de connexion',
+            description: 'Impossible de se connecter au serveur SMTP. Vérifiez la configuration.',
             variant: 'destructive',
           });
         } else {
@@ -86,6 +94,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
             variant: 'destructive',
           });
         }
+        setRetryCount(prev => prev + 1);
         return;
       }
 
@@ -97,6 +106,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
           description: errorMessage,
           variant: 'destructive',
         });
+        setRetryCount(prev => prev + 1);
         return;
       }
 
@@ -107,6 +117,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       });
       setTestEmail('');
       setLastError(null);
+      setRetryCount(0);
       
     } catch (error) {
       console.error('Erreur lors de l\'envoi du test:', error);
@@ -117,6 +128,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         description: errorMessage,
         variant: 'destructive',
       });
+      setRetryCount(prev => prev + 1);
     } finally {
       setSendingTest(false);
     }
@@ -130,6 +142,16 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
     const now = new Date();
     now.setMinutes(now.getMinutes() + 15);
     return formatDateTime(now);
+  };
+
+  const getRetryMessage = () => {
+    if (retryCount >= 3) {
+      return "Trop de tentatives échouées. Vérifiez votre configuration SMTP ou contactez votre administrateur.";
+    }
+    if (lastError?.includes('Limite SMTP atteinte')) {
+      return "Limite SMTP atteinte. Attendez quelques minutes avant de réessayer ou vérifiez votre quota d'envoi.";
+    }
+    return lastError;
   };
 
   return (
@@ -162,13 +184,18 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               
               <Button 
                 onClick={handleSendTest}
-                disabled={!testEmail || sendingTest || !formData.html_content}
+                disabled={!testEmail || sendingTest || !formData.html_content || retryCount >= 3}
                 className="w-full"
               >
                 {sendingTest ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Envoi en cours...
+                  </>
+                ) : retryCount > 0 ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Réessayer ({retryCount}/3)
                   </>
                 ) : (
                   <>
@@ -182,7 +209,22 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Erreur d'envoi:</strong> {lastError}
+                    <strong>Erreur d'envoi:</strong> {getRetryMessage()}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {retryCount >= 3 && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Suggestions:</strong>
+                    <ul className="mt-2 list-disc pl-4 space-y-1">
+                      <li>Vérifiez votre configuration SMTP</li>
+                      <li>Attendez quelques minutes si la limite est atteinte</li>
+                      <li>Contactez votre fournisseur SMTP</li>
+                      <li>Vérifiez votre quota d'envoi</li>
+                    </ul>
                   </AlertDescription>
                 </Alert>
               )}

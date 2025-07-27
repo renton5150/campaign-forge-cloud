@@ -43,7 +43,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('❌ Aucun serveur SMTP configuré');
       return new Response(JSON.stringify({
         success: false,
-        error: 'Aucun serveur SMTP configuré'
+        error: 'Aucun serveur SMTP configuré. Veuillez configurer un serveur SMTP actif.'
       }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -66,7 +66,7 @@ const handler = async (req: Request): Promise<Response> => {
       transportConfig.requireTLS = true;
     }
 
-    const transporter = nodemailer.createTransport(transportConfig);
+    const transporter = nodemailer.createTransporter(transportConfig);
 
     // Préparation du message
     const mailOptions = {
@@ -92,11 +92,34 @@ const handler = async (req: Request): Promise<Response> => {
 
   } catch (error: any) {
     console.error('❌ Erreur lors de l\'envoi du test:', error);
+    
+    let errorMessage = 'Erreur lors de l\'envoi du test';
+    let statusCode = 500;
+
+    // Gestion spécifique des erreurs SMTP
+    if (error.code === 'EENVELOPE' || error.responseCode === 566) {
+      errorMessage = 'Limite SMTP atteinte. Votre serveur SMTP a atteint sa limite d\'envoi quotidienne ou horaire. Veuillez attendre ou vérifier votre quota.';
+      statusCode = 429; // Too Many Requests
+    } else if (error.responseCode === 535) {
+      errorMessage = 'Erreur d\'authentification SMTP. Vérifiez vos identifiants dans la configuration du serveur SMTP.';
+      statusCode = 401;
+    } else if (error.responseCode === 550) {
+      errorMessage = 'Adresse email refusée par le serveur SMTP. Vérifiez l\'adresse de destination.';
+      statusCode = 400;
+    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+      errorMessage = 'Impossible de se connecter au serveur SMTP. Vérifiez la configuration du serveur.';
+      statusCode = 503;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Erreur lors de l\'envoi du test'
+      error: errorMessage,
+      code: error.code || 'UNKNOWN_ERROR',
+      responseCode: error.responseCode || null
     }), {
-      status: 500,
+      status: statusCode,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
