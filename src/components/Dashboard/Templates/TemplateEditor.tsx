@@ -110,71 +110,79 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-gray-50">
       {/* En-tête fixe avec les informations du template */}
-      <div className="flex-shrink-0 bg-white border-b">
-        <Card className="border-0 shadow-none">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl">{templateId ? 'Modifier' : 'Nouveau'} Template</CardTitle>
-            <CardDescription>
-              Créez et personnalisez vos templates d'email avec variables de personnalisation
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="templateName">Nom du template</Label>
-                <Input
-                  type="text"
-                  id="templateName"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="Ex: Template de bienvenue"
-                  className="w-full"
-                />
+      <div className="flex-shrink-0 bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto">
+          <div className="p-6">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {templateId ? 'Modifier' : 'Nouveau'} Template
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Créez et personnalisez vos templates d'email avec variables de personnalisation
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="templateName">Nom du template</Label>
+                  <Input
+                    type="text"
+                    id="templateName"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="Ex: Template de bienvenue"
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="category">Catégorie</Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Choisir une catégorie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="transactional">Transactionnel</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                      <SelectItem value="autres">Autres</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Catégorie</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choisir une catégorie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="transactional">Transactionnel</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
-                    <SelectItem value="autres">Autres</SelectItem>
-                  </SelectContent>
-                </Select>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Décrivez l'usage de ce template..."
+                    rows={3}
+                    className="mt-1 resize-none"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="previewText">Texte de prévisualisation</Label>
+                  <Input
+                    type="text"
+                    id="previewText"
+                    value={previewText}
+                    onChange={(e) => setPreviewText(e.target.value)}
+                    placeholder="Ex: Bonjour {{PRENOM}}, découvrez nos nouveautés..."
+                    className="mt-1"
+                  />
+                </div>
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Décrivez l'usage de ce template..."
-                rows={2}
-                className="resize-none"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="previewText">Texte de prévisualisation</Label>
-              <Input
-                type="text"
-                id="previewText"
-                value={previewText}
-                onChange={(e) => setPreviewText(e.target.value)}
-                placeholder="Ex: Bonjour {{PRENOM}}, découvrez nos nouveautés..."
-                className="w-full"
-              />
-            </div>
-            
-            <div className="space-y-2">
+            <div className="mt-6">
               <Label>Tags</Label>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mt-1">
                 <Input
                   type="text"
                   placeholder="Ajouter un tag"
@@ -200,31 +208,36 @@ export default function TemplateEditor({ templateId, onSave, onClose }: Template
                 ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Éditeur - zone extensible */}
-      <div className="flex-1 overflow-hidden">
-        <TinyMCEEditor
-          value={content}
-          onChange={setContent}
-          onSave={handleSave}
-          showTabs={true}
-          showToolbar={true}
-          availableContacts={[]}
-        />
+      <div className="flex-1 bg-white">
+        <div className="max-w-7xl mx-auto h-full">
+          <TinyMCEEditor
+            value={content}
+            onChange={setContent}
+            onSave={handleSave}
+            showTabs={true}
+            showToolbar={true}
+            availableContacts={[]}
+            height={600}
+          />
+        </div>
       </div>
 
       {/* Boutons d'action fixes en bas */}
-      <div className="flex-shrink-0 bg-white border-t p-4">
-        <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button onClick={handleSave}>
-            {templateId ? 'Enregistrer' : 'Créer'}
-          </Button>
+      <div className="flex-shrink-0 bg-white border-t shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex justify-end space-x-3">
+            <Button variant="outline" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button onClick={handleSave}>
+              {templateId ? 'Enregistrer' : 'Créer'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
