@@ -41,6 +41,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     });
     console.log('✅ Connexion TCP établie');
   } catch (error) {
+    console.error('❌ Erreur de connexion TCP:', error);
     throw new Error(`Impossible de se connecter au serveur SMTP: ${error.message}`);
   }
 
@@ -183,9 +184,43 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { to, subject, html_content, from_name, from_email }: TestEmailRequest = await req.json();
+    console.log('🚀 Début de l\'envoi d\'email de test');
+    
+    const body = await req.text();
+    console.log('📝 Body reçu:', body);
+    
+    let requestData;
+    try {
+      requestData = JSON.parse(body);
+    } catch (parseError) {
+      console.error('❌ Erreur parsing JSON:', parseError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Format JSON invalide',
+        details: parseError.message
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { to, subject, html_content, from_name, from_email }: TestEmailRequest = requestData;
 
     console.log('📧 Envoi d\'email de test vers:', to);
+    console.log('📧 Sujet:', subject);
+    console.log('📧 From:', from_email);
+
+    // Validation des paramètres
+    if (!to || !subject || !html_content || !from_name || !from_email) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Paramètres manquants. Tous les champs sont requis.',
+        required: ['to', 'subject', 'html_content', 'from_name', 'from_email']
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     // Récupérer le premier serveur SMTP actif
     const { data: smtpServer, error: smtpError } = await supabase
@@ -196,15 +231,18 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (smtpError || !smtpServer) {
-      console.error('❌ Aucun serveur SMTP configuré');
+      console.error('❌ Aucun serveur SMTP configuré:', smtpError);
       return new Response(JSON.stringify({
         success: false,
-        error: 'Aucun serveur SMTP configuré. Veuillez configurer un serveur SMTP actif.'
+        error: 'Aucun serveur SMTP configuré. Veuillez configurer un serveur SMTP actif.',
+        details: smtpError?.message || 'Aucun serveur actif trouvé'
       }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    console.log('🔧 Serveur SMTP trouvé:', smtpServer.name);
 
     // Préparation des données email
     const emailData = {
@@ -215,7 +253,7 @@ const handler = async (req: Request): Promise<Response> => {
       html: html_content,
     };
 
-    console.log('📤 Envoi en cours via SMTP réel...');
+    console.log('📤 Envoi en cours via SMTP...');
     
     // Utiliser la fonction SMTP native
     const result = await sendSMTPEmail(smtpServer, emailData);
@@ -225,7 +263,12 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({
       success: true,
       messageId: result.messageId,
-      message: 'Email de test envoyé avec succès via SMTP'
+      message: 'Email de test envoyé avec succès via SMTP',
+      details: {
+        to: to,
+        subject: emailData.subject,
+        server: smtpServer.name
+      }
     }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -236,6 +279,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     let errorMessage = 'Erreur lors de l\'envoi du test';
     let statusCode = 500;
+    let errorDetails = error.message || 'Erreur inconnue';
 
     // Gestion spécifique des erreurs SMTP
     if (error.message?.includes('Limite SMTP atteinte') || error.message?.includes('566')) {
@@ -257,6 +301,7 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({
       success: false,
       error: errorMessage,
+      details: errorDetails,
       code: error.code || 'SMTP_ERROR'
     }), {
       status: statusCode,

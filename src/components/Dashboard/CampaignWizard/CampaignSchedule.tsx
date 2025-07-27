@@ -19,7 +19,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
   const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
 
   const handleSendTest = async () => {
@@ -94,7 +93,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
             variant: 'destructive',
           });
         }
-        setRetryCount(prev => prev + 1);
         return;
       }
 
@@ -106,7 +104,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
           description: errorMessage,
           variant: 'destructive',
         });
-        setRetryCount(prev => prev + 1);
         return;
       }
 
@@ -117,7 +114,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       });
       setTestEmail('');
       setLastError(null);
-      setRetryCount(0);
       
     } catch (error) {
       console.error('Erreur lors de l\'envoi du test:', error);
@@ -128,7 +124,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         description: errorMessage,
         variant: 'destructive',
       });
-      setRetryCount(prev => prev + 1);
     } finally {
       setSendingTest(false);
     }
@@ -142,16 +137,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
     const now = new Date();
     now.setMinutes(now.getMinutes() + 15);
     return formatDateTime(now);
-  };
-
-  const getRetryMessage = () => {
-    if (retryCount >= 3) {
-      return "Trop de tentatives échouées. Vérifiez votre configuration SMTP ou contactez votre administrateur.";
-    }
-    if (lastError?.includes('Limite SMTP atteinte')) {
-      return "Limite SMTP atteinte. Attendez quelques minutes avant de réessayer ou vérifiez votre quota d'envoi.";
-    }
-    return lastError;
   };
 
   return (
@@ -184,18 +169,13 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               
               <Button 
                 onClick={handleSendTest}
-                disabled={!testEmail || sendingTest || !formData.html_content || retryCount >= 3}
+                disabled={!testEmail || sendingTest || !formData.html_content}
                 className="w-full"
               >
                 {sendingTest ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Envoi en cours...
-                  </>
-                ) : retryCount > 0 ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Réessayer ({retryCount}/3)
                   </>
                 ) : (
                   <>
@@ -209,22 +189,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Erreur d'envoi:</strong> {getRetryMessage()}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {retryCount >= 3 && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Suggestions:</strong>
-                    <ul className="mt-2 list-disc pl-4 space-y-1">
-                      <li>Vérifiez votre configuration SMTP</li>
-                      <li>Attendez quelques minutes si la limite est atteinte</li>
-                      <li>Contactez votre fournisseur SMTP</li>
-                      <li>Vérifiez votre quota d'envoi</li>
-                    </ul>
+                    <strong>Erreur d'envoi:</strong> {lastError}
                   </AlertDescription>
                 </Alert>
               )}
