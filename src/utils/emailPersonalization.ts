@@ -1,4 +1,3 @@
-
 export interface PersonalizationVariable {
   key: string;
   label: string;
@@ -150,9 +149,11 @@ export function validateVariables(text: string, availableVariables: Personalizat
 
 // Fonction pour générer un aperçu avec données d'exemple
 export function generatePreview(
-  text: string,
+  htmlContent: string,
   sampleData?: Partial<ContactPersonalizationData>
 ): string {
+  if (!htmlContent) return '';
+  
   const defaultSampleData: ContactPersonalizationData = {
     email: 'john.doe@example.com',
     first_name: 'John',
@@ -166,5 +167,7 @@ export function generatePreview(
   };
 
   const mergedData = { ...defaultSampleData, ...sampleData };
-  return replaceVariables(text, mergedData, '[Non défini]');
+  
+  // Traiter le contenu HTML en préservant la structure
+  return replaceVariables(htmlContent, mergedData, '[Non défini]');
 }
