@@ -110,16 +110,32 @@ export const useSmtpServers = () => {
         return null;
       }
 
-      console.log('Creating SMTP server with tenant_id:', tenantId);
+      console.log('Creating SMTP server with data:', {
+        ...serverData,
+        tenant_id: tenantId,
+        encryption: serverData.encryption || 'none'
+      });
 
-      // Créer le serveur SMTP avec les nouvelles colonnes
+      // Créer le serveur SMTP en s'assurant que encryption est bien défini
       const { data, error } = await supabase
         .from('smtp_servers')
         .insert({
-          ...serverData,
-          tenant_id: tenantId,
+          name: serverData.name,
+          type: serverData.type,
+          host: serverData.host || null,
+          port: serverData.port || null,
+          username: serverData.username || null,
+          password: serverData.password || null,
+          api_key: serverData.api_key || null,
+          domain: serverData.domain || null,
+          region: serverData.region || null,
+          encryption: serverData.encryption || 'none',
+          from_name: serverData.from_name,
+          from_email: serverData.from_email,
+          is_active: serverData.is_active,
           daily_limit: serverData.daily_limit || 10000,
-          hourly_limit: serverData.hourly_limit || 1000
+          hourly_limit: serverData.hourly_limit || 1000,
+          tenant_id: tenantId,
         })
         .select()
         .single();
@@ -154,12 +170,29 @@ export const useSmtpServers = () => {
 
   const updateServer = async (id: string, serverData: SmtpServerFormData) => {
     try {
+      console.log('Updating SMTP server with data:', {
+        ...serverData,
+        encryption: serverData.encryption || 'none'
+      });
+
       const { data, error } = await supabase
         .from('smtp_servers')
         .update({
-          ...serverData,
+          name: serverData.name,
+          type: serverData.type,
+          host: serverData.host || null,
+          port: serverData.port || null,
+          username: serverData.username || null,
+          password: serverData.password || null,
+          api_key: serverData.api_key || null,
+          domain: serverData.domain || null,
+          region: serverData.region || null,
+          encryption: serverData.encryption || 'none',
+          from_name: serverData.from_name,
+          from_email: serverData.from_email,
+          is_active: serverData.is_active,
           daily_limit: serverData.daily_limit || 10000,
-          hourly_limit: serverData.hourly_limit || 1000
+          hourly_limit: serverData.hourly_limit || 1000,
         })
         .eq('id', id)
         .select()
@@ -195,7 +228,10 @@ export const useSmtpServers = () => {
 
   const testSmtpConnection = async (serverData: SmtpServerFormData) => {
     try {
-      console.log('Testing SMTP connection with data:', serverData);
+      console.log('Testing SMTP connection with data:', {
+        ...serverData,
+        encryption: serverData.encryption || 'none'
+      });
 
       const { data, error } = await supabase.functions.invoke('test-smtp-connection', {
         body: {
@@ -207,7 +243,7 @@ export const useSmtpServers = () => {
           api_key: serverData.api_key,
           domain: serverData.domain,
           region: serverData.region,
-          encryption: serverData.encryption
+          encryption: serverData.encryption || 'none'
         }
       });
 

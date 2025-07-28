@@ -1,267 +1,301 @@
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-import { AlertTriangle, Server, Mail, Key } from 'lucide-react';
-
-interface SmtpConfig {
-  provider: string;
-  host?: string;
-  port?: number;
-  username?: string;
-  password?: string;
-  apiKey?: string;
-  fromEmail: string;
-  fromName: string;
-}
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { SmtpServer, SmtpServerFormData, SmtpServerType } from '@/hooks/useSmtpServers';
 
 interface SmtpConfigurationModalProps {
   open: boolean;
   onClose: () => void;
-  onConfigured: (config: SmtpConfig) => void;
-  domainName: string;
+  server?: SmtpServer;
+  onSave: (data: SmtpServerFormData) => Promise<void>;
 }
 
-export function SmtpConfigurationModal({ open, onClose, onConfigured, domainName }: SmtpConfigurationModalProps) {
-  const [config, setConfig] = useState<SmtpConfig>({
-    provider: '',
-    fromEmail: `noreply@${domainName}`,
-    fromName: 'Mon Entreprise'
+export default function SmtpConfigurationModal({ open, onClose, server, onSave }: SmtpConfigurationModalProps) {
+  const [formData, setFormData] = useState<SmtpServerFormData>({
+    name: '',
+    type: 'smtp' as SmtpServerType,
+    host: '',
+    port: 587,
+    username: '',
+    password: '',
+    api_key: '',
+    domain: '',
+    region: '',
+    encryption: 'tls',
+    from_name: '',
+    from_email: '',
+    is_active: true,
+    daily_limit: 10000,
+    hourly_limit: 1000,
   });
-  const [validating, setValidating] = useState(false);
-  const { toast } = useToast();
 
-  const providers = [
-    { value: 'turbosmtp', label: 'TurboSMTP', requiresApi: false },
-    { value: 'sendgrid', label: 'SendGrid', requiresApi: true },
-    { value: 'mailgun', label: 'Mailgun', requiresApi: true },
-    { value: 'amazon_ses', label: 'Amazon SES', requiresApi: true },
-    { value: 'custom', label: 'Serveur SMTP personnalisé', requiresApi: false }
-  ];
+  const [saving, setSaving] = useState(false);
 
-  const selectedProvider = providers.find(p => p.value === config.provider);
-
-  const handleProviderChange = (provider: string) => {
-    const providerInfo = providers.find(p => p.value === provider);
-    
-    let defaultConfig: Partial<SmtpConfig> = {
-      provider,
-      fromEmail: `noreply@${domainName}`,
-      fromName: 'Mon Entreprise'
-    };
-
-    // Configuration par défaut selon le fournisseur
-    switch (provider) {
-      case 'turbosmtp':
-        defaultConfig = {
-          ...defaultConfig,
-          host: 'pro.turbo-smtp.com',
-          port: 587
-        };
-        break;
-      case 'sendgrid':
-        defaultConfig = {
-          ...defaultConfig,
-          host: 'smtp.sendgrid.net',
-          port: 587
-        };
-        break;
-      case 'custom':
-        defaultConfig = {
-          ...defaultConfig,
-          host: '',
-          port: 587
-        };
-        break;
+  useEffect(() => {
+    if (server) {
+      console.log('Loading server data:', server);
+      setFormData({
+        name: server.name || '',
+        type: server.type as SmtpServerType,
+        host: server.host || '',
+        port: server.port || 587,
+        username: server.username || '',
+        password: server.password || '',
+        api_key: server.api_key || '',
+        domain: server.domain || '',
+        region: server.region || '',
+        encryption: server.encryption || 'tls',
+        from_name: server.from_name || '',
+        from_email: server.from_email || '',
+        is_active: server.is_active !== false,
+        daily_limit: server.daily_limit || 10000,
+        hourly_limit: server.hourly_limit || 1000,
+      });
+    } else {
+      setFormData({
+        name: '',
+        type: 'smtp' as SmtpServerType,
+        host: '',
+        port: 587,
+        username: '',
+        password: '',
+        api_key: '',
+        domain: '',
+        region: '',
+        encryption: 'tls',
+        from_name: '',
+        from_email: '',
+        is_active: true,
+        daily_limit: 10000,
+        hourly_limit: 1000,
+      });
     }
+  }, [server, open]);
 
-    setConfig(prev => ({ ...prev, ...defaultConfig }));
-  };
-
-  const validateConfiguration = async () => {
-    setValidating(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
     
     try {
-      // Simulation de validation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "✅ Configuration validée",
-        description: "Votre serveur SMTP est correctement configuré",
-      });
-
-      onConfigured(config);
+      console.log('Submitting form data:', formData);
+      await onSave(formData);
       onClose();
     } catch (error) {
-      toast({
-        title: "❌ Erreur de validation",
-        description: "Impossible de valider la configuration SMTP",
-        variant: "destructive",
-      });
+      console.error('Error saving SMTP server:', error);
     } finally {
-      setValidating(false);
+      setSaving(false);
     }
   };
 
-  const isConfigValid = () => {
-    if (!config.provider || !config.fromEmail || !config.fromName) return false;
-    
-    if (selectedProvider?.requiresApi) {
-      return !!config.apiKey;
-    } else {
-      return !!(config.host && config.port && config.username && config.password);
-    }
+  const handleInputChange = (field: keyof SmtpServerFormData, value: any) => {
+    console.log(`Updating field ${field} with value:`, value);
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            Configuration SMTP requise
+          <DialogTitle>
+            {server ? 'Modifier le serveur SMTP' : 'Ajouter un serveur SMTP'}
           </DialogTitle>
-          <DialogDescription>
-            Configurez votre serveur d'envoi avant de générer les enregistrements DNS pour <strong>{domainName}</strong>
-          </DialogDescription>
         </DialogHeader>
 
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            La configuration SMTP est obligatoire pour générer des enregistrements DNS compatibles.
-            Les DNS seront adaptés à votre fournisseur d'email.
-          </AlertDescription>
-        </Alert>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="name">Nom du serveur *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Ex: 7tic"
+                required
+              />
+            </div>
 
-        <div className="space-y-6">
-          {/* Sélection du fournisseur */}
-          <div>
-            <Label>Fournisseur SMTP *</Label>
-            <Select value={config.provider} onValueChange={handleProviderChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choisissez votre fournisseur" />
-              </SelectTrigger>
-              <SelectContent>
-                {providers.map((provider) => (
-                  <SelectItem key={provider.value} value={provider.value}>
-                    {provider.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Label htmlFor="type">Type</Label>
+              <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="smtp">SMTP (serveur SMTP classique)</SelectItem>
+                  <SelectItem value="sendgrid">SendGrid</SelectItem>
+                  <SelectItem value="mailgun">Mailgun</SelectItem>
+                  <SelectItem value="amazon_ses">Amazon SES</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Configuration selon le fournisseur */}
-          {config.provider && (
-            <div className="space-y-4 p-4 border rounded-lg">
-              <h4 className="font-medium flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Configuration {selectedProvider?.label}
-              </h4>
+          <Separator />
 
-              {selectedProvider?.requiresApi ? (
-                // Configuration API
-                <div>
-                  <Label>Clé API *</Label>
-                  <Input
-                    type="password"
-                    value={config.apiKey || ''}
-                    onChange={(e) => setConfig(prev => ({ ...prev, apiKey: e.target.value }))}
-                    placeholder="Saisissez votre clé API"
-                  />
-                </div>
-              ) : (
-                // Configuration SMTP classique
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Serveur SMTP *</Label>
-                    <Input
-                      value={config.host || ''}
-                      onChange={(e) => setConfig(prev => ({ ...prev, host: e.target.value }))}
-                      placeholder="smtp.exemple.com"
-                    />
-                  </div>
-                  <div>
-                    <Label>Port *</Label>
-                    <Input
-                      type="number"
-                      value={config.port || ''}
-                      onChange={(e) => setConfig(prev => ({ ...prev, port: parseInt(e.target.value) }))}
-                      placeholder="587"
-                    />
-                  </div>
-                  <div>
-                    <Label>Nom d'utilisateur *</Label>
-                    <Input
-                      value={config.username || ''}
-                      onChange={(e) => setConfig(prev => ({ ...prev, username: e.target.value }))}
-                      placeholder="votre@email.com"
-                    />
-                  </div>
-                  <div>
-                    <Label>Mot de passe *</Label>
-                    <Input
-                      type="password"
-                      value={config.password || ''}
-                      onChange={(e) => setConfig(prev => ({ ...prev, password: e.target.value }))}
-                      placeholder="Votre mot de passe"
-                    />
-                  </div>
-                </div>
-              )}
+          <div className="space-y-4">
+            <h3 className="font-medium">Configuration SMTP</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="host">Hôte *</Label>
+                <Input
+                  id="host"
+                  value={formData.host}
+                  onChange={(e) => handleInputChange('host', e.target.value)}
+                  placeholder="ssl0.ovh.net"
+                  required
+                />
+              </div>
 
-              {/* Configuration expéditeur */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <Label>Email expéditeur *</Label>
-                  <Input
-                    type="email"
-                    value={config.fromEmail}
-                    onChange={(e) => setConfig(prev => ({ ...prev, fromEmail: e.target.value }))}
-                    placeholder={`noreply@${domainName}`}
-                  />
-                </div>
-                <div>
-                  <Label>Nom expéditeur *</Label>
-                  <Input
-                    value={config.fromName}
-                    onChange={(e) => setConfig(prev => ({ ...prev, fromName: e.target.value }))}
-                    placeholder="Mon Entreprise"
-                  />
-                </div>
+              <div>
+                <Label htmlFor="port">Port *</Label>
+                <Input
+                  id="port"
+                  type="number"
+                  value={formData.port}
+                  onChange={(e) => handleInputChange('port', parseInt(e.target.value) || 587)}
+                  placeholder="587"
+                  required
+                />
               </div>
             </div>
-          )}
-        </div>
 
-        <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button 
-            onClick={validateConfiguration}
-            disabled={!isConfigValid() || validating}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {validating ? (
-              <>
-                <Key className="mr-2 h-4 w-4 animate-spin" />
-                Validation en cours...
-              </>
-            ) : (
-              <>
-                <Key className="mr-2 h-4 w-4" />
-                Valider et continuer
-              </>
-            )}
-          </Button>
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="username">Nom d'utilisateur *</Label>
+                <Input
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange('username', e.target.value)}
+                  placeholder="laura.decoster@7tic.fr"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="password">Mot de passe *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  placeholder="Laissez vide pour conserver"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="encryption">Chiffrement</Label>
+              <Select 
+                value={formData.encryption || 'tls'} 
+                onValueChange={(value) => {
+                  console.log('Encryption value changed to:', value);
+                  handleInputChange('encryption', value);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez le chiffrement" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  <SelectItem value="tls">TLS</SelectItem>
+                  <SelectItem value="ssl">SSL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h3 className="font-medium">Expéditeur par défaut</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="from_name">Nom expéditeur *</Label>
+                <Input
+                  id="from_name"
+                  value={formData.from_name}
+                  onChange={(e) => handleInputChange('from_name', e.target.value)}
+                  placeholder="Laura Decoster"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="from_email">Email expéditeur *</Label>
+                <Input
+                  id="from_email"
+                  type="email"
+                  value={formData.from_email}
+                  onChange={(e) => handleInputChange('from_email', e.target.value)}
+                  placeholder="laura.decoster@7tic.fr"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h3 className="font-medium">Paramètres avancés</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="daily_limit">Limite quotidienne</Label>
+                <Input
+                  id="daily_limit"
+                  type="number"
+                  value={formData.daily_limit}
+                  onChange={(e) => handleInputChange('daily_limit', parseInt(e.target.value) || 10000)}
+                  placeholder="10000"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="hourly_limit">Limite horaire</Label>
+                <Input
+                  id="hourly_limit"
+                  type="number"
+                  value={formData.hourly_limit}
+                  onChange={(e) => handleInputChange('hourly_limit', parseInt(e.target.value) || 1000)}
+                  placeholder="1000"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => handleInputChange('is_active', checked)}
+              />
+              <Label htmlFor="is_active">Serveur actif</Label>
+              <span className="text-sm text-gray-500">
+                Ce serveur peut être utilisé pour l'envoi d'emails
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
