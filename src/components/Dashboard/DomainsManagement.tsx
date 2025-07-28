@@ -36,7 +36,7 @@ import {
 import { z } from 'zod';
 import { DNSInstructionsModal } from '@/components/Dashboard/DNSInstructionsModal';
 import { verifyDomainDNS, DNSVerificationResult } from '@/lib/dns-verification';
-import { SmtpConfigurationModal } from '@/components/Dashboard/SmtpConfigurationModal';
+import SmtpConfigurationModal from '@/components/Dashboard/SmtpConfigurationModal';
 import { generateSmtpAwareDNSRecords, validateSmtpDnsCompatibility } from '@/lib/dns-smtp-generator';
 
 const domainSchema = z.object({

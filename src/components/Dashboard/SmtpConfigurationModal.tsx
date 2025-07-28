@@ -54,8 +54,8 @@ export default function SmtpConfigurationModal({ open, onClose, server, onSave }
         from_name: server.from_name || '',
         from_email: server.from_email || '',
         is_active: server.is_active !== false,
-        daily_limit: server.daily_limit || 10000,
-        hourly_limit: server.hourly_limit || 1000,
+        daily_limit: (server as any).daily_limit || 10000,
+        hourly_limit: (server as any).hourly_limit || 1000,
       });
     } else {
       setFormData({
