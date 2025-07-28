@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useSmtpConnectionTest, ConnectionTestResult } from '@/hooks/useSmtpConnectionTest';
-import { SmtpServer, SmtpServerFormData } from '@/hooks/useSmtpServers';
+import { SmtpServer } from '@/hooks/useSmtpServers';
 import { 
   TestTube, 
   CheckCircle, 
@@ -19,7 +19,7 @@ import {
 interface SmtpConnectionDiagnosticProps {
   server: SmtpServer;
   onClose: () => void;
-  onTest: (serverData: SmtpServerFormData) => Promise<any>;
+  onTest: (serverData: any) => Promise<{ success: boolean; message: string; details: any }>;
 }
 
 export default function SmtpConnectionDiagnostic({ 
