@@ -1249,6 +1249,71 @@ export type Database = {
         }
         Relationships: []
       }
+      sending_domains: {
+        Row: {
+          created_at: string | null
+          dkim_private_key: string | null
+          dkim_public_key: string | null
+          dkim_selector: string | null
+          dkim_status: string | null
+          dmarc_record: string | null
+          dns_verified_at: string | null
+          domain_name: string
+          id: string
+          last_verification_attempt: string | null
+          spf_record: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+          verification_errors: Json | null
+          verification_token: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dkim_private_key?: string | null
+          dkim_public_key?: string | null
+          dkim_selector?: string | null
+          dkim_status?: string | null
+          dmarc_record?: string | null
+          dns_verified_at?: string | null
+          domain_name: string
+          id?: string
+          last_verification_attempt?: string | null
+          spf_record?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          verification_errors?: Json | null
+          verification_token?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dkim_private_key?: string | null
+          dkim_public_key?: string | null
+          dkim_selector?: string | null
+          dkim_status?: string | null
+          dmarc_record?: string | null
+          dns_verified_at?: string | null
+          domain_name?: string
+          id?: string
+          last_verification_attempt?: string | null
+          spf_record?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          verification_errors?: Json | null
+          verification_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sending_domains_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smtp_servers: {
         Row: {
           api_key: string | null
@@ -1264,6 +1329,7 @@ export type Database = {
           password: string | null
           port: number | null
           region: string | null
+          sending_domain_id: string | null
           tenant_id: string
           type: string
           updated_at: string
@@ -1283,6 +1349,7 @@ export type Database = {
           password?: string | null
           port?: number | null
           region?: string | null
+          sending_domain_id?: string | null
           tenant_id: string
           type: string
           updated_at?: string
@@ -1302,12 +1369,21 @@ export type Database = {
           password?: string | null
           port?: number | null
           region?: string | null
+          sending_domain_id?: string | null
           tenant_id?: string
           type?: string
           updated_at?: string
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "smtp_servers_sending_domain_id_fkey"
+            columns: ["sending_domain_id"]
+            isOneToOne: false
+            referencedRelation: "sending_domains"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       template_categories: {
         Row: {
@@ -1556,11 +1632,19 @@ export type Database = {
         Args: { p_domain_name: string; p_tenant_id: string }
         Returns: Json
       }
+      create_sending_domain: {
+        Args: { p_domain_name: string; p_tenant_id: string }
+        Returns: Json
+      }
       create_unsubscribe_token: {
         Args: { p_email: string; p_tenant_id: string; p_campaign_id?: string }
         Returns: string
       }
       debug_auth_context: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      generate_dkim_keypair: {
         Args: Record<PropertyKey, never>
         Returns: Json
       }

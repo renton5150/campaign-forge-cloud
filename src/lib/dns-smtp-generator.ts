@@ -1,5 +1,13 @@
 
-interface SmtpConfig {
+export interface SmtpAwareDNSRecord {
+  type: string;
+  name: string;
+  value: string;
+  priority?: number;
+  description: string;
+}
+
+export interface SmtpConfig {
   provider: string;
   host?: string;
   port?: number;
@@ -10,111 +18,94 @@ interface SmtpConfig {
   fromName: string;
 }
 
-export interface SmtpAwareDNSRecord {
-  type: string;
-  name: string;
-  value: string;
-  description: string;
-  priority?: number;
+export interface SmtpDnsCompatibility {
+  isCompatible: boolean;
+  issues: string[];
+  recommendations: string[];
 }
 
+/**
+ * Génère les enregistrements DNS adaptés selon le fournisseur SMTP
+ */
 export function generateSmtpAwareDNSRecords(
-  domain: string, 
-  dkimSelector: string, 
-  dkimPublicKey: string, 
+  domainName: string,
+  dkimSelector: string,
+  dkimPublicKey: string,
   smtpConfig: SmtpConfig
 ): SmtpAwareDNSRecord[] {
   const records: SmtpAwareDNSRecord[] = [];
 
-  // 1. Enregistrement DKIM (toujours requis)
+  // Enregistrement DKIM (toujours nécessaire)
   records.push({
     type: 'TXT',
-    name: `${dkimSelector}._domainkey.${domain}`,
-    value: dkimPublicKey || `v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFA...`,
+    name: `${dkimSelector}._domainkey.${domainName}`,
+    value: `v=DKIM1; k=rsa; p=${dkimPublicKey}`,
     description: 'Enregistrement DKIM pour la signature des emails'
   });
 
-  // 2. Enregistrement SPF adapté au fournisseur
-  let spfValue = 'v=spf1 ';
-  
+  // Enregistrement SPF adapté selon le fournisseur
+  let spfRecord = '';
   switch (smtpConfig.provider) {
     case 'sendgrid':
-      spfValue += 'include:sendgrid.net ';
+      spfRecord = 'v=spf1 include:sendgrid.net ~all';
       break;
     case 'mailgun':
-      spfValue += 'include:mailgun.org ';
-      break;
-    case 'turbosmtp':
-      spfValue += 'include:pro.turbo-smtp.com ';
+      spfRecord = 'v=spf1 include:mailgun.org ~all';
       break;
     case 'amazon_ses':
-      spfValue += 'include:amazonses.com ';
-      break;
-    case 'custom':
-      if (smtpConfig.host) {
-        // Pour un serveur personnalisé, on inclut l'IP ou le domaine
-        spfValue += `include:${smtpConfig.host} `;
-      }
+      spfRecord = 'v=spf1 include:amazonses.com ~all';
       break;
     default:
-      spfValue += 'include:_spf.google.com ';
+      spfRecord = 'v=spf1 include:_spf.your-platform.com ~all';
   }
-  
-  spfValue += '~all';
 
   records.push({
     type: 'TXT',
-    name: domain,
-    value: spfValue,
-    description: `Enregistrement SPF optimisé pour ${getProviderLabel(smtpConfig.provider)}`
+    name: domainName,
+    value: spfRecord,
+    description: `Enregistrement SPF pour ${smtpConfig.provider}`
   });
 
-  // 3. Enregistrement DMARC
+  // Enregistrement DMARC
   records.push({
     type: 'TXT',
-    name: `_dmarc.${domain}`,
-    value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain}; ruf=mailto:dmarc@${domain}; fo=1`,
+    name: `_dmarc.${domainName}`,
+    value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domainName}`,
     description: 'Politique DMARC pour la protection contre le spoofing'
   });
 
-  // 4. Enregistrements spécifiques au fournisseur
-  const providerRecords = getProviderSpecificRecords(domain, smtpConfig);
-  records.push(...providerRecords);
-
-  return records;
-}
-
-function getProviderSpecificRecords(domain: string, smtpConfig: SmtpConfig): SmtpAwareDNSRecord[] {
-  const records: SmtpAwareDNSRecord[] = [];
-
+  // Enregistrements spécifiques selon le fournisseur
   switch (smtpConfig.provider) {
     case 'sendgrid':
-      // SendGrid demande parfois des enregistrements CNAME
       records.push({
         type: 'CNAME',
-        name: `em123.${domain}`,
-        value: 'u123456.wl.sendgrid.net',
-        description: 'Enregistrement de lien SendGrid (remplacez 123456 par votre ID)'
+        name: `em123.${domainName}`,
+        value: 'sendgrid.net',
+        description: 'CNAME pour SendGrid (remplacez 123 par votre ID)'
       });
       break;
-
+    
     case 'mailgun':
-      // Mailgun utilise des sous-domaines dédiés
       records.push({
         type: 'TXT',
-        name: `smtp._domainkey.${domain}`,
-        value: 'k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQ...',
-        description: 'Clé DKIM Mailgun (à remplacer par votre clé réelle)'
+        name: domainName,
+        value: 'v=spf1 include:mailgun.org ~all',
+        description: 'Enregistrement SPF pour Mailgun'
+      });
+      records.push({
+        type: 'CNAME',
+        name: `email.${domainName}`,
+        value: 'mailgun.org',
+        description: 'CNAME pour Mailgun'
       });
       break;
-
-    case 'turbosmtp':
-      // TurboSMTP configuration spéciale
+    
+    case 'amazon_ses':
       records.push({
         type: 'TXT',
-        name: `turbo._domainkey.${domain}`,
-        value: 'v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQ...',
-        description: 'Clé DKIM TurboSMTP'
+        name: `_amazonses.${domainName}`,
+        value: 'amazon-ses-verification-token',
+        description: 'Token de vérification Amazon SES'
       });
       break;
   }
@@ -122,62 +113,71 @@ function getProviderSpecificRecords(domain: string, smtpConfig: SmtpConfig): Smt
   return records;
 }
 
-function getProviderLabel(provider: string): string {
-  const labels: Record<string, string> = {
-    'sendgrid': 'SendGrid',
-    'mailgun': 'Mailgun',
-    'turbosmtp': 'TurboSMTP',
-    'amazon_ses': 'Amazon SES',
-    'custom': 'Serveur personnalisé'
-  };
-  
-  return labels[provider] || provider;
-}
-
+/**
+ * Valide la compatibilité entre la configuration SMTP et les DNS
+ */
 export function validateSmtpDnsCompatibility(
-  smtpConfig: SmtpConfig, 
-  existingRecords: SmtpAwareDNSRecord[]
-): { isCompatible: boolean; issues: string[] } {
+  smtpConfig: SmtpConfig,
+  dnsRecords: SmtpAwareDNSRecord[]
+): SmtpDnsCompatibility {
   const issues: string[] = [];
+  const recommendations: string[] = [];
 
-  // Vérifier la cohérence SPF
-  const spfRecord = existingRecords.find(r => r.type === 'TXT' && r.value.startsWith('v=spf1'));
-  if (spfRecord) {
-    const expectedIncludes = getExpectedSpfIncludes(smtpConfig.provider);
-    const hasCorrectInclude = expectedIncludes.some(include => 
-      spfRecord.value.includes(include)
-    );
-    
-    if (!hasCorrectInclude) {
-      issues.push(`L'enregistrement SPF ne correspond pas au fournisseur ${getProviderLabel(smtpConfig.provider)}`);
-    }
+  // Vérifier que l'email expéditeur correspond au domaine
+  const fromEmailDomain = smtpConfig.fromEmail.split('@')[1];
+  const hasDomainMatch = dnsRecords.some(record => 
+    record.name.includes(fromEmailDomain) || record.name === fromEmailDomain
+  );
+
+  if (!hasDomainMatch) {
+    issues.push('Email expéditeur ne correspond pas aux domaines DNS configurés');
   }
 
-  // Vérifier les enregistrements spécifiques au fournisseur
-  const requiredRecords = getProviderSpecificRecords('example.com', smtpConfig);
-  for (const required of requiredRecords) {
-    const exists = existingRecords.some(r => 
-      r.type === required.type && r.name.includes(required.name.split('.')[0])
-    );
+  // Vérifications spécifiques par fournisseur
+  switch (smtpConfig.provider) {
+    case 'sendgrid':
+      const hasSendGridSPF = dnsRecords.some(record => 
+        record.value.includes('sendgrid.net')
+      );
+      if (!hasSendGridSPF) {
+        issues.push('Enregistrement SPF SendGrid manquant');
+        recommendations.push('Ajoutez "include:sendgrid.net" à votre enregistrement SPF');
+      }
+      break;
     
-    if (!exists) {
-      issues.push(`Enregistrement ${required.type} manquant pour ${getProviderLabel(smtpConfig.provider)}`);
-    }
+    case 'mailgun':
+      const hasMailgunSPF = dnsRecords.some(record => 
+        record.value.includes('mailgun.org')
+      );
+      if (!hasMailgunSPF) {
+        issues.push('Enregistrement SPF Mailgun manquant');
+        recommendations.push('Ajoutez "include:mailgun.org" à votre enregistrement SPF');
+      }
+      break;
+    
+    case 'amazon_ses':
+      const hasSesSPF = dnsRecords.some(record => 
+        record.value.includes('amazonses.com')
+      );
+      if (!hasSesSPF) {
+        issues.push('Enregistrement SPF Amazon SES manquant');
+        recommendations.push('Ajoutez "include:amazonses.com" à votre enregistrement SPF');
+      }
+      break;
   }
+
+  // Vérifier la présence des enregistrements essentiels
+  const hasDKIM = dnsRecords.some(record => record.name.includes('._domainkey.'));
+  const hasSPF = dnsRecords.some(record => record.value.startsWith('v=spf1'));
+  const hasDMARC = dnsRecords.some(record => record.name.includes('_dmarc.'));
+
+  if (!hasDKIM) issues.push('Enregistrement DKIM manquant');
+  if (!hasSPF) issues.push('Enregistrement SPF manquant');
+  if (!hasDMARC) issues.push('Enregistrement DMARC manquant');
 
   return {
     isCompatible: issues.length === 0,
-    issues
+    issues,
+    recommendations
   };
-}
-
-function getExpectedSpfIncludes(provider: string): string[] {
-  const includes: Record<string, string[]> = {
-    'sendgrid': ['sendgrid.net'],
-    'mailgun': ['mailgun.org'],
-    'turbosmtp': ['pro.turbo-smtp.com'],
-    'amazon_ses': ['amazonses.com']
-  };
-  
-  return includes[provider] || [];
 }
