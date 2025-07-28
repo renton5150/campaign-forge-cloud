@@ -1377,6 +1377,48 @@ export type Database = {
         }
         Relationships: []
       }
+      unsubscribe_tokens: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          tenant_id: string
+          token: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unsubscribe_tokens_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unsubscribe_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_role_assignments: {
         Row: {
           assigned_at: string
@@ -1470,9 +1512,17 @@ export type Database = {
         Args: { contact_id_param: string }
         Returns: number
       }
+      cleanup_expired_unsubscribe_tokens: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       create_domain_with_dkim: {
         Args: { p_domain_name: string; p_tenant_id: string }
         Returns: Json
+      }
+      create_unsubscribe_token: {
+        Args: { p_email: string; p_tenant_id: string; p_campaign_id?: string }
+        Returns: string
       }
       debug_auth_context: {
         Args: Record<PropertyKey, never>
@@ -1480,6 +1530,18 @@ export type Database = {
       }
       get_campaign_stats: {
         Args: { campaign_id_param: string }
+        Returns: Json
+      }
+      process_unsubscription: {
+        Args: {
+          p_token: string
+          p_email: string
+          p_tenant_id: string
+          p_campaign_id?: string
+          p_reason?: string
+          p_ip_address?: unknown
+          p_user_agent?: string
+        }
         Returns: Json
       }
       user_has_permission: {
