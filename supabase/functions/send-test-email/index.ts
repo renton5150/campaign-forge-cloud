@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -105,7 +104,7 @@ async function authLogin(socket: Deno.TcpConn, encoder: TextEncoder, decoder: Te
   }
 }
 
-async function sendTestEmail(config: SMTPConfig, testEmail: string) {
+async function sendTestEmail(config: SMTPConfig, testEmail: string, htmlContent?: string, subject?: string) {
   let socket: Deno.TcpConn | null = null
   
   try {
@@ -219,40 +218,66 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       throw new Error(`Erreur DATA: ${dataResponse}`)
     }
     
-    // 8. Contenu de l'email avec headers complets et Return-Path
+    // 8. Contenu de l'email
     const messageId = `<test-${Date.now()}@${domain}>`
     const date = new Date().toUTCString()
     
-    const emailContent = [
-      `Return-Path: <${config.from_email}>`,
-      `Message-ID: ${messageId}`,
-      `Date: ${date}`,
-      `From: ${config.from_name} <${config.from_email}>`,
-      `To: ${testEmail}`,
-      `Reply-To: ${config.from_email}`,
-      `Subject: =?UTF-8?B?${btoa('Test de connexion SMTP')}?=`,
-      `MIME-Version: 1.0`,
-      `Content-Type: text/plain; charset=UTF-8`,
-      `Content-Transfer-Encoding: 8bit`,
-      `X-Mailer: SMTP Test Client`,
-      `X-Priority: 3`,
-      ``,
-      `Ceci est un email de test pour vérifier la configuration SMTP.`,
-      ``,
-      `Configuration testée :`,
-      `- Serveur : ${config.host}:${config.port}`,
-      `- Utilisateur : ${config.username}`,
-      `- Expéditeur : ${config.from_email}`,
-      `- Date du test : ${date}`,
-      ``,
-      `Si vous recevez cet email, la configuration SMTP fonctionne correctement.`,
-      ``,
-      `Cordialement,`,
-      `${config.from_name}`,
-      `.`
-    ].join('\r\n')
+    // Utiliser le contenu HTML de la campagne s'il est fourni, sinon utiliser le message de test par défaut
+    let emailContent: string[]
     
-    await socket.write(encoder.encode(emailContent + '\r\n'))
+    if (htmlContent && subject) {
+      // Email avec le template de la campagne
+      emailContent = [
+        `Return-Path: <${config.from_email}>`,
+        `Message-ID: ${messageId}`,
+        `Date: ${date}`,
+        `From: ${config.from_name} <${config.from_email}>`,
+        `To: ${testEmail}`,
+        `Reply-To: ${config.from_email}`,
+        `Subject: =?UTF-8?B?${btoa(subject)}?=`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=UTF-8`,
+        `Content-Transfer-Encoding: 8bit`,
+        `X-Mailer: Campaign Test Client`,
+        `X-Priority: 3`,
+        ``,
+        htmlContent,
+        ``,
+        `.`
+      ]
+    } else {
+      // Email de test technique par défaut
+      emailContent = [
+        `Return-Path: <${config.from_email}>`,
+        `Message-ID: ${messageId}`,
+        `Date: ${date}`,
+        `From: ${config.from_name} <${config.from_email}>`,
+        `To: ${testEmail}`,
+        `Reply-To: ${config.from_email}`,
+        `Subject: =?UTF-8?B?${btoa('Test de connexion SMTP')}?=`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/plain; charset=UTF-8`,
+        `Content-Transfer-Encoding: 8bit`,
+        `X-Mailer: SMTP Test Client`,
+        `X-Priority: 3`,
+        ``,
+        `Ceci est un email de test pour vérifier la configuration SMTP.`,
+        ``,
+        `Configuration testée :`,
+        `- Serveur : ${config.host}:${config.port}`,
+        `- Utilisateur : ${config.username}`,
+        `- Expéditeur : ${config.from_email}`,
+        `- Date du test : ${date}`,
+        ``,
+        `Si vous recevez cet email, la configuration SMTP fonctionne correctement.`,
+        ``,
+        `Cordialement,`,
+        `${config.from_name}`,
+        `.`
+      ]
+    }
+    
+    await socket.write(encoder.encode(emailContent.join('\r\n') + '\r\n'))
     const sendResponse = await readResponse()
     console.log(`<<< ${sendResponse.trim()}`)
     
@@ -263,14 +288,19 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
     // 9. QUIT
     await sendCommand('QUIT')
     
+    const successMessage = htmlContent 
+      ? `Email de test de la campagne envoyé avec succès à ${testEmail}`
+      : `Email de test envoyé avec succès à ${testEmail}`
+    
     return {
       success: true,
-      message: `Email de test envoyé avec succès à ${testEmail}`,
+      message: successMessage,
       details: {
         messageId,
         server: `${config.host}:${config.port}`,
         timestamp: date,
-        from: config.from_email
+        from: config.from_email,
+        type: htmlContent ? 'campaign' : 'technical'
       }
     }
     
@@ -359,7 +389,9 @@ serve(async (req) => {
       smtp_password, 
       from_email, 
       from_name,
-      test_email 
+      test_email,
+      html_content,
+      subject
     } = await req.json()
 
     console.log('Test SMTP avec configuration:', {
@@ -367,7 +399,9 @@ serve(async (req) => {
       port: smtp_port,
       username: smtp_username,
       from_email,
-      test_email
+      test_email,
+      has_html_content: !!html_content,
+      has_subject: !!subject
     })
 
     const config: SMTPConfig = {
@@ -379,7 +413,7 @@ serve(async (req) => {
       from_name: from_name || 'Test Sender'
     }
 
-    const result = await sendTestEmail(config, test_email)
+    const result = await sendTestEmail(config, test_email, html_content, subject)
 
     return new Response(
       JSON.stringify(result),

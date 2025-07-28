@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Clock, Send, Mail, Calendar, TestTube, AlertTriangle, RefreshCw, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { generatePreview } from '@/utils/emailPersonalization';
 
 interface CampaignScheduleProps {
   formData: any;
@@ -40,30 +41,52 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       return;
     }
 
+    if (!formData.smtp_server_id) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez sélectionner un serveur SMTP dans l\'étape 1',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSendingTest(true);
     setLastError(null);
     setLastSuccess(null);
     
     try {
       console.log('Envoi du test email vers:', testEmail);
+      console.log('Utilisation du serveur SMTP ID:', formData.smtp_server_id);
       
-      // Récupérer le serveur SMTP actif
+      // Récupérer le serveur SMTP sélectionné dans la campagne
       const { data: smtpServer, error: smtpError } = await supabase
         .from('smtp_servers')
         .select('*')
-        .eq('is_active', true)
-        .limit(1)
+        .eq('id', formData.smtp_server_id)
         .single();
 
       if (smtpError || !smtpServer) {
-        setLastError('Aucun serveur SMTP configuré');
+        setLastError('Serveur SMTP sélectionné introuvable');
         toast({
           title: 'Erreur',
-          description: 'Aucun serveur SMTP configuré. Veuillez configurer un serveur SMTP.',
+          description: 'Le serveur SMTP sélectionné est introuvable. Veuillez vérifier votre configuration.',
           variant: 'destructive',
         });
         return;
       }
+
+      // Appliquer la personnalisation avec des données d'exemple
+      const personalizedContent = generatePreview(formData.html_content, {
+        email: testEmail,
+        first_name: 'John',
+        last_name: 'Doe',
+        company: 'Acme Corp',
+        phone: '+33 1 23 45 67 89',
+        custom_fields: {
+          poste: 'Développeur',
+          secteur: 'Technologie'
+        }
+      });
 
       const { data, error } = await supabase.functions.invoke('send-test-email', {
         body: {
@@ -73,7 +96,9 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
           smtp_password: smtpServer.password,
           from_email: formData.from_email || smtpServer.from_email,
           from_name: formData.from_name || smtpServer.from_name,
-          test_email: testEmail
+          test_email: testEmail,
+          html_content: personalizedContent,
+          subject: formData.subject || 'Test de campagne'
         }
       });
 
@@ -164,7 +189,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               
               <Button 
                 onClick={handleSendTest}
-                disabled={!testEmail || sendingTest || !formData.html_content}
+                disabled={!testEmail || sendingTest || !formData.html_content || !formData.smtp_server_id}
                 className="w-full"
               >
                 {sendingTest ? (
@@ -201,7 +226,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               <Alert className="border-blue-200 bg-blue-50">
                 <TestTube className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800">
-                  <strong>Tests illimités:</strong> Vous pouvez envoyer autant de tests que nécessaire pour valider votre campagne.
+                  <strong>Test avec personnalisation:</strong> Le test utilisera des données d'exemple pour montrer comment l'email apparaîtra avec la personnalisation.
                 </AlertDescription>
               </Alert>
             </div>
