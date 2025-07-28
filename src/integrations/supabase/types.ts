@@ -1528,6 +1528,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      generate_unsubscribe_token: {
+        Args: { p_email: string; p_tenant_id: string; p_campaign_id?: string }
+        Returns: string
+      }
       get_campaign_stats: {
         Args: { campaign_id_param: string }
         Returns: Json
