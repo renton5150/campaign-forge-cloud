@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ export default function SmtpConfigurationModal({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    console.log('Modal opened with server:', server);
     if (server) {
       console.log('Loading server data:', server);
       setFormData({
@@ -77,6 +79,7 @@ export default function SmtpConfigurationModal({
         hourly_limit: (server as any).hourly_limit || 1000,
       });
     } else {
+      console.log('Creating new server');
       setFormData({
         name: '',
         type: 'smtp' as SmtpServerType,
@@ -132,10 +135,14 @@ export default function SmtpConfigurationModal({
 
   const handleInputChange = (field: keyof SmtpServerFormData, value: any) => {
     console.log(`Updating field ${field} with value:`, value);
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [field]: value
+      };
+      console.log('Updated form data:', newData);
+      return newData;
+    });
   };
 
   const getModalTitle = () => {
