@@ -26,9 +26,11 @@ export default function SmtpConnectionDiagnostic({
   onClose
 }: SmtpConnectionDiagnosticProps) {
   const [showDiagnostic, setShowDiagnostic] = useState(true);
+  const [testCount, setTestCount] = useState(0);
   const { testConnection, testing, lastTest } = useSmtpConnectionTest();
 
   const handleTest = async () => {
+    setTestCount(prev => prev + 1);
     await testConnection(server);
   };
 
@@ -40,20 +42,21 @@ export default function SmtpConnectionDiagnostic({
   };
 
   const getErrorAnalysis = (error: string) => {
-    if (error.includes('566')) {
+    if (error.includes('Limite SMTP dépassée') || error.includes('566')) {
       return {
-        type: 'CONFIGURATION SMTP',
+        type: 'LIMITE DÉPASSÉE',
         severity: 'high',
-        description: 'Configuration SMTP incorrecte ou domaine non autorisé',
+        description: 'Le serveur SMTP a atteint sa limite d\'envoi',
         suggestions: [
-          'Vérifiez la configuration de votre domaine d\'envoi',
-          'Assurez-vous que le domaine est autorisé sur le serveur SMTP',
-          'Contactez votre fournisseur SMTP pour vérifier les restrictions'
+          'Attendez 5-10 minutes avant de retenter le test',
+          'Les serveurs SMTP limitent le nombre d\'emails par minute',
+          'Évitez de tester trop fréquemment la même configuration',
+          'Contactez votre fournisseur SMTP pour connaître les limites'
         ]
       };
     }
     
-    if (error.includes('535')) {
+    if (error.includes('Authentification impossible') || error.includes('535')) {
       return {
         type: 'AUTHENTIFICATION',
         severity: 'medium',
@@ -61,6 +64,7 @@ export default function SmtpConnectionDiagnostic({
         suggestions: [
           'Vérifiez votre nom d\'utilisateur et mot de passe',
           'Assurez-vous que le compte n\'est pas verrouillé',
+          'Pour OVH/7tic, utilisez votre adresse email complète comme nom d\'utilisateur',
           'Vérifiez les paramètres d\'authentification requis'
         ]
       };
@@ -148,11 +152,21 @@ export default function SmtpConnectionDiagnostic({
             ) : (
               <>
                 <Settings className="h-4 w-4 mr-2" />
-                Tester la connexion
+                Tester la connexion {testCount > 0 && `(${testCount})`}
               </>
             )}
           </Button>
         </div>
+
+        {testCount > 2 && (
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              Vous avez effectué {testCount} tests. Pour éviter les limites du serveur SMTP, 
+              attendez quelques minutes entre les tests.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {lastTest && (
           <div className="space-y-4">
@@ -177,6 +191,7 @@ export default function SmtpConnectionDiagnostic({
                 <div><strong>Serveur:</strong> {server.host}:{server.port}</div>
                 <div><strong>Utilisateur:</strong> {server.username}</div>
                 <div><strong>Email expéditeur:</strong> {server.from_email}</div>
+                <div><strong>Type d'authentification:</strong> AUTO (PLAIN/LOGIN)</div>
               </div>
             </div>
 

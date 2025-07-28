@@ -38,6 +38,73 @@ function validateSmtpConfig(config: SMTPConfig): { valid: boolean; error?: strin
   return { valid: true }
 }
 
+// Fonction pour l'authentification PLAIN
+async function authPlain(socket: Deno.TcpConn, encoder: TextEncoder, decoder: TextDecoder, username: string, password: string): Promise<boolean> {
+  const sendCommand = async (command: string): Promise<string> => {
+    console.log(`>>> ${command}`)
+    await socket.write(encoder.encode(command + "\r\n"))
+    const buffer = new Uint8Array(1024)
+    const n = await socket.read(buffer)
+    if (n === null) throw new Error("Connexion fermée par le serveur")
+    const response = decoder.decode(buffer.subarray(0, n)).trim()
+    console.log(`<<< ${response}`)
+    return response
+  }
+
+  try {
+    const authResponse = await sendCommand('AUTH PLAIN')
+    if (!authResponse.startsWith('334')) {
+      return false
+    }
+    
+    // Créer la chaîne d'authentification PLAIN: \0username\0password
+    const authString = `\0${username}\0${password}`
+    const authB64 = btoa(authString)
+    
+    const finalResponse = await sendCommand(authB64)
+    return finalResponse.startsWith('235')
+  } catch (error) {
+    console.error('Erreur AUTH PLAIN:', error)
+    return false
+  }
+}
+
+// Fonction pour l'authentification LOGIN
+async function authLogin(socket: Deno.TcpConn, encoder: TextEncoder, decoder: TextDecoder, username: string, password: string): Promise<boolean> {
+  const sendCommand = async (command: string): Promise<string> => {
+    console.log(`>>> ${command}`)
+    await socket.write(encoder.encode(command + "\r\n"))
+    const buffer = new Uint8Array(1024)
+    const n = await socket.read(buffer)
+    if (n === null) throw new Error("Connexion fermée par le serveur")
+    const response = decoder.decode(buffer.subarray(0, n)).trim()
+    console.log(`<<< ${response}`)
+    return response
+  }
+
+  try {
+    const authResponse = await sendCommand('AUTH LOGIN')
+    if (!authResponse.startsWith('334')) {
+      return false
+    }
+    
+    // Encoder username en base64
+    const usernameB64 = btoa(username)
+    const userResponse = await sendCommand(usernameB64)
+    if (!userResponse.startsWith('334')) {
+      return false
+    }
+    
+    // Encoder password en base64
+    const passwordB64 = btoa(password)
+    const passResponse = await sendCommand(passwordB64)
+    return passResponse.startsWith('235')
+  } catch (error) {
+    console.error('Erreur AUTH LOGIN:', error)
+    return false
+  }
+}
+
 async function sendTestEmail(config: SMTPConfig, testEmail: string) {
   let socket: Deno.TcpConn | null = null
   
@@ -112,25 +179,27 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       }
     }
     
-    // 4. Authentification
-    const authResponse = await sendCommand('AUTH LOGIN')
-    if (!authResponse.startsWith('334')) {
-      throw new Error(`Erreur AUTH LOGIN: ${authResponse}`)
+    // 4. Authentification avec méthodes multiples
+    console.log('Début de l\'authentification...')
+    let authSuccess = false
+    
+    // Tenter AUTH PLAIN d'abord pour les serveurs OVH/7tic
+    if (config.host.includes('ovh.net') || config.host.includes('7tic')) {
+      console.log('Tentative AUTH PLAIN pour serveur OVH/7tic...')
+      authSuccess = await authPlain(socket, encoder, decoder, config.username, config.password)
     }
     
-    // Encoder username en base64
-    const usernameB64 = btoa(config.username)
-    const userResponse = await sendCommand(usernameB64)
-    if (!userResponse.startsWith('334')) {
-      throw new Error(`Erreur nom d'utilisateur: ${userResponse}`)
+    // Si AUTH PLAIN échoue ou n'est pas utilisé, tenter AUTH LOGIN
+    if (!authSuccess) {
+      console.log('Tentative AUTH LOGIN...')
+      authSuccess = await authLogin(socket, encoder, decoder, config.username, config.password)
     }
     
-    // Encoder password en base64
-    const passwordB64 = btoa(config.password)
-    const passResponse = await sendCommand(passwordB64)
-    if (!passResponse.startsWith('235')) {
-      throw new Error(`Erreur mot de passe: ${passResponse}`)
+    if (!authSuccess) {
+      throw new Error('Authentification échouée avec toutes les méthodes disponibles')
     }
+    
+    console.log('Authentification réussie!')
     
     // 5. MAIL FROM avec Return-Path
     const mailFromResponse = await sendCommand(`MAIL FROM:<${config.from_email}>`)
@@ -212,19 +281,10 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
     const errorMessage = error.message || error.toString()
     
     if (errorMessage.includes('566')) {
-      // Erreur 566 spécifique à 7tic/OVH
-      if (config.host.includes('ovh.net') || config.host.includes('7tic')) {
-        return {
-          success: false,
-          error: 'Domaine non autorisé sur ce serveur SMTP',
-          details: `Le serveur 7tic/OVH rejette l'email car l'adresse d'expédition "${config.from_email}" n'est pas autorisée sur ce serveur. Vérifiez que cette adresse correspond exactement à celle configurée dans votre compte 7tic.`
-        }
-      }
-      
       return {
         success: false,
-        error: 'Configuration SMTP incorrecte',
-        details: 'Le serveur SMTP retourne une erreur 566. Vérifiez la configuration de votre domaine d\'envoi ou contactez votre fournisseur SMTP.'
+        error: 'Limite SMTP dépassée',
+        details: `Le serveur SMTP ${config.host} a retourné une erreur 566 (limite dépassée). Veuillez attendre quelques minutes avant de retenter le test. Cette erreur est courante avec les serveurs qui limitent le nombre d'emails par minute.`
       }
     }
     
@@ -252,11 +312,11 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       }
     }
     
-    if (errorMessage.includes('AUTH LOGIN')) {
+    if (errorMessage.includes('Authentification échouée')) {
       return {
         success: false,
-        error: 'Méthode d\'authentification non supportée',
-        details: 'Le serveur SMTP ne supporte pas l\'authentification LOGIN. Vérifiez les méthodes d\'authentification supportées.'
+        error: 'Authentification impossible',
+        details: 'Impossible de s\'authentifier avec les méthodes AUTH PLAIN et AUTH LOGIN. Vérifiez vos identifiants et la configuration du serveur.'
       }
     }
     
