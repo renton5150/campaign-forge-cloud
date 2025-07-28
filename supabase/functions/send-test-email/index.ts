@@ -17,10 +17,41 @@ interface SMTPConfig {
   from_name: string
 }
 
+// Validation pour serveurs 7tic/OVH
+function validateSmtpConfig(config: SMTPConfig): { valid: boolean; error?: string } {
+  // Validation spécifique pour 7tic/OVH
+  if (config.host.includes('ovh.net') || config.host.includes('7tic')) {
+    // Pour 7tic/OVH, l'email d'expédition doit correspondre au compte configuré
+    if (!config.from_email || !config.from_email.includes('@')) {
+      return {
+        valid: false,
+        error: 'Adresse email d\'expédition invalide pour le serveur 7tic/OVH'
+      }
+    }
+    
+    // Vérifier que username et from_email correspondent (cas courant avec 7tic)
+    if (config.username !== config.from_email) {
+      console.log(`Attention: Username (${config.username}) diffère de from_email (${config.from_email}) sur serveur 7tic/OVH`)
+    }
+  }
+  
+  return { valid: true }
+}
+
 async function sendTestEmail(config: SMTPConfig, testEmail: string) {
   let socket: Deno.TcpConn | null = null
   
   try {
+    // Validation de la configuration
+    const validation = validateSmtpConfig(config)
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: 'Configuration SMTP invalide',
+        details: validation.error
+      }
+    }
+    
     console.log(`Connexion SMTP à ${config.host}:${config.port}`)
     
     // Connexion au serveur SMTP
@@ -57,8 +88,9 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       throw new Error(`Erreur de connexion SMTP: ${welcome}`)
     }
     
-    // 2. EHLO
-    const ehloResponse = await sendCommand(`EHLO ${config.host}`)
+    // 2. EHLO avec nom de domaine correct
+    const domain = config.from_email.split('@')[1] || config.host
+    const ehloResponse = await sendCommand(`EHLO ${domain}`)
     if (!ehloResponse.startsWith('250')) {
       throw new Error(`Erreur EHLO: ${ehloResponse}`)
     }
@@ -74,7 +106,7 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       socket = await Deno.startTls(socket, { hostname: config.host })
       
       // Nouveau EHLO après TLS
-      const ehloTlsResponse = await sendCommand(`EHLO ${config.host}`)
+      const ehloTlsResponse = await sendCommand(`EHLO ${domain}`)
       if (!ehloTlsResponse.startsWith('250')) {
         throw new Error(`Erreur EHLO après TLS: ${ehloTlsResponse}`)
       }
@@ -100,7 +132,7 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       throw new Error(`Erreur mot de passe: ${passResponse}`)
     }
     
-    // 5. MAIL FROM
+    // 5. MAIL FROM avec Return-Path
     const mailFromResponse = await sendCommand(`MAIL FROM:<${config.from_email}>`)
     if (!mailFromResponse.startsWith('250')) {
       throw new Error(`Erreur MAIL FROM: ${mailFromResponse}`)
@@ -118,29 +150,36 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       throw new Error(`Erreur DATA: ${dataResponse}`)
     }
     
-    // 8. Contenu de l'email avec headers complets
-    const messageId = `<test-${Date.now()}@${config.host}>`
+    // 8. Contenu de l'email avec headers complets et Return-Path
+    const messageId = `<test-${Date.now()}@${domain}>`
     const date = new Date().toUTCString()
     
     const emailContent = [
+      `Return-Path: <${config.from_email}>`,
       `Message-ID: ${messageId}`,
       `Date: ${date}`,
       `From: ${config.from_name} <${config.from_email}>`,
       `To: ${testEmail}`,
+      `Reply-To: ${config.from_email}`,
       `Subject: =?UTF-8?B?${btoa('Test de connexion SMTP')}?=`,
       `MIME-Version: 1.0`,
       `Content-Type: text/plain; charset=UTF-8`,
       `Content-Transfer-Encoding: 8bit`,
-      `X-Mailer: Custom SMTP Client`,
+      `X-Mailer: SMTP Test Client`,
+      `X-Priority: 3`,
       ``,
       `Ceci est un email de test pour vérifier la configuration SMTP.`,
       ``,
       `Configuration testée :`,
       `- Serveur : ${config.host}:${config.port}`,
       `- Utilisateur : ${config.username}`,
+      `- Expéditeur : ${config.from_email}`,
       `- Date du test : ${date}`,
       ``,
       `Si vous recevez cet email, la configuration SMTP fonctionne correctement.`,
+      ``,
+      `Cordialement,`,
+      `${config.from_name}`,
       `.`
     ].join('\r\n')
     
@@ -161,7 +200,8 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       details: {
         messageId,
         server: `${config.host}:${config.port}`,
-        timestamp: date
+        timestamp: date,
+        from: config.from_email
       }
     }
     
@@ -172,10 +212,19 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
     const errorMessage = error.message || error.toString()
     
     if (errorMessage.includes('566')) {
+      // Erreur 566 spécifique à 7tic/OVH
+      if (config.host.includes('ovh.net') || config.host.includes('7tic')) {
+        return {
+          success: false,
+          error: 'Domaine non autorisé sur ce serveur SMTP',
+          details: `Le serveur 7tic/OVH rejette l'email car l'adresse d'expédition "${config.from_email}" n'est pas autorisée sur ce serveur. Vérifiez que cette adresse correspond exactement à celle configurée dans votre compte 7tic.`
+        }
+      }
+      
       return {
         success: false,
-        error: 'Configuration SMTP incorrecte ou domaine non autorisé',
-        details: 'Le serveur SMTP retourne une erreur 566. Vérifiez la configuration de votre domaine d\'envoi.'
+        error: 'Configuration SMTP incorrecte',
+        details: 'Le serveur SMTP retourne une erreur 566. Vérifiez la configuration de votre domaine d\'envoi ou contactez votre fournisseur SMTP.'
       }
     }
     
@@ -183,7 +232,7 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       return {
         success: false,
         error: 'Authentification SMTP échouée',
-        details: 'Nom d\'utilisateur ou mot de passe incorrect.'
+        details: 'Nom d\'utilisateur ou mot de passe incorrect. Vérifiez vos identifiants SMTP.'
       }
     }
     
@@ -191,7 +240,31 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string) {
       return {
         success: false,
         error: 'Adresse email rejetée',
-        details: 'L\'adresse email de destination est rejetée par le serveur.'
+        details: 'L\'adresse email de destination est rejetée par le serveur. Vérifiez l\'adresse email ou les restrictions du serveur.'
+      }
+    }
+    
+    if (errorMessage.includes('554')) {
+      return {
+        success: false,
+        error: 'Email rejeté par le serveur',
+        details: 'Le serveur SMTP a rejeté l\'email. Cela peut être dû à des restrictions anti-spam ou à un contenu non autorisé.'
+      }
+    }
+    
+    if (errorMessage.includes('AUTH LOGIN')) {
+      return {
+        success: false,
+        error: 'Méthode d\'authentification non supportée',
+        details: 'Le serveur SMTP ne supporte pas l\'authentification LOGIN. Vérifiez les méthodes d\'authentification supportées.'
+      }
+    }
+    
+    if (errorMessage.includes('STARTTLS')) {
+      return {
+        success: false,
+        error: 'Erreur de chiffrement TLS',
+        details: 'Impossible d\'établir une connexion TLS sécurisée. Vérifiez la configuration du port et du chiffrement.'
       }
     }
     
@@ -267,7 +340,7 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Toujours retourner 200 pour éviter l'erreur "non-2xx"
+        status: 200,
       },
     )
   }
