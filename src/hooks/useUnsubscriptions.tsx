@@ -30,30 +30,40 @@ export function useUnsubscriptions() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      // Utiliser une requête SQL directe pour éviter les problèmes de types
-      const { data, error } = await supabase.rpc('get_tenant_unsubscriptions', {
-        p_tenant_id: user.tenant_id
-      });
+      console.log('Fetching unsubscriptions for tenant:', user.tenant_id);
+
+      // Utiliser une requête directe sans jointure pour éviter les problèmes de types
+      const { data: unsubscriptionData, error } = await supabase
+        .from('unsubscriptions' as any)
+        .select('*')
+        .eq('tenant_id', user.tenant_id)
+        .order('created_at', { ascending: false });
 
       if (error) {
-        // Si la fonction n'existe pas, utiliser une requête directe
-        const { data: directData, error: directError } = await supabase
-          .from('unsubscriptions' as any)
-          .select(`
-            *,
-            campaigns:campaign_id (
-              name,
-              subject
-            )
-          `)
-          .eq('tenant_id', user.tenant_id)
-          .order('created_at', { ascending: false });
-
-        if (directError) throw directError;
-        return directData as UnsubscriptionRecord[];
+        console.error('Error fetching unsubscriptions:', error);
+        throw error;
       }
 
-      return data as UnsubscriptionRecord[];
+      // Récupérer les informations des campagnes séparément si nécessaire
+      const unsubscriptionsWithCampaigns = await Promise.all(
+        (unsubscriptionData || []).map(async (unsub: any) => {
+          if (unsub.campaign_id) {
+            const { data: campaignData } = await supabase
+              .from('campaigns')
+              .select('name, subject')
+              .eq('id', unsub.campaign_id)
+              .single();
+
+            return {
+              ...unsub,
+              campaigns: campaignData
+            };
+          }
+          return unsub;
+        })
+      );
+
+      return unsubscriptionsWithCampaigns as UnsubscriptionRecord[];
     },
     enabled: !!user?.tenant_id,
   });
