@@ -30,19 +30,29 @@ export function useUnsubscriptions() {
         throw new Error('Utilisateur non authentifié');
       }
 
-      const { data, error } = await supabase
-        .from('unsubscriptions')
-        .select(`
-          *,
-          campaigns:campaign_id (
-            name,
-            subject
-          )
-        `)
-        .eq('tenant_id', user.tenant_id)
-        .order('created_at', { ascending: false });
+      // Utiliser une requête SQL directe pour éviter les problèmes de types
+      const { data, error } = await supabase.rpc('get_tenant_unsubscriptions', {
+        p_tenant_id: user.tenant_id
+      });
 
-      if (error) throw error;
+      if (error) {
+        // Si la fonction n'existe pas, utiliser une requête directe
+        const { data: directData, error: directError } = await supabase
+          .from('unsubscriptions' as any)
+          .select(`
+            *,
+            campaigns:campaign_id (
+              name,
+              subject
+            )
+          `)
+          .eq('tenant_id', user.tenant_id)
+          .order('created_at', { ascending: false });
+
+        if (directError) throw directError;
+        return directData as UnsubscriptionRecord[];
+      }
+
       return data as UnsubscriptionRecord[];
     },
     enabled: !!user?.tenant_id,
