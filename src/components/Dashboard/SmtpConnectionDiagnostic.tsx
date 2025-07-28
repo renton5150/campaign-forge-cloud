@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface SmtpConnectionDiagnosticProps {
-  serverData: any;
+  serverData?: any;
   isOpen?: boolean;
   onClose?: () => void;
   server?: any;
