@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,14 +18,37 @@ import {
 interface SmtpConnectionDiagnosticProps {
   serverData: any;
   isOpen?: boolean;
+  onClose?: () => void;
+  server?: any;
+  onTest?: (serverData: any) => Promise<any>;
 }
 
-export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }: SmtpConnectionDiagnosticProps) {
+export default function SmtpConnectionDiagnostic({ 
+  serverData, 
+  isOpen = false, 
+  onClose,
+  server,
+  onTest
+}: SmtpConnectionDiagnosticProps) {
   const [showDiagnostic, setShowDiagnostic] = useState(isOpen);
   const { testConnection, testing, lastTest } = useSmtpConnectionTest();
 
+  // Use server prop if provided, otherwise use serverData
+  const currentServer = server || serverData;
+
   const handleTest = async () => {
-    await testConnection(serverData);
+    if (onTest) {
+      await onTest(currentServer);
+    } else {
+      await testConnection(currentServer);
+    }
+  };
+
+  const handleClose = () => {
+    setShowDiagnostic(false);
+    if (onClose) {
+      onClose();
+    }
   };
 
   const getErrorAnalysis = (error: string) => {
@@ -117,7 +139,7 @@ export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }:
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={() => setShowDiagnostic(false)}
+            onClick={handleClose}
           >
             ×
           </Button>
@@ -164,9 +186,9 @@ export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }:
             <div className="bg-gray-50 p-3 rounded-lg">
               <h4 className="font-medium mb-2">Configuration testée:</h4>
               <div className="text-sm space-y-1">
-                <div><strong>Serveur:</strong> {serverData.host}:{serverData.port}</div>
-                <div><strong>Utilisateur:</strong> {serverData.username}</div>
-                <div><strong>Email expéditeur:</strong> {serverData.from_email}</div>
+                <div><strong>Serveur:</strong> {currentServer.host}:{currentServer.port}</div>
+                <div><strong>Utilisateur:</strong> {currentServer.username}</div>
+                <div><strong>Email expéditeur:</strong> {currentServer.from_email}</div>
               </div>
             </div>
 
