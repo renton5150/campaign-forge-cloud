@@ -1419,6 +1419,42 @@ export type Database = {
           },
         ]
       }
+      unsubscriptions: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          email: string
+          id: string
+          ip_address: unknown | null
+          reason: string | null
+          tenant_id: string
+          unsubscribe_token: string
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          ip_address?: unknown | null
+          reason?: string | null
+          tenant_id: string
+          unsubscribe_token: string
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          ip_address?: unknown | null
+          reason?: string | null
+          tenant_id?: string
+          unsubscribe_token?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       user_role_assignments: {
         Row: {
           assigned_at: string
