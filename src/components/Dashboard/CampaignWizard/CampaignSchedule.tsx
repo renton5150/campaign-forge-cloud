@@ -69,7 +69,8 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       }
 
       if (!data?.success) {
-        const errorMessage = data?.details || data?.error || 'Erreur inconnue lors de l\'envoi';
+        // Utiliser directement le message d'erreur retourné par le serveur
+        const errorMessage = data?.error || 'Erreur inconnue lors de l\'envoi';
         console.error('Erreur d\'envoi:', data);
         setLastError(errorMessage);
         
@@ -164,7 +165,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Erreur:</strong> {lastError}
+                    {lastError}
                   </AlertDescription>
                 </Alert>
               )}
@@ -173,7 +174,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
                 <Alert className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    <strong>Succès:</strong> {lastSuccess}
+                    {lastSuccess}
                   </AlertDescription>
                 </Alert>
               )}
@@ -181,8 +182,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
               <Alert className="border-blue-200 bg-blue-50">
                 <TestTube className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800">
-                  <strong>Tests illimités:</strong> Vous pouvez envoyer autant de tests que nécessaire. 
-                  Si vous atteignez une limite SMTP, c'est lié à votre serveur d'envoi et non à cette application.
+                  <strong>Tests illimités:</strong> Vous pouvez envoyer autant de tests que nécessaire pour valider votre campagne.
                 </AlertDescription>
               </Alert>
             </div>

@@ -42,7 +42,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     console.log('✅ Connexion TCP établie');
   } catch (error) {
     console.error('❌ Erreur de connexion TCP:', error);
-    throw new Error(`CONNECTION_ERROR: ${error.message}`);
+    throw new Error(`Erreur de connexion au serveur SMTP: ${error.message}`);
   }
 
   const encoder = new TextEncoder();
@@ -69,20 +69,20 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     console.log('👋 Bienvenue:', welcomeResponse.trim());
     
     if (!welcomeResponse.startsWith('220')) {
-      throw new Error(`SMTP_WELCOME_ERROR: ${welcomeResponse.trim()}`);
+      throw new Error(welcomeResponse.trim());
     }
 
     // 2. Envoyer EHLO
     const ehloResponse = await sendCommand(`EHLO ${host}\r\n`);
     if (!ehloResponse.startsWith('250')) {
-      throw new Error(`SMTP_EHLO_ERROR: ${ehloResponse.trim()}`);
+      throw new Error(ehloResponse.trim());
     }
 
     // 3. Démarrer TLS si nécessaire
     if (encryption === 'tls') {
       const startTlsResponse = await sendCommand('STARTTLS\r\n');
       if (!startTlsResponse.startsWith('220')) {
-        throw new Error(`SMTP_TLS_ERROR: ${startTlsResponse.trim()}`);
+        throw new Error(startTlsResponse.trim());
       }
       
       // Upgrade vers TLS
@@ -92,7 +92,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
       // Renvoyer EHLO après TLS
       const ehloTlsResponse = await sendCommand(`EHLO ${host}\r\n`);
       if (!ehloTlsResponse.startsWith('250')) {
-        throw new Error(`SMTP_EHLO_TLS_ERROR: ${ehloTlsResponse.trim()}`);
+        throw new Error(ehloTlsResponse.trim());
       }
     }
 
@@ -100,19 +100,19 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     if (username && password) {
       const authResponse = await sendCommand('AUTH LOGIN\r\n');
       if (!authResponse.startsWith('334')) {
-        throw new Error(`SMTP_AUTH_ERROR: ${authResponse.trim()}`);
+        throw new Error(authResponse.trim());
       }
 
       // Envoyer le nom d'utilisateur
       const userResponse = await sendCommand(`${encodeBase64(username)}\r\n`);
       if (!userResponse.startsWith('334')) {
-        throw new Error(`SMTP_AUTH_USER_ERROR: ${userResponse.trim()}`);
+        throw new Error(userResponse.trim());
       }
 
       // Envoyer le mot de passe
       const passResponse = await sendCommand(`${encodeBase64(password)}\r\n`);
       if (!passResponse.startsWith('235')) {
-        throw new Error(`SMTP_AUTH_PASS_ERROR: ${passResponse.trim()}`);
+        throw new Error(passResponse.trim());
       }
       
       console.log('🔐 Authentification réussie');
@@ -121,20 +121,20 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     // 5. Envoyer MAIL FROM
     const mailFromResponse = await sendCommand(`MAIL FROM:<${emailData.from_email}>\r\n`);
     if (!mailFromResponse.startsWith('250')) {
-      throw new Error(`SMTP_MAIL_FROM_ERROR: ${mailFromResponse.trim()}`);
+      throw new Error(mailFromResponse.trim());
     }
 
     // 6. Envoyer RCPT TO
     const rcptToResponse = await sendCommand(`RCPT TO:<${emailData.to}>\r\n`);
     if (!rcptToResponse.startsWith('250')) {
-      throw new Error(`SMTP_RCPT_TO_ERROR: ${rcptToResponse.trim()}`);
+      throw new Error(rcptToResponse.trim());
     }
 
     // 7. Envoyer DATA
     const dataResponse = await sendCommand('DATA\r\n');
     if (!dataResponse.startsWith('354')) {
-      // Retourner l'erreur exacte du serveur SMTP sans la transformer
-      throw new Error(`SMTP_DATA_ERROR: ${dataResponse.trim()}`);
+      // Retourner l'erreur exacte du serveur SMTP
+      throw new Error(dataResponse.trim());
     }
 
     // 8. Envoyer le contenu de l'email
@@ -152,7 +152,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
 
     const contentResponse = await sendCommand(emailContent);
     if (!contentResponse.startsWith('250')) {
-      throw new Error(`SMTP_CONTENT_ERROR: ${contentResponse.trim()}`);
+      throw new Error(contentResponse.trim());
     }
 
     // 9. Envoyer QUIT
@@ -278,14 +278,13 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error('❌ Erreur lors de l\'envoi du test:', error);
     
-    // Retourner l'erreur exacte du serveur SMTP
+    // Retourner l'erreur exacte du serveur SMTP sans transformation
     const errorMessage = error.message || 'Erreur inconnue';
     
     return new Response(JSON.stringify({
       success: false,
-      error: 'Erreur SMTP',
-      details: errorMessage,
-      server_response: errorMessage
+      error: errorMessage,
+      details: errorMessage
     }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
