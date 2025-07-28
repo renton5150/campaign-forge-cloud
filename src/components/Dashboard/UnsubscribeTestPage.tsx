@@ -19,8 +19,7 @@ const UnsubscribeTestPage = () => {
   const [testEmail, setTestEmail] = useState('test@example.com');
   const [generatedToken, setGeneratedToken] = useState('');
   const [unsubscribeUrl, setUnsubscribeUrl] = useState('');
-  const [htmlTemplate, setHtmlTemplate] = useState(`
-<html>
+  const [htmlTemplate, setHtmlTemplate] = useState(`<html>
 <body>
   <h2>Newsletter Test</h2>
   <p>Bonjour {{PRENOM}},</p>
@@ -35,8 +34,7 @@ const UnsubscribeTestPage = () => {
     <a href="{{unsubscribe_link}}" style="color: #666;">Se désabonner</a>
   </small></p>
 </body>
-</html>
-  `.trim());
+</html>`);
   const [processedHtml, setProcessedHtml] = useState('');
 
   const handleGenerateToken = async () => {
@@ -200,7 +198,7 @@ const UnsubscribeTestPage = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="htmlTemplate">Template HTML avec {{unsubscribe_link}}</Label>
+            <Label htmlFor="htmlTemplate">Template HTML avec {"{{"} unsubscribe_link{"}}"}</Label>
             <Textarea
               id="htmlTemplate"
               value={htmlTemplate}
