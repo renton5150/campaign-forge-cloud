@@ -51,8 +51,6 @@ export default function SmtpConfigurationModal({
     from_name: '',
     from_email: '',
     is_active: true,
-    daily_limit: 10000,
-    hourly_limit: 1000,
   });
 
   const [saving, setSaving] = useState(false);
@@ -75,8 +73,6 @@ export default function SmtpConfigurationModal({
         from_name: server.from_name || '',
         from_email: server.from_email || '',
         is_active: server.is_active !== false,
-        daily_limit: (server as any).daily_limit || 10000,
-        hourly_limit: (server as any).hourly_limit || 1000,
       });
     } else {
       console.log('Creating new server');
@@ -94,8 +90,6 @@ export default function SmtpConfigurationModal({
         from_name: '',
         from_email: '',
         is_active: true,
-        daily_limit: 10000,
-        hourly_limit: 1000,
       });
     }
   }, [server, open]);
@@ -297,32 +291,8 @@ export default function SmtpConfigurationModal({
           <Separator />
 
           <div className="space-y-4">
-            <h3 className="font-medium">Paramètres avancés</h3>
+            <h3 className="font-medium">Paramètres</h3>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="daily_limit">Limite quotidienne</Label>
-                <Input
-                  id="daily_limit"
-                  type="number"
-                  value={formData.daily_limit}
-                  onChange={(e) => handleInputChange('daily_limit', parseInt(e.target.value) || 10000)}
-                  placeholder="10000"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="hourly_limit">Limite horaire</Label>
-                <Input
-                  id="hourly_limit"
-                  type="number"
-                  value={formData.hourly_limit}
-                  onChange={(e) => handleInputChange('hourly_limit', parseInt(e.target.value) || 1000)}
-                  placeholder="1000"
-                />
-              </div>
-            </div>
-
             <div className="flex items-center space-x-2">
               <Switch
                 id="is_active"
