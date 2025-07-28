@@ -1,18 +1,18 @@
-
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from '@/components/ui/toaster';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { Toaster } from '@/components/ui/sonner';
 import Index from '@/pages/Index';
-import Auth from '@/pages/Auth';
+import AuthPage from '@/pages/AuthPage';
 import UnsubscribePage from '@/pages/Unsubscribe';
+import UnsubscribeTestPage from '@/components/Dashboard/UnsubscribeTestPage';
 import NotFound from '@/pages/NotFound';
 import './App.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
       refetchOnWindowFocus: false,
     },
   },
@@ -22,15 +22,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/unsubscribe/:token" element={<UnsubscribePage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Router>
-        <Toaster />
+        <BrowserRouter>
+          <div className="min-h-screen bg-gray-50">
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/unsubscribe/:token" element={<UnsubscribePage />} />
+              <Route path="/test-unsubscribe" element={<UnsubscribeTestPage />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+          <Toaster />
+        </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
   );
