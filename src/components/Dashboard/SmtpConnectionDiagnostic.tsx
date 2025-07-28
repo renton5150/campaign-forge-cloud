@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,13 +19,11 @@ import {
 interface SmtpConnectionDiagnosticProps {
   server: SmtpServer;
   onClose: () => void;
-  onTest: (serverData: any) => Promise<{ success: boolean; message: string; details: any }>;
 }
 
 export default function SmtpConnectionDiagnostic({ 
   server, 
-  onClose,
-  onTest
+  onClose
 }: SmtpConnectionDiagnosticProps) {
   const [showDiagnostic, setShowDiagnostic] = useState(true);
   const { testConnection, testing, lastTest } = useSmtpConnectionTest();

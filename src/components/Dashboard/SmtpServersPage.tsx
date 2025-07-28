@@ -10,7 +10,7 @@ import SmtpConfigurationModal from './SmtpConfigurationModal';
 import SmtpConnectionDiagnostic from './SmtpConnectionDiagnostic';
 
 export default function SmtpServersPage() {
-  const { servers, loading, createServer, updateServer, deleteServer, testSmtpConnection } = useSmtpServers();
+  const { servers, loading, createServer, updateServer, deleteServer } = useSmtpServers();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState<SmtpServer | undefined>();
@@ -158,9 +158,8 @@ export default function SmtpServersPage() {
 
       {isDiagnosticOpen && selectedServer && (
         <SmtpConnectionDiagnostic
-          onClose={handleCloseDiagnostic}
           server={selectedServer}
-          onTest={testSmtpConnection}
+          onClose={handleCloseDiagnostic}
         />
       )}
     </div>
