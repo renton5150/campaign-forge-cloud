@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,14 +8,34 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { SmtpServer, SmtpServerFormData, SmtpServerType } from '@/hooks/useSmtpServers';
 
+interface SmtpConfig {
+  provider: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  apiKey?: string;
+  fromEmail: string;
+  fromName: string;
+}
+
 interface SmtpConfigurationModalProps {
   open: boolean;
   onClose: () => void;
   server?: SmtpServer;
-  onSave: (data: SmtpServerFormData) => Promise<void>;
+  onSave?: (data: SmtpServerFormData) => Promise<void>;
+  onConfigured?: (smtpConfig: SmtpConfig) => void;
+  domainName?: string;
 }
 
-export default function SmtpConfigurationModal({ open, onClose, server, onSave }: SmtpConfigurationModalProps) {
+export default function SmtpConfigurationModal({ 
+  open, 
+  onClose, 
+  server, 
+  onSave, 
+  onConfigured, 
+  domainName 
+}: SmtpConfigurationModalProps) {
   const [formData, setFormData] = useState<SmtpServerFormData>({
     name: '',
     type: 'smtp' as SmtpServerType,
@@ -84,7 +103,25 @@ export default function SmtpConfigurationModal({ open, onClose, server, onSave }
     
     try {
       console.log('Submitting form data:', formData);
-      await onSave(formData);
+      
+      // If this is for domain configuration, use onConfigured
+      if (onConfigured && domainName) {
+        const smtpConfig: SmtpConfig = {
+          provider: formData.type,
+          host: formData.host,
+          port: formData.port,
+          username: formData.username,
+          password: formData.password,
+          apiKey: formData.api_key,
+          fromEmail: formData.from_email,
+          fromName: formData.from_name,
+        };
+        onConfigured(smtpConfig);
+      } else if (onSave) {
+        // Regular SMTP server management
+        await onSave(formData);
+      }
+      
       onClose();
     } catch (error) {
       console.error('Error saving SMTP server:', error);
@@ -101,13 +138,18 @@ export default function SmtpConfigurationModal({ open, onClose, server, onSave }
     }));
   };
 
+  const getModalTitle = () => {
+    if (domainName) {
+      return `Configuration SMTP pour ${domainName}`;
+    }
+    return server ? 'Modifier le serveur SMTP' : 'Ajouter un serveur SMTP';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {server ? 'Modifier le serveur SMTP' : 'Ajouter un serveur SMTP'}
-          </DialogTitle>
+          <DialogTitle>{getModalTitle()}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -292,7 +334,7 @@ export default function SmtpConfigurationModal({ open, onClose, server, onSave }
               Annuler
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Enregistrement...' : 'Enregistrer'}
+              {saving ? 'Enregistrement...' : domainName ? 'Configurer' : 'Enregistrer'}
             </Button>
           </div>
         </form>
