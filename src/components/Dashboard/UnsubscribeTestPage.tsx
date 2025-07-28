@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 const UnsubscribeTestPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { createUnsubscribeToken, generateUnsubscribeUrl } = useUnsubscribe();
+  const { generateUnsubscribeUrl } = useUnsubscribe();
   
   const [testEmail, setTestEmail] = useState('test@example.com');
   const [generatedToken, setGeneratedToken] = useState('');
@@ -69,7 +69,7 @@ const UnsubscribeTestPage = () => {
       const tenantId = await getTestTenantId();
       console.log('Using tenant ID:', tenantId);
       
-      // Appel direct à la fonction RPC pour plus de contrôle
+      // Appel direct à la fonction RPC correcte
       const { data, error } = await supabase.rpc('create_unsubscribe_token', {
         p_email: testEmail,
         p_tenant_id: tenantId,
@@ -170,10 +170,9 @@ const UnsubscribeTestPage = () => {
             <div className="flex items-end">
               <Button 
                 onClick={handleGenerateToken}
-                disabled={createUnsubscribeToken.isPending}
                 className="w-full"
               >
-                {createUnsubscribeToken.isPending ? 'Génération...' : 'Générer Token'}
+                Générer Token
               </Button>
             </div>
           </div>
@@ -226,7 +225,7 @@ const UnsubscribeTestPage = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="htmlTemplate">Template HTML avec {"{{"} unsubscribe_link{"}}"}</Label>
+            <Label htmlFor="htmlTemplate">Template HTML avec {`{{unsubscribe_link}}`}</Label>
             <Textarea
               id="htmlTemplate"
               value={htmlTemplate}
