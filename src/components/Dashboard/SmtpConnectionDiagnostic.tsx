@@ -1,10 +1,10 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useSmtpConnectionTest, ConnectionTestResult } from '@/hooks/useSmtpConnectionTest';
 import { SmtpServer } from '@/hooks/useSmtpServers';
 import { 
   TestTube, 
@@ -22,19 +22,36 @@ interface SmtpConnectionDiagnosticProps {
   onTest: (serverData: any) => Promise<{ success: boolean; message: string; details: any }>;
 }
 
+interface TestResult {
+  success: boolean;
+  message?: string;
+  details?: any;
+  error?: string;
+}
+
 export default function SmtpConnectionDiagnostic({ 
   server, 
   onClose,
   onTest
 }: SmtpConnectionDiagnosticProps) {
   const [showDiagnostic, setShowDiagnostic] = useState(true);
-  const { testConnection, testing, lastTest } = useSmtpConnectionTest();
+  const [testing, setTesting] = useState(false);
+  const [lastTest, setLastTest] = useState<TestResult | null>(null);
 
   const handleTest = async () => {
-    if (onTest) {
-      await onTest(server as any);
-    } else {
-      await testConnection(server);
+    setTesting(true);
+    setLastTest(null);
+    
+    try {
+      const result = await onTest(server);
+      setLastTest(result);
+    } catch (error) {
+      setLastTest({
+        success: false,
+        error: error.message || 'Erreur lors du test'
+      });
+    } finally {
+      setTesting(false);
     }
   };
 
