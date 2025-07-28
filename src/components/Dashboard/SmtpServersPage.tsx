@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { useSmtpServers, SmtpServer } from '@/hooks/useSmtpServers';
 import { useToast } from '@/hooks/use-toast';
 import { Edit, Trash2, Plus, TestTube } from 'lucide-react';
@@ -57,6 +56,11 @@ export default function SmtpServersPage() {
   const handleCloseModal = () => {
     console.log('Modal close requested');
     setIsModalOpen(false);
+    setSelectedServer(undefined);
+  };
+
+  const handleCloseDiagnostic = () => {
+    setIsDiagnosticOpen(false);
     setSelectedServer(undefined);
   };
 
@@ -152,12 +156,13 @@ export default function SmtpServersPage() {
         onSave={handleSave}
       />
 
-      <SmtpConnectionDiagnostic
-        open={isDiagnosticOpen}
-        onClose={() => setIsDiagnosticOpen(false)}
-        server={selectedServer}
-        onTest={testSmtpConnection}
-      />
+      {isDiagnosticOpen && selectedServer && (
+        <SmtpConnectionDiagnostic
+          onClose={handleCloseDiagnostic}
+          server={selectedServer}
+          onTest={testSmtpConnection}
+        />
+      )}
     </div>
   );
 }
