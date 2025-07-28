@@ -22,8 +22,6 @@ export interface SmtpServerFormData {
   from_name: string;
   from_email: string;
   is_active: boolean;
-  daily_limit?: number;
-  hourly_limit?: number;
 }
 
 export const useSmtpServers = () => {
@@ -116,7 +114,7 @@ export const useSmtpServers = () => {
         encryption: serverData.encryption || 'none'
       });
 
-      // Créer le serveur SMTP en s'assurant que encryption est bien défini
+      // Créer le serveur SMTP avec seulement les colonnes existantes
       const { data, error } = await supabase
         .from('smtp_servers')
         .insert({
@@ -133,8 +131,6 @@ export const useSmtpServers = () => {
           from_name: serverData.from_name,
           from_email: serverData.from_email,
           is_active: serverData.is_active,
-          daily_limit: serverData.daily_limit || 10000,
-          hourly_limit: serverData.hourly_limit || 1000,
           tenant_id: tenantId,
         })
         .select()
@@ -175,6 +171,7 @@ export const useSmtpServers = () => {
         encryption: serverData.encryption || 'none'
       });
 
+      // Mettre à jour avec seulement les colonnes existantes
       const { data, error } = await supabase
         .from('smtp_servers')
         .update({
@@ -191,8 +188,6 @@ export const useSmtpServers = () => {
           from_name: serverData.from_name,
           from_email: serverData.from_email,
           is_active: serverData.is_active,
-          daily_limit: serverData.daily_limit || 10000,
-          hourly_limit: serverData.hourly_limit || 1000,
         })
         .eq('id', id)
         .select()

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useSmtpConnectionTest, ConnectionTestResult } from '@/hooks/useSmtpConnectionTest';
 import { SmtpServer } from '@/hooks/useSmtpServers';
 import { 
   TestTube, 
@@ -22,37 +23,16 @@ interface SmtpConnectionDiagnosticProps {
   onTest: (serverData: any) => Promise<{ success: boolean; message: string; details: any }>;
 }
 
-interface TestResult {
-  success: boolean;
-  message?: string;
-  details?: any;
-  error?: string;
-}
-
 export default function SmtpConnectionDiagnostic({ 
   server, 
   onClose,
   onTest
 }: SmtpConnectionDiagnosticProps) {
   const [showDiagnostic, setShowDiagnostic] = useState(true);
-  const [testing, setTesting] = useState(false);
-  const [lastTest, setLastTest] = useState<TestResult | null>(null);
+  const { testConnection, testing, lastTest } = useSmtpConnectionTest();
 
   const handleTest = async () => {
-    setTesting(true);
-    setLastTest(null);
-    
-    try {
-      const result = await onTest(server);
-      setLastTest(result);
-    } catch (error) {
-      setLastTest({
-        success: false,
-        error: error.message || 'Erreur lors du test'
-      });
-    } finally {
-      setTesting(false);
-    }
+    await testConnection(server);
   };
 
   const handleClose = () => {
