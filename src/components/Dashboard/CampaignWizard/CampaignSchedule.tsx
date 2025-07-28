@@ -47,13 +47,33 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
     try {
       console.log('Envoi du test email vers:', testEmail);
       
+      // Récupérer le serveur SMTP actif
+      const { data: smtpServer, error: smtpError } = await supabase
+        .from('smtp_servers')
+        .select('*')
+        .eq('is_active', true)
+        .limit(1)
+        .single();
+
+      if (smtpError || !smtpServer) {
+        setLastError('Aucun serveur SMTP configuré');
+        toast({
+          title: 'Erreur',
+          description: 'Aucun serveur SMTP configuré. Veuillez configurer un serveur SMTP.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('send-test-email', {
         body: {
-          to: testEmail,
-          subject: formData.subject || 'Test - ' + formData.name,
-          html_content: formData.html_content,
-          from_name: formData.from_name || 'Test',
-          from_email: formData.from_email || 'test@example.com'
+          smtp_host: smtpServer.host,
+          smtp_port: smtpServer.port,
+          smtp_username: smtpServer.username,
+          smtp_password: smtpServer.password,
+          from_email: formData.from_email || smtpServer.from_email,
+          from_name: formData.from_name || smtpServer.from_name,
+          test_email: testEmail
         }
       });
 
@@ -69,7 +89,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       }
 
       if (!data?.success) {
-        // Utiliser directement le message d'erreur retourné par le serveur
         const errorMessage = data?.error || 'Erreur inconnue lors de l\'envoi';
         console.error('Erreur d\'envoi:', data);
         setLastError(errorMessage);
@@ -83,10 +102,10 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
       }
 
       console.log('Test email envoyé avec succès:', data);
-      setLastSuccess(`Email de test envoyé avec succès à ${testEmail}`);
+      setLastSuccess(data.message || `Email de test envoyé avec succès à ${testEmail}`);
       toast({
         title: '✅ Test envoyé',
-        description: `Email de test envoyé à ${testEmail}`,
+        description: data.message || `Email de test envoyé à ${testEmail}`,
       });
       setTestEmail('');
       setLastError(null);

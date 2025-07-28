@@ -5,21 +5,9 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface ConnectionTestResult {
   success: boolean;
-  steps: Array<{
-    step: string;
-    success: boolean;
-    code?: string;
-    message?: string;
-    analysis?: string;
-    raw_response?: string;
-    error?: string;
-  }>;
+  message?: string;
+  details?: any;
   error?: string;
-  server_config?: {
-    host: string;
-    port: number;
-    encryption: string;
-  };
 }
 
 export const useSmtpConnectionTest = () => {
@@ -36,11 +24,13 @@ export const useSmtpConnectionTest = () => {
       
       const { data, error } = await supabase.functions.invoke('send-test-email', {
         body: {
-          to: 'test@example.com',
-          subject: 'Test de connexion',
-          html_content: '<p>Test de connexion SMTP</p>',
-          from_name: 'Test',
-          from_email: serverData.from_email || 'test@example.com'
+          smtp_host: serverData.host,
+          smtp_port: serverData.port,
+          smtp_username: serverData.username,
+          smtp_password: serverData.password,
+          from_email: serverData.from_email,
+          from_name: serverData.from_name,
+          test_email: 'test@example.com'
         }
       });
 
@@ -49,40 +39,35 @@ export const useSmtpConnectionTest = () => {
         throw new Error(error.message || 'Erreur de connexion');
       }
 
-      if (data && data.diagnostic) {
-        const testResult: ConnectionTestResult = {
-          success: data.success,
-          steps: data.diagnostic.connection_test || [],
-          error: data.success ? undefined : data.error,
-          server_config: data.diagnostic.server_config
-        };
-        
-        setLastTest(testResult);
-        
-        if (data.success) {
-          toast({
-            title: "✅ Test de connexion réussi",
-            description: "La connexion SMTP fonctionne correctement",
-          });
-        } else {
-          toast({
-            title: "❌ Test de connexion échoué",
-            description: data.analysis || data.error,
-            variant: "destructive",
-          });
-        }
-        
-        return testResult;
+      const testResult: ConnectionTestResult = {
+        success: data.success,
+        message: data.message,
+        details: data.details,
+        error: data.success ? undefined : data.error
+      };
+      
+      setLastTest(testResult);
+      
+      if (data.success) {
+        toast({
+          title: "✅ Test de connexion réussi",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "❌ Test de connexion échoué",
+          description: data.error || data.details,
+          variant: "destructive",
+        });
       }
-
-      throw new Error('Réponse inattendue du serveur');
+      
+      return testResult;
       
     } catch (error) {
       console.error('❌ Erreur lors du test de connexion:', error);
       
       const testResult: ConnectionTestResult = {
         success: false,
-        steps: [],
         error: error.message || 'Erreur inconnue'
       };
       

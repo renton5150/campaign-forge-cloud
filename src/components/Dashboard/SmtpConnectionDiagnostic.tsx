@@ -29,38 +29,25 @@ export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }:
     await testConnection(serverData);
   };
 
-  const getStepIcon = (step: any) => {
-    if (step.success) return <CheckCircle className="h-4 w-4 text-green-500" />;
-    if (step.error) return <XCircle className="h-4 w-4 text-red-500" />;
-    return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-  };
-
-  const getStepStatusColor = (step: any) => {
-    if (step.success) return 'bg-green-100 text-green-800';
-    if (step.error) return 'bg-red-100 text-red-800';
-    return 'bg-yellow-100 text-yellow-800';
-  };
-
   const getErrorAnalysis = (error: string) => {
     if (error.includes('566')) {
       return {
-        type: 'LIMITE SMTP',
+        type: 'CONFIGURATION SMTP',
         severity: 'high',
-        description: 'Le serveur SMTP indique que vous avez atteint une limite',
+        description: 'Configuration SMTP incorrecte ou domaine non autorisé',
         suggestions: [
-          'Vérifiez vos quotas auprès de votre fournisseur SMTP',
-          'Attendez la réinitialisation des limites (généralement horaire/quotidienne)',
-          'Contactez votre administrateur système',
-          'Vérifiez la réputation de votre domaine expéditeur'
+          'Vérifiez la configuration de votre domaine d\'envoi',
+          'Assurez-vous que le domaine est autorisé sur le serveur SMTP',
+          'Contactez votre fournisseur SMTP pour vérifier les restrictions'
         ]
       };
     }
     
-    if (error.includes('authentication')) {
+    if (error.includes('535')) {
       return {
         type: 'AUTHENTIFICATION',
         severity: 'medium',
-        description: 'Problème d\'authentification avec le serveur SMTP',
+        description: 'Authentification SMTP échouée',
         suggestions: [
           'Vérifiez votre nom d\'utilisateur et mot de passe',
           'Assurez-vous que le compte n\'est pas verrouillé',
@@ -69,7 +56,20 @@ export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }:
       };
     }
     
-    if (error.includes('connection')) {
+    if (error.includes('550')) {
+      return {
+        type: 'ADRESSE EMAIL',
+        severity: 'medium',
+        description: 'Adresse email rejetée',
+        suggestions: [
+          'Vérifiez l\'adresse email de destination',
+          'Assurez-vous que l\'adresse existe',
+          'Vérifiez les restrictions du serveur SMTP'
+        ]
+      };
+    }
+    
+    if (error.includes('connexion')) {
       return {
         type: 'CONNEXION',
         severity: 'high',
@@ -161,14 +161,33 @@ export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }:
             </div>
 
             {/* Configuration serveur */}
-            {lastTest.server_config && (
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <h4 className="font-medium mb-2">Configuration testée:</h4>
-                <div className="text-sm space-y-1">
-                  <div><strong>Serveur:</strong> {lastTest.server_config.host}:{lastTest.server_config.port}</div>
-                  <div><strong>Chiffrement:</strong> {lastTest.server_config.encryption || 'Aucun'}</div>
-                </div>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <h4 className="font-medium mb-2">Configuration testée:</h4>
+              <div className="text-sm space-y-1">
+                <div><strong>Serveur:</strong> {serverData.host}:{serverData.port}</div>
+                <div><strong>Utilisateur:</strong> {serverData.username}</div>
+                <div><strong>Email expéditeur:</strong> {serverData.from_email}</div>
               </div>
+            </div>
+
+            {/* Message de succès */}
+            {lastTest.success && lastTest.message && (
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  {lastTest.message}
+                  {lastTest.details && (
+                    <div className="mt-2 text-sm">
+                      <strong>Détails:</strong>
+                      <ul className="list-disc list-inside mt-1">
+                        <li>Message ID: {lastTest.details.messageId}</li>
+                        <li>Serveur: {lastTest.details.server}</li>
+                        <li>Timestamp: {lastTest.details.timestamp}</li>
+                      </ul>
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* Analyse d'erreur */}
@@ -178,6 +197,9 @@ export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }:
                 <AlertDescription>
                   <div className="space-y-2">
                     <div><strong>Erreur:</strong> {lastTest.error}</div>
+                    {lastTest.details && (
+                      <div><strong>Détails:</strong> {lastTest.details}</div>
+                    )}
                     {(() => {
                       const analysis = getErrorAnalysis(lastTest.error);
                       return (
@@ -202,44 +224,6 @@ export default function SmtpConnectionDiagnostic({ serverData, isOpen = false }:
                   </div>
                 </AlertDescription>
               </Alert>
-            )}
-
-            {/* Étapes détaillées */}
-            {lastTest.steps && lastTest.steps.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Étapes du test:</h4>
-                {lastTest.steps.map((step, index) => (
-                  <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded">
-                    {getStepIcon(step)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className={getStepStatusColor(step)}>
-                          {step.step}
-                        </Badge>
-                        {step.code && (
-                          <Badge variant="secondary">
-                            {step.code}
-                          </Badge>
-                        )}
-                      </div>
-                      {step.message && (
-                        <div className="text-sm text-gray-600 mb-1">{step.message}</div>
-                      )}
-                      {step.analysis && (
-                        <div className="text-sm text-gray-700 bg-white p-2 rounded border-l-2 border-blue-200">
-                          <Info className="h-3 w-3 inline mr-1" />
-                          {step.analysis}
-                        </div>
-                      )}
-                      {step.error && (
-                        <div className="text-sm text-red-600 mt-1">
-                          <strong>Erreur:</strong> {step.error}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
             )}
           </div>
         )}
