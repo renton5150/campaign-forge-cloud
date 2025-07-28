@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useSmtpConnectionTest, ConnectionTestResult } from '@/hooks/useSmtpConnectionTest';
+import { SmtpServer, SmtpServerFormData } from '@/hooks/useSmtpServers';
 import { 
   TestTube, 
   CheckCircle, 
@@ -17,31 +18,24 @@ import {
 } from 'lucide-react';
 
 interface SmtpConnectionDiagnosticProps {
-  serverData?: any;
-  isOpen?: boolean;
-  onClose?: () => void;
-  server?: any;
-  onTest?: (serverData: any) => Promise<any>;
+  server: SmtpServer;
+  onClose: () => void;
+  onTest: (serverData: SmtpServerFormData) => Promise<any>;
 }
 
 export default function SmtpConnectionDiagnostic({ 
-  serverData, 
-  isOpen = false, 
+  server, 
   onClose,
-  server,
   onTest
 }: SmtpConnectionDiagnosticProps) {
-  const [showDiagnostic, setShowDiagnostic] = useState(isOpen);
+  const [showDiagnostic, setShowDiagnostic] = useState(true);
   const { testConnection, testing, lastTest } = useSmtpConnectionTest();
-
-  // Use server prop if provided, otherwise use serverData
-  const currentServer = server || serverData;
 
   const handleTest = async () => {
     if (onTest) {
-      await onTest(currentServer);
+      await onTest(server as any);
     } else {
-      await testConnection(currentServer);
+      await testConnection(server);
     }
   };
 
@@ -187,9 +181,9 @@ export default function SmtpConnectionDiagnostic({
             <div className="bg-gray-50 p-3 rounded-lg">
               <h4 className="font-medium mb-2">Configuration testée:</h4>
               <div className="text-sm space-y-1">
-                <div><strong>Serveur:</strong> {currentServer.host}:{currentServer.port}</div>
-                <div><strong>Utilisateur:</strong> {currentServer.username}</div>
-                <div><strong>Email expéditeur:</strong> {currentServer.from_email}</div>
+                <div><strong>Serveur:</strong> {server.host}:{server.port}</div>
+                <div><strong>Utilisateur:</strong> {server.username}</div>
+                <div><strong>Email expéditeur:</strong> {server.from_email}</div>
               </div>
             </div>
 
