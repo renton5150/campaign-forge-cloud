@@ -57,7 +57,6 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         }
       });
 
-      // Gérer les erreurs de connexion
       if (error) {
         console.error('Erreur de connexion:', error);
         setLastError('Erreur de connexion au serveur. Veuillez réessayer.');
@@ -69,30 +68,14 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
         return;
       }
 
-      // Vérifier si l'envoi a réussi
       if (!data?.success) {
-        const errorMessage = data?.error || 'Erreur inconnue lors de l\'envoi';
+        const errorMessage = data?.details || data?.error || 'Erreur inconnue lors de l\'envoi';
         console.error('Erreur d\'envoi:', data);
         setLastError(errorMessage);
         
-        // Messages d'erreur spécifiques selon le type d'erreur
-        let userMessage = errorMessage;
-        let toastTitle = 'Erreur d\'envoi';
-        
-        if (errorMessage.includes('limite') || errorMessage.includes('limit') || data?.details?.includes('limite')) {
-          userMessage = 'Limite SMTP atteinte. Votre serveur SMTP a atteint sa limite quotidienne ou horaire. Attendez quelques minutes ou vérifiez votre quota avec votre fournisseur SMTP.';
-          toastTitle = 'Limite SMTP atteinte';
-        } else if (errorMessage.includes('authentification') || errorMessage.includes('auth')) {
-          userMessage = 'Erreur d\'authentification SMTP. Vérifiez la configuration du serveur dans les paramètres.';
-          toastTitle = 'Erreur d\'authentification';
-        } else if (errorMessage.includes('connexion') || errorMessage.includes('connection')) {
-          userMessage = 'Erreur de connexion SMTP. Vérifiez la configuration du serveur dans les paramètres.';
-          toastTitle = 'Erreur de connexion';
-        }
-        
         toast({
-          title: toastTitle,
-          description: userMessage,
+          title: 'Erreur d\'envoi',
+          description: errorMessage,
           variant: 'destructive',
         });
         return;
@@ -181,7 +164,7 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Erreur d'envoi:</strong> {lastError}
+                    <strong>Erreur:</strong> {lastError}
                   </AlertDescription>
                 </Alert>
               )}

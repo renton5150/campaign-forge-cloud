@@ -133,10 +133,7 @@ async function sendSMTPEmail(smtpConfig: any, emailData: any) {
     // 7. Envoyer DATA
     const dataResponse = await sendCommand('DATA\r\n');
     if (!dataResponse.startsWith('354')) {
-      // Gestion spécifique des erreurs SMTP
-      if (dataResponse.includes('566') || dataResponse.includes('limit exceeded')) {
-        throw new Error('SMTP_LIMIT_EXCEEDED');
-      }
+      // Retourner l'erreur exacte du serveur SMTP sans la transformer
       throw new Error(`SMTP_DATA_ERROR: ${dataResponse.trim()}`);
     }
 
@@ -281,38 +278,16 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error('❌ Erreur lors de l\'envoi du test:', error);
     
-    // Toujours retourner une réponse HTTP valide, même en cas d'erreur
-    let errorMessage = 'Erreur lors de l\'envoi du test';
-    let statusCode = 500;
-    let errorDetails = error.message || 'Erreur inconnue';
-
-    // Gestion spécifique des erreurs SMTP
-    if (error.message === 'SMTP_LIMIT_EXCEEDED' || error.message?.includes('566') || error.message?.includes('limit exceeded')) {
-      errorMessage = 'Limite SMTP atteinte';
-      errorDetails = 'Votre serveur SMTP a atteint sa limite d\'envoi quotidienne ou horaire. Veuillez attendre ou contacter votre fournisseur SMTP.';
-      statusCode = 200; // Retourner 200 avec success: false
-    } else if (error.message?.includes('AUTH') || error.message?.includes('535')) {
-      errorMessage = 'Erreur d\'authentification SMTP';
-      errorDetails = 'Vérifiez vos identifiants SMTP dans la configuration du serveur.';
-      statusCode = 200; // Retourner 200 avec success: false
-    } else if (error.message?.includes('550')) {
-      errorMessage = 'Adresse email refusée';
-      errorDetails = 'L\'adresse email de destination a été refusée par le serveur SMTP.';
-      statusCode = 200; // Retourner 200 avec success: false
-    } else if (error.message?.includes('CONNECTION_ERROR')) {
-      errorMessage = 'Erreur de connexion SMTP';
-      errorDetails = 'Impossible de se connecter au serveur SMTP. Vérifiez la configuration du serveur.';
-      statusCode = 200; // Retourner 200 avec success: false
-    }
-
-    // CRUCIAL: Retourner un statut 200 avec success: false pour éviter l'erreur "non-2xx"
+    // Retourner l'erreur exacte du serveur SMTP
+    const errorMessage = error.message || 'Erreur inconnue';
+    
     return new Response(JSON.stringify({
       success: false,
-      error: errorMessage,
-      details: errorDetails,
-      code: error.code || 'SMTP_ERROR'
+      error: 'Erreur SMTP',
+      details: errorMessage,
+      server_response: errorMessage
     }), {
-      status: statusCode,
+      status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
