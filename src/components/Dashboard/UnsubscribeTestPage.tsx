@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useUnsubscribe } from '@/hooks/useUnsubscribe';
 import { addUnsubscribeLinkToContent } from '@/utils/unsubscribeUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { Copy, ExternalLink, Mail, TestTube } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const UnsubscribeTestPage = () => {
   const { user } = useAuth();
@@ -37,24 +38,53 @@ const UnsubscribeTestPage = () => {
 </html>`);
   const [processedHtml, setProcessedHtml] = useState('');
 
-  const handleGenerateToken = async () => {
-    if (!user?.tenant_id) {
-      toast({
-        title: "Erreur",
-        description: "Utilisateur non authentifié",
-        variant: "destructive",
-      });
-      return;
+  // Fonction pour obtenir un tenant_id pour les tests (super_admin)
+  const getTestTenantId = async () => {
+    if (user?.tenant_id) {
+      return user.tenant_id;
     }
+    
+    // Pour les super_admin, utiliser le premier tenant disponible
+    if (user?.role === 'super_admin') {
+      const { data: tenants, error } = await supabase
+        .from('tenants')
+        .select('id')
+        .limit(1)
+        .single();
+      
+      if (error || !tenants) {
+        throw new Error('Aucun tenant trouvé pour les tests');
+      }
+      
+      return tenants.id;
+    }
+    
+    throw new Error('Utilisateur non authentifié ou sans tenant');
+  };
 
+  const handleGenerateToken = async () => {
     try {
-      const token = await createUnsubscribeToken.mutateAsync({
-        email: testEmail,
-        campaign_id: undefined
+      console.log('Generating token for:', testEmail);
+      
+      const tenantId = await getTestTenantId();
+      console.log('Using tenant ID:', tenantId);
+      
+      // Appel direct à la fonction RPC pour plus de contrôle
+      const { data, error } = await supabase.rpc('create_unsubscribe_token', {
+        p_email: testEmail,
+        p_tenant_id: tenantId,
+        p_campaign_id: null
       });
       
-      setGeneratedToken(token);
-      const url = generateUnsubscribeUrl(token);
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
+      }
+      
+      console.log('Token generated:', data);
+      
+      setGeneratedToken(data);
+      const url = generateUnsubscribeUrl(data);
       setUnsubscribeUrl(url);
       
       toast({
@@ -65,29 +95,27 @@ const UnsubscribeTestPage = () => {
       console.error('Erreur lors de la génération du token:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de générer le token",
+        description: error.message || "Impossible de générer le token",
         variant: "destructive",
       });
     }
   };
 
   const handleProcessTemplate = async () => {
-    if (!user?.tenant_id) {
-      toast({
-        title: "Erreur",
-        description: "Utilisateur non authentifié",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
+      console.log('Processing template for:', testEmail);
+      
+      const tenantId = await getTestTenantId();
+      console.log('Using tenant ID for template:', tenantId);
+      
       const processed = await addUnsubscribeLinkToContent(
         htmlTemplate,
         testEmail,
-        user.tenant_id,
+        tenantId,
         undefined
       );
+      
+      console.log('Template processed successfully');
       setProcessedHtml(processed);
       
       toast({
@@ -98,7 +126,7 @@ const UnsubscribeTestPage = () => {
       console.error('Erreur lors du traitement du template:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de traiter le template",
+        description: error.message || "Impossible de traiter le template",
         variant: "destructive",
       });
     }
@@ -263,6 +291,18 @@ const UnsubscribeTestPage = () => {
           </ol>
         </CardContent>
       </Card>
+
+      {/* Debug info */}
+      {user?.role === 'super_admin' && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardHeader>
+            <CardTitle className="text-yellow-800">Mode Super Admin</CardTitle>
+          </CardHeader>
+          <CardContent className="text-yellow-700">
+            <p>Vous êtes connecté en tant que super_admin. Le système utilise automatiquement le premier tenant disponible pour les tests.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

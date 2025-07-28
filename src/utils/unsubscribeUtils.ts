@@ -9,6 +9,8 @@ export async function generateUnsubscribeToken(
   tenantId: string,
   campaignId?: string
 ): Promise<string> {
+  console.log('Generating unsubscribe token for:', { email, tenantId, campaignId });
+  
   const { data, error } = await supabase.rpc('create_unsubscribe_token', {
     p_email: email,
     p_tenant_id: tenantId,
@@ -20,6 +22,7 @@ export async function generateUnsubscribeToken(
     throw error;
   }
 
+  console.log('Token generated successfully:', data);
   return data;
 }
 
@@ -43,13 +46,17 @@ export async function addUnsubscribeLinkToContent(
   baseUrl?: string
 ): Promise<string> {
   try {
+    console.log('Adding unsubscribe link to content for:', { email, tenantId, campaignId });
+    
     // Générer le token de désabonnement
     const token = await generateUnsubscribeToken(email, tenantId, campaignId);
     const unsubscribeUrl = generateUnsubscribeUrl(token, baseUrl);
 
+    console.log('Generated unsubscribe URL:', unsubscribeUrl);
+
     // Remplacer la variable {{unsubscribe_link}} par l'URL réelle
     let processedContent = htmlContent.replace(
-      /{{unsubscribe_link}}/g,
+      /\{\{unsubscribe_link\}\}/g,
       unsubscribeUrl
     );
 
@@ -75,6 +82,7 @@ export async function addUnsubscribeLinkToContent(
       }
     }
 
+    console.log('Content processed successfully');
     return processedContent;
   } catch (error) {
     console.error('Erreur lors de l\'ajout du lien de désabonnement:', error);
