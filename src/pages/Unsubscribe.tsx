@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Mail, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useUnsubscribe } from '@/hooks/useUnsubscribe';
+import { validateUnsubscribeToken } from '@/utils/unsubscribeUtils';
 
 const UnsubscribePage = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const { processUnsubscription } = useUnsubscribe();
+  
   const [email, setEmail] = useState('');
   const [reason, setReason] = useState('');
   const [customReason, setCustomReason] = useState('');
@@ -43,22 +45,18 @@ const UnsubscribePage = () => {
   const verifyToken = async () => {
     try {
       setIsVerifying(true);
+      console.log('Verifying token:', token);
       
-      // Vérifier que le token existe et n'a pas expiré
-      const { data, error } = await supabase
-        .from('unsubscribe_tokens')
-        .select('*')
-        .eq('token', token)
-        .gt('expires_at', new Date().toISOString())
-        .single();
-
-      if (error || !data) {
-        setError('Token de désabonnement invalide ou expiré');
+      const validation = await validateUnsubscribeToken(token);
+      console.log('Token validation result:', validation);
+      
+      if (!validation.isValid) {
+        setError(validation.error || 'Token invalide');
         return;
       }
 
-      setTokenData(data);
-      setEmail(data.email);
+      setTokenData(validation.tokenData);
+      setEmail(validation.tokenData.email);
       setError('');
     } catch (err) {
       console.error('Erreur lors de la vérification du token:', err);
@@ -90,38 +88,36 @@ const UnsubscribePage = () => {
     setError('');
 
     try {
+      console.log('Processing unsubscription for:', { email, token, tokenData });
+      
       const finalReason = reason === 'Autre raison' ? customReason : reason;
       
-      // Obtenir l'adresse IP et user agent
-      const ipResponse = await fetch('https://api.ipify.org?format=json');
-      const ipData = await ipResponse.json();
+      // Obtenir l'adresse IP (optionnel, ne pas faire échouer si cela ne marche pas)
+      let ipAddress = null;
+      try {
+        const ipResponse = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipResponse.json();
+        ipAddress = ipData.ip;
+      } catch (ipError) {
+        console.warn('Impossible d\'obtenir l\'adresse IP:', ipError);
+      }
       
-      // Appeler la fonction de désabonnement
-      const { data, error } = await supabase.rpc('process_unsubscription', {
-        p_token: token,
-        p_email: email,
-        p_tenant_id: tokenData.tenant_id,
-        p_campaign_id: tokenData.campaign_id,
-        p_reason: finalReason,
-        p_ip_address: ipData.ip,
-        p_user_agent: navigator.userAgent
+      // Utiliser le hook pour traiter le désabonnement
+      await processUnsubscription.mutateAsync({
+        token,
+        email,
+        tenant_id: tokenData.tenant_id,
+        campaign_id: tokenData.campaign_id,
+        reason: finalReason,
+        ip_address: ipAddress,
+        user_agent: navigator.userAgent
       });
 
-      if (error) {
-        throw error;
-      }
-
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      
-      if (!result.success) {
-        setError(result.error || 'Erreur lors du désabonnement');
-        return;
-      }
-
+      console.log('Unsubscription processed successfully');
       setIsSuccess(true);
     } catch (err) {
       console.error('Erreur lors du désabonnement:', err);
-      setError('Une erreur s\'est produite lors du désabonnement');
+      setError(err.message || 'Une erreur s\'est produite lors du désabonnement');
     } finally {
       setIsLoading(false);
     }
