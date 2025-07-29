@@ -91,7 +91,19 @@ export const useSendingDomains = () => {
         return null;
       }
 
-      const result = data as CreateDomainResponse;
+      // Conversion sécurisée de la réponse
+      const result = data as unknown as CreateDomainResponse;
+
+      // Vérifier que la réponse a la structure attendue
+      if (!result || typeof result !== 'object' || typeof result.success !== 'boolean') {
+        console.error('Invalid response structure:', result);
+        toast({
+          title: "Erreur",
+          description: "Réponse invalide du serveur.",
+          variant: "destructive",
+        });
+        return null;
+      }
 
       if (result.success) {
         toast({

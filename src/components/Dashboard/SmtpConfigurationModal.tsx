@@ -15,7 +15,7 @@ interface SmtpConfigurationModalProps {
   open: boolean;
   onClose: () => void;
   server?: SmtpServer;
-  onSave: (data: SmtpServerFormData) => void;
+  onSave?: (data: SmtpServerFormData) => void;
   onConfigured?: (config: any) => void;
   domainName?: string;
 }
@@ -84,7 +84,7 @@ export default function SmtpConfigurationModal({
         fromName: formData.from_name
       };
       onConfigured(config);
-    } else {
+    } else if (onSave) {
       // Mode création/modification de serveur SMTP
       onSave(formData);
     }
