@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useSendingDomains } from '@/hooks/useSendingDomains';
 import { Button } from '@/components/ui/button';
@@ -6,9 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Shield, CheckCircle, XCircle, Clock, RefreshCw } from 'lucide-react';
-import CreateDomainModal from './CreateDomainModal';
-import DNSInstructionsModal from './DNSInstructionsModal';
-import DNSStatusBadges from './DNSStatusBadges';
+import { CreateDomainModal } from './CreateDomainModal';
+import { DNSInstructionsModal } from './DNSInstructionsModal';
+import { DNSStatusBadges } from './DNSStatusBadges';
 
 const SendingDomainsPage = () => {
   const { domains, isLoading, createDomain, verifyDomain, deleteDomain, isCreating, isVerifying } = useSendingDomains();

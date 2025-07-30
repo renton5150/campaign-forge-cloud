@@ -1,19 +1,32 @@
 
-import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
 
-type DNSStatus = 'pending' | 'verified' | 'failed';
-
-interface DNSStatusBadgesProps {
-  dkimStatus: DNSStatus;
-  spfStatus: DNSStatus;
-  dmarcStatus: DNSStatus;
-  verificationStatus: DNSStatus;
+interface SendingDomainWithDNS {
+  id: string;
+  domain: string;
+  status: string;
+  created_at: string;
+  dkim_status: string;
+  spf_status?: string;
+  dmarc_status?: string;
+  verification_status?: string;
+  dkim_private_key?: string;
+  dkim_public_key?: string;
+  dkim_selector?: string;
+  dmarc_record?: string;
+  spf_record?: string;
+  verification_token?: string;
+  dns_verified_at?: string | null;
+  tenant_id?: string;
 }
 
-const getStatusIcon = (status: DNSStatus) => {
+interface DNSStatusBadgesProps {
+  domain: SendingDomainWithDNS;
+}
+
+const getStatusIcon = (status: string) => {
   switch (status) {
     case 'verified':
       return <CheckCircle className="w-3 h-3" />;
@@ -24,7 +37,7 @@ const getStatusIcon = (status: DNSStatus) => {
   }
 };
 
-const getStatusVariant = (status: DNSStatus) => {
+const getStatusColor = (status: string) => {
   switch (status) {
     case 'verified':
       return 'default';
@@ -35,87 +48,33 @@ const getStatusVariant = (status: DNSStatus) => {
   }
 };
 
-const getStatusLabel = (type: string, status: DNSStatus) => {
-  const statusText = status === 'verified' ? 'Vérifié' : 
-                     status === 'failed' ? 'Échec' : 'En attente';
-  return `${type}: ${statusText}`;
-};
+export const DNSStatusBadges = ({ domain }: DNSStatusBadgesProps) => {
+  const dnsRecords = [
+    { name: 'DKIM', status: domain.dkim_status },
+    { name: 'SPF', status: domain.spf_status || 'pending' },
+    { name: 'DMARC', status: domain.dmarc_status || 'pending' },
+    { name: 'TXT', status: domain.verification_status || 'pending' }
+  ];
 
-const getTooltipContent = (type: string, status: DNSStatus) => {
-  const descriptions = {
-    DKIM: 'DomainKeys Identified Mail - Authentifie les emails sortants',
-    SPF: 'Sender Policy Framework - Autorise les serveurs d\'envoi',
-    DMARC: 'Domain-based Message Authentication - Politique d\'authentification',
-    Verification: 'Vérification du domaine - Confirmation de propriété'
-  };
-  
-  return (
-    <div className="text-xs">
-      <div className="font-semibold">{descriptions[type as keyof typeof descriptions]}</div>
-      <div className="mt-1">
-        Statut: {status === 'verified' ? 'Vérifié' : 
-                 status === 'failed' ? 'Échec' : 'En attente'}
-      </div>
-    </div>
-  );
-};
-
-export const DNSStatusBadges: React.FC<DNSStatusBadgesProps> = ({
-  dkimStatus,
-  spfStatus,
-  dmarcStatus,
-  verificationStatus
-}) => {
   return (
     <TooltipProvider>
-      <div className="flex flex-wrap gap-1">
-        <Tooltip>
-          <TooltipTrigger>
-            <Badge variant={getStatusVariant(dkimStatus)} className="text-xs px-2 py-1">
-              {getStatusIcon(dkimStatus)}
-              <span className="ml-1">DKIM</span>
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            {getTooltipContent('DKIM', dkimStatus)}
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger>
-            <Badge variant={getStatusVariant(spfStatus)} className="text-xs px-2 py-1">
-              {getStatusIcon(spfStatus)}
-              <span className="ml-1">SPF</span>
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            {getTooltipContent('SPF', spfStatus)}
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger>
-            <Badge variant={getStatusVariant(dmarcStatus)} className="text-xs px-2 py-1">
-              {getStatusIcon(dmarcStatus)}
-              <span className="ml-1">DMARC</span>
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            {getTooltipContent('DMARC', dmarcStatus)}
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger>
-            <Badge variant={getStatusVariant(verificationStatus)} className="text-xs px-2 py-1">
-              {getStatusIcon(verificationStatus)}
-              <span className="ml-1">Verification</span>
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            {getTooltipContent('Verification', verificationStatus)}
-          </TooltipContent>
-        </Tooltip>
+      <div className="flex space-x-1">
+        {dnsRecords.map((record) => (
+          <Tooltip key={record.name}>
+            <TooltipTrigger>
+              <Badge 
+                variant={getStatusColor(record.status)} 
+                className="text-xs px-1 py-0 h-5 flex items-center"
+              >
+                {getStatusIcon(record.status)}
+                <span className="ml-1">{record.name}</span>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{record.name}: {record.status === 'verified' ? 'Vérifié' : record.status === 'failed' ? 'Échec' : 'En attente'}</p>
+            </TooltipContent>
+          </Tooltip>
+        ))}
       </div>
     </TooltipProvider>
   );
