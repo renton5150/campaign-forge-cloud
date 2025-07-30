@@ -6,7 +6,7 @@ import Sidebar from '@/components/Layout/Sidebar';
 import DashboardPage from '@/components/Dashboard/DashboardPage';
 import TenantsManagement from '@/components/Dashboard/TenantsManagement';
 import UsersManagement from '@/components/Dashboard/UsersManagement';
-import DomainsManagement from '@/components/Dashboard/DomainsManagement';
+import SendingDomainsPage from '@/components/Dashboard/SendingDomainsPage';
 import CampaignsManagement from '@/components/Dashboard/CampaignsManagement';
 import RolesManagement from '@/components/Dashboard/RolesManagement';
 import ContactsPage from '@/components/Dashboard/ContactsPage';
@@ -60,7 +60,7 @@ const Index = () => {
       case 'users':
         return <UsersManagement />;
       case 'domains':
-        return <DomainsManagement />;
+        return <SendingDomainsPage />;
       case 'roles':
         return <RolesManagement />;
       default:
