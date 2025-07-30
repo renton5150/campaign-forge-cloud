@@ -63,6 +63,25 @@ interface SmtpConfig {
   fromName: string;
 }
 
+interface SendingDomainWithDNS {
+  id: string;
+  domain: string;
+  status: string;
+  created_at: string;
+  dkim_status: string;
+  spf_status?: string;
+  dmarc_status?: string;
+  verification_status?: string;
+  dkim_private_key?: string;
+  dkim_public_key?: string;
+  dkim_selector?: string;
+  dmarc_record?: string;
+  spf_record?: string;
+  verification_token?: string;
+  dns_verified_at?: string | null;
+  tenant_id?: string;
+}
+
 const DomainsManagement = () => {
   const [domains, setDomains] = useState<DomainWithTenant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +98,7 @@ const DomainsManagement = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(new Set());
   const [dnsModalOpen, setDnsModalOpen] = useState(false);
-  const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<SendingDomainWithDNS | null>(null);
   const [verificationProgress, setVerificationProgress] = useState<Record<string, string>>({});
   const [smtpConfigModalOpen, setSmtpConfigModalOpen] = useState(false);
   const [pendingDomainData, setPendingDomainData] = useState<DomainFormData | null>(null);
@@ -400,10 +419,23 @@ const DomainsManagement = () => {
     console.log('📋 AFFICHAGE INSTRUCTIONS DNS POUR:', domain);
     
     // Mapper Domain vers SendingDomainWithDNS pour compatibilité
-    const mappedDomain = {
-      ...domain,
+    const mappedDomain: SendingDomainWithDNS = {
+      id: domain.id,
       domain: domain.domain_name, // Mapper domain_name vers domain
-      status: domain.verified ? 'verified' : (domain.dkim_status as string || 'pending')
+      status: domain.verified ? 'verified' : (domain.dkim_status as string || 'pending'),
+      created_at: domain.created_at,
+      dkim_status: domain.dkim_status,
+      spf_status: 'pending',
+      dmarc_status: 'pending',
+      verification_status: 'pending',
+      dkim_private_key: domain.dkim_private_key,
+      dkim_public_key: domain.dkim_public_key,
+      dkim_selector: domain.dkim_selector,
+      dmarc_record: domain.dmarc_record,
+      spf_record: domain.spf_record,
+      verification_token: domain.verification_token,
+      dns_verified_at: domain.dns_verified_at,
+      tenant_id: domain.tenant_id
     };
     
     // Vérifier si on a la config SMTP pour ce domaine
