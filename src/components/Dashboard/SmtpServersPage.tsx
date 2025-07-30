@@ -114,7 +114,7 @@ export default function SmtpServersPage() {
                     {linkedDomain && (
                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                         <Link2 className="h-3 w-3 mr-1" />
-                        {linkedDomain.domain_name}
+                        {linkedDomain.domain}
                       </Badge>
                     )}
                   </CardTitle>

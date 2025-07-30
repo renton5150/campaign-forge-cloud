@@ -4,11 +4,29 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Copy, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
-import { Domain } from '@/types/database';
 import { generateSmtpAwareDNSRecords, SmtpAwareDNSRecord } from '@/lib/dns-smtp-generator';
 
+interface SendingDomainWithDNS {
+  id: string;
+  domain: string;
+  status: string;
+  created_at: string;
+  dkim_status: string;
+  spf_status?: string;
+  dmarc_status?: string;
+  verification_status?: string;
+  dkim_private_key?: string;
+  dkim_public_key?: string;
+  dkim_selector?: string;
+  dmarc_record?: string;
+  spf_record?: string;
+  verification_token?: string;
+  dns_verified_at?: string | null;
+  tenant_id?: string;
+}
+
 interface DNSInstructionsModalProps {
-  domain: Domain;
+  domain: SendingDomainWithDNS;
   open: boolean;
   onClose: () => void;
 }
@@ -19,13 +37,13 @@ export function DNSInstructionsModal({ domain, open, onClose }: DNSInstructionsM
   // Générer les enregistrements DNS par défaut (sans config SMTP spécifique)
   const defaultSmtpConfig = {
     provider: 'generic',
-    fromEmail: `noreply@${domain.domain_name}`,
+    fromEmail: `noreply@${domain.domain}`,
     fromName: 'Mon Entreprise'
   };
 
   const dnsRecords: SmtpAwareDNSRecord[] = domain.dkim_selector && domain.dkim_public_key 
     ? generateSmtpAwareDNSRecords(
-        domain.domain_name,
+        domain.domain,
         domain.dkim_selector,
         domain.dkim_public_key,
         defaultSmtpConfig
@@ -33,20 +51,20 @@ export function DNSInstructionsModal({ domain, open, onClose }: DNSInstructionsM
     : [
         {
           type: 'TXT',
-          name: `${domain.dkim_selector || 'default'}._domainkey.${domain.domain_name}`,
+          name: `${domain.dkim_selector || 'default'}._domainkey.${domain.domain}`,
           value: domain.dkim_public_key || 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFA...',
           description: 'Enregistrement DKIM pour la signature des emails'
         },
         {
           type: 'TXT',
-          name: domain.domain_name,
+          name: domain.domain,
           value: 'v=spf1 include:_spf.google.com ~all',
           description: 'Enregistrement SPF générique'
         },
         {
           type: 'TXT',
-          name: `_dmarc.${domain.domain_name}`,
-          value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain_name}`,
+          name: `_dmarc.${domain.domain}`,
+          value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain}`,
           description: 'Politique DMARC pour la protection contre le spoofing'
         }
       ];
@@ -61,7 +79,7 @@ export function DNSInstructionsModal({ domain, open, onClose }: DNSInstructionsM
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-96 overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Instructions DNS pour {domain.domain_name}</DialogTitle>
+          <DialogTitle>Instructions DNS pour {domain.domain}</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">

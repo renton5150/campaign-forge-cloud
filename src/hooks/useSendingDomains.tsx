@@ -32,11 +32,16 @@ export interface CreateDomainResponse {
   error?: string;
 }
 
+export interface DNSRecord {
+  host: string;
+  value: string;
+}
+
 export interface DNSRecords {
-  dkim: string;
-  spf: string;
-  dmarc: string;
-  verification: string;
+  dkim: DNSRecord;
+  spf: DNSRecord;
+  dmarc: DNSRecord;
+  verification: DNSRecord;
 }
 
 export const useSendingDomains = () => {
@@ -61,7 +66,7 @@ export const useSendingDomains = () => {
       // Transformer les données pour s'assurer que tous les champs sont présents
       return (data || []).map(domain => ({
         ...domain,
-        domain: domain.domain_name || domain.domain,
+        domain: domain.domain_name, // Mapper domain_name vers domain pour l'affichage
         spf_status: domain.spf_status || 'pending',
         dmarc_status: domain.dmarc_status || 'pending',
         verification_status: domain.verification_status || 'pending'
@@ -75,7 +80,7 @@ export const useSendingDomains = () => {
       const { data, error } = await supabase
         .from('sending_domains')
         .insert({
-          domain_name: domainData.domain,
+          domain_name: domainData.domain, // Utiliser domain_name pour la BDD
           status: 'pending',
           dkim_status: 'pending',
           spf_status: 'pending',

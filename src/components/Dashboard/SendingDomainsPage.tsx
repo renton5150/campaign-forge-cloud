@@ -200,13 +200,13 @@ const SendingDomainsPage = () => {
       {/* Modales */}
       <CreateDomainModal
         open={showCreateModal}
-        onOpenChange={setShowCreateModal}
+        onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateDomain}
       />
 
       <DNSInstructionsModal
         open={showDNSModal}
-        onOpenChange={setShowDNSModal}
+        onClose={() => setShowDNSModal(false)}
         domain={selectedDomain}
       />
     </div>
