@@ -15,6 +15,7 @@ import { useSendingDomains, CreateDomainData, CreateDomainResponse } from '@/hoo
 import { CreateDomainModal } from './CreateDomainModal';
 import { DnsInstructions } from './DnsInstructions';
 import { DomainSmtpStatus } from './DomainSmtpStatus';
+import DNSStatusBadges from './DNSStatusBadges';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -106,17 +107,6 @@ export default function SendingDomainsPage() {
     }
   };
 
-  const getDkimStatusBadge = (status: string) => {
-    switch (status) {
-      case 'verified':
-        return <Badge className="bg-green-600">✅ Vérifié</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">❌ Échec</Badge>;
-      default:
-        return <Badge variant="secondary">⏳ En attente</Badge>;
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center">
@@ -143,8 +133,8 @@ export default function SendingDomainsPage() {
         </Button>
       </div>
 
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Statistiques améliorées */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">Total domaines</CardTitle>
@@ -156,7 +146,7 @@ export default function SendingDomainsPage() {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">🟢 Vérifiés</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">🟢 Entièrement vérifiés</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
@@ -167,7 +157,7 @@ export default function SendingDomainsPage() {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">🟡 En attente</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">🟡 Partiellement vérifiés</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
@@ -186,9 +176,20 @@ export default function SendingDomainsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">📊 DKIM OK</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {domains.filter(d => d.dkim_status === 'verified').length}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Table des domaines */}
+      {/* Table des domaines avec statuts DNS détaillés */}
       <Card>
         <CardHeader>
           <CardTitle>Domaines configurés</CardTitle>
@@ -198,8 +199,8 @@ export default function SendingDomainsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Domaine</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>DKIM</TableHead>
+                <TableHead>Statut Global</TableHead>
+                <TableHead>Statut DNS Détaillé</TableHead>
                 <TableHead>Serveur SMTP</TableHead>
                 <TableHead>Sélecteur</TableHead>
                 <TableHead>Créé le</TableHead>
@@ -211,7 +212,15 @@ export default function SendingDomainsPage() {
                 <TableRow key={domain.id}>
                   <TableCell className="font-medium">{domain.domain_name}</TableCell>
                   <TableCell>{getStatusBadge(domain.status)}</TableCell>
-                  <TableCell>{getDkimStatusBadge(domain.dkim_status)}</TableCell>
+                  <TableCell className="min-w-[280px]">
+                    <DNSStatusBadges
+                      dkimStatus={domain.dkim_status}
+                      spfStatus={domain.spf_status || 'pending'}
+                      dmarcStatus={domain.dmarc_status || 'pending'}
+                      verificationStatus={domain.verification_status || 'pending'}
+                      domainName={domain.domain_name}
+                    />
+                  </TableCell>
                   <TableCell>
                     <DomainSmtpStatus 
                       domainId={domain.id} 

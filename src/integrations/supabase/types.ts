@@ -1257,15 +1257,18 @@ export type Database = {
           dkim_selector: string | null
           dkim_status: string | null
           dmarc_record: string | null
+          dmarc_status: string | null
           dns_verified_at: string | null
           domain_name: string
           id: string
           last_verification_attempt: string | null
           spf_record: string | null
+          spf_status: string | null
           status: string | null
           tenant_id: string | null
           updated_at: string | null
           verification_errors: Json | null
+          verification_status: string | null
           verification_token: string | null
         }
         Insert: {
@@ -1275,15 +1278,18 @@ export type Database = {
           dkim_selector?: string | null
           dkim_status?: string | null
           dmarc_record?: string | null
+          dmarc_status?: string | null
           dns_verified_at?: string | null
           domain_name: string
           id?: string
           last_verification_attempt?: string | null
           spf_record?: string | null
+          spf_status?: string | null
           status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
           verification_errors?: Json | null
+          verification_status?: string | null
           verification_token?: string | null
         }
         Update: {
@@ -1293,15 +1299,18 @@ export type Database = {
           dkim_selector?: string | null
           dkim_status?: string | null
           dmarc_record?: string | null
+          dmarc_status?: string | null
           dns_verified_at?: string | null
           domain_name?: string
           id?: string
           last_verification_attempt?: string | null
           spf_record?: string | null
+          spf_status?: string | null
           status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
           verification_errors?: Json | null
+          verification_status?: string | null
           verification_token?: string | null
         }
         Relationships: [

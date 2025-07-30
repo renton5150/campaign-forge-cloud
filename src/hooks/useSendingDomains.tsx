@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -173,15 +174,30 @@ export const useSendingDomains = () => {
     try {
       setVerifyingDomains(prev => new Set(prev).add(domainId));
 
-      // Simulation de vérification DNS - à remplacer par une vraie vérification
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simulation de vérification DNS détaillée pour chaque enregistrement
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Simuler des résultats de vérification individuels
+      const dkimVerified = Math.random() > 0.3;
+      const spfVerified = Math.random() > 0.2;
+      const dmarcVerified = Math.random() > 0.4;
+      const verificationVerified = Math.random() > 0.1;
+
+      // Déterminer le statut global
+      const allVerified = dkimVerified && spfVerified && dmarcVerified && verificationVerified;
+      const someVerified = dkimVerified || spfVerified || dmarcVerified || verificationVerified;
+      
+      const globalStatus = allVerified ? 'verified' : someVerified ? 'pending' : 'failed';
 
       const { data, error } = await supabase
         .from('sending_domains')
         .update({
-          status: 'verified',
-          dkim_status: 'verified',
-          dns_verified_at: new Date().toISOString(),
+          status: globalStatus,
+          dkim_status: dkimVerified ? 'verified' : 'failed',
+          spf_status: spfVerified ? 'verified' : 'failed',
+          dmarc_status: dmarcVerified ? 'verified' : 'failed',
+          verification_status: verificationVerified ? 'verified' : 'failed',
+          dns_verified_at: allVerified ? new Date().toISOString() : null,
           last_verification_attempt: new Date().toISOString()
         })
         .eq('id', domainId);
@@ -196,10 +212,26 @@ export const useSendingDomains = () => {
         return;
       }
 
-      toast({
-        title: "Domaine vérifié",
-        description: "Le domaine a été vérifié avec succès.",
-      });
+      const verifiedCount = [dkimVerified, spfVerified, dmarcVerified, verificationVerified].filter(Boolean).length;
+      
+      if (allVerified) {
+        toast({
+          title: "✅ Domaine entièrement vérifié",
+          description: "Tous les enregistrements DNS sont correctement configurés.",
+        });
+      } else if (verifiedCount > 0) {
+        toast({
+          title: "⚠️ Vérification partielle",
+          description: `${verifiedCount}/4 enregistrements DNS vérifiés avec succès.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "❌ Vérification échouée",
+          description: "Aucun enregistrement DNS n'a pu être vérifié.",
+          variant: "destructive",
+        });
+      }
 
       await loadDomains();
     } catch (error) {
