@@ -26,13 +26,18 @@ interface SendingDomainWithDNS {
 }
 
 interface DNSInstructionsModalProps {
-  domain: SendingDomainWithDNS;
+  domain: SendingDomainWithDNS | null;
   open: boolean;
   onClose: () => void;
 }
 
 export function DNSInstructionsModal({ domain, open, onClose }: DNSInstructionsModalProps) {
   const [copiedRecord, setCopiedRecord] = useState<string | null>(null);
+
+  // Early return if domain is null
+  if (!domain) {
+    return null;
+  }
 
   // Générer les enregistrements DNS par défaut (sans config SMTP spécifique)
   const defaultSmtpConfig = {
