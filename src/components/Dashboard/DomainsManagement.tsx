@@ -431,10 +431,10 @@ const DomainsManagement = () => {
       dkim_private_key: domain.dkim_private_key,
       dkim_public_key: domain.dkim_public_key,
       dkim_selector: domain.dkim_selector,
-      dmarc_record: domain.dmarc_record,
-      spf_record: domain.spf_record,
-      verification_token: domain.verification_token,
-      dns_verified_at: domain.dns_verified_at,
+      dmarc_record: undefined,
+      spf_record: undefined,
+      verification_token: undefined,
+      dns_verified_at: undefined,
       tenant_id: domain.tenant_id
     };
     
