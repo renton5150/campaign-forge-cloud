@@ -15,6 +15,7 @@ import { Plus, FileText, CheckCircle, XCircle, Clock, Trash2, RefreshCw } from '
 import { useSendingDomains, CreateDomainData, CreateDomainResponse } from '@/hooks/useSendingDomains';
 import { CreateDomainModal } from './CreateDomainModal';
 import { DnsInstructions } from './DnsInstructions';
+import { DomainSmtpStatus } from './DomainSmtpStatus';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function SendingDomainsPage() {
@@ -189,6 +190,7 @@ export default function SendingDomainsPage() {
                 <TableHead>Domaine</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>DKIM</TableHead>
+                <TableHead>Serveur SMTP</TableHead>
                 <TableHead>Sélecteur</TableHead>
                 <TableHead>Créé le</TableHead>
                 <TableHead>Actions</TableHead>
@@ -200,6 +202,12 @@ export default function SendingDomainsPage() {
                   <TableCell className="font-medium">{domain.domain_name}</TableCell>
                   <TableCell>{getStatusBadge(domain.status)}</TableCell>
                   <TableCell>{getDkimStatusBadge(domain.dkim_status)}</TableCell>
+                  <TableCell>
+                    <DomainSmtpStatus 
+                      domainId={domain.id} 
+                      domainName={domain.domain_name} 
+                    />
+                  </TableCell>
                   <TableCell>
                     <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
                       {domain.dkim_selector}
@@ -245,7 +253,7 @@ export default function SendingDomainsPage() {
           {domains.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <p className="text-lg">Aucun domaine d'envoi configuré</p>
-              <p className="text-sm">Ajoutez votre premier domaine pour commencer</p>
+              <p className="text-sm">Créez d'abord un serveur SMTP, puis ajoutez votre domaine</p>
             </div>
           )}
         </CardContent>

@@ -3,15 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { CreateDomainData, CreateDomainResponse } from '@/hooks/useSendingDomains';
+import { useSmtpServers } from '@/hooks/useSmtpServers';
 
 interface CreateDomainModalProps {
   open: boolean;
   onClose: () => void;
   onDomainCreated: (domainData: CreateDomainData, response: CreateDomainResponse) => void;
-  onCreateDomain: (domainData: CreateDomainData) => Promise<CreateDomainResponse | null>;
+  onCreateDomain: (domainData: CreateDomainData & { smtp_server_id?: string }) => Promise<CreateDomainResponse | null>;
   tenantId: string;
 }
 
@@ -23,8 +25,13 @@ export function CreateDomainModal({
   tenantId 
 }: CreateDomainModalProps) {
   const [domainName, setDomainName] = useState('');
+  const [selectedSmtpServerId, setSelectedSmtpServerId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { servers: smtpServers, loading: smtpLoading } = useSmtpServers();
+
+  // Filtrer les serveurs SMTP actifs
+  const activeSmtpServers = smtpServers.filter(server => server.is_active);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +40,15 @@ export function CreateDomainModal({
       toast({
         title: "Erreur",
         description: "Veuillez saisir un nom de domaine.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedSmtpServerId) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner un serveur SMTP.",
         variant: "destructive",
       });
       return;
@@ -52,9 +68,10 @@ export function CreateDomainModal({
     setIsLoading(true);
 
     try {
-      const domainData: CreateDomainData = {
+      const domainData: CreateDomainData & { smtp_server_id?: string } = {
         domain_name: domainName.trim(),
-        tenant_id: tenantId
+        tenant_id: tenantId,
+        smtp_server_id: selectedSmtpServerId
       };
 
       const response = await onCreateDomain(domainData);
@@ -62,6 +79,7 @@ export function CreateDomainModal({
       if (response && response.success) {
         onDomainCreated(domainData, response);
         setDomainName('');
+        setSelectedSmtpServerId('');
         onClose();
       }
     } catch (error) {
@@ -78,8 +96,11 @@ export function CreateDomainModal({
 
   const handleClose = () => {
     setDomainName('');
+    setSelectedSmtpServerId('');
     onClose();
   };
+
+  const selectedServer = activeSmtpServers.find(server => server.id === selectedSmtpServerId);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -89,6 +110,44 @@ export function CreateDomainModal({
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="smtp-server">Serveur SMTP</Label>
+            <Select value={selectedSmtpServerId} onValueChange={setSelectedSmtpServerId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionnez un serveur SMTP" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeSmtpServers.map((server) => (
+                  <SelectItem key={server.id} value={server.id}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{server.name}</span>
+                      <span className="text-sm text-gray-500">
+                        {server.type} - {server.from_email}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {activeSmtpServers.length === 0 && !smtpLoading && (
+              <p className="text-sm text-red-600">
+                Aucun serveur SMTP actif trouvé. Créez d'abord un serveur SMTP.
+              </p>
+            )}
+          </div>
+
+          {selectedServer && (
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <h4 className="font-semibold text-blue-900 text-sm mb-1">Serveur SMTP sélectionné</h4>
+              <p className="text-sm text-blue-800">
+                <strong>{selectedServer.name}</strong> ({selectedServer.type})
+              </p>
+              <p className="text-sm text-blue-700">
+                Email expéditeur : {selectedServer.from_email}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="domain">Nom de domaine</Label>
             <Input
@@ -104,11 +163,11 @@ export function CreateDomainModal({
             </p>
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-semibold text-blue-900 mb-2">🔔 Après création</h4>
-            <p className="text-sm text-blue-800">
-              Vous recevrez les instructions DNS à configurer dans votre zone DNS 
-              pour authentifier et vérifier votre domaine d'envoi.
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-green-900 mb-2">🔗 Liaison automatique</h4>
+            <p className="text-sm text-green-800">
+              Le domaine sera automatiquement lié au serveur SMTP sélectionné. 
+              Vous recevrez les instructions DNS pour authentifier votre domaine.
             </p>
           </div>
 
@@ -121,7 +180,10 @@ export function CreateDomainModal({
             >
               Annuler
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              disabled={isLoading || activeSmtpServers.length === 0}
+            >
               {isLoading ? 'Création...' : 'Créer le domaine'}
             </Button>
           </div>

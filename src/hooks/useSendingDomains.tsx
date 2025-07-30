@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -9,6 +8,7 @@ export type SendingDomain = Tables<'sending_domains'>;
 export interface CreateDomainData {
   domain_name: string;
   tenant_id: string;
+  smtp_server_id?: string;
 }
 
 export interface DNSRecords {
@@ -106,9 +106,28 @@ export const useSendingDomains = () => {
       }
 
       if (result.success) {
+        // Si un serveur SMTP a été sélectionné, lier le domaine au serveur
+        if (domainData.smtp_server_id && result.domain_id) {
+          try {
+            const { error: linkError } = await supabase
+              .from('smtp_servers')
+              .update({ sending_domain_id: result.domain_id })
+              .eq('id', domainData.smtp_server_id);
+
+            if (linkError) {
+              console.error('Error linking domain to SMTP server:', linkError);
+              // Ne pas bloquer la création du domaine pour cette erreur
+            } else {
+              console.log('Domain successfully linked to SMTP server');
+            }
+          } catch (linkError) {
+            console.error('Error linking domain to SMTP server:', linkError);
+          }
+        }
+
         toast({
           title: "Domaine créé",
-          description: "Le domaine d'envoi a été créé avec succès.",
+          description: "Le domaine d'envoi a été créé et lié au serveur SMTP avec succès.",
         });
         await loadDomains();
         return result;
