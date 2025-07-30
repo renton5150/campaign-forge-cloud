@@ -74,10 +74,15 @@ export const useSendingDomains = () => {
 
   const createDomain = async (domainData: CreateDomainData): Promise<CreateDomainResponse | null> => {
     try {
-      console.log('Creating sending domain:', domainData);
+      console.log('🚀 [useSendingDomains] Début création domaine:', domainData);
 
-      // Pour les super admins, passer null comme tenant_id pour que la fonction SQL utilise auth.uid()
-      const tenantId = domainData.tenant_id || null;
+      // Pour les super admins (tenant_id undefined), passer null
+      const tenantId = domainData.tenant_id === undefined ? null : domainData.tenant_id;
+
+      console.log('📤 [useSendingDomains] Appel RPC avec:', {
+        p_domain_name: domainData.domain_name,
+        p_tenant_id: tenantId
+      });
 
       const { data, error } = await supabase.rpc('create_sending_domain', {
         p_domain_name: domainData.domain_name,
@@ -85,7 +90,7 @@ export const useSendingDomains = () => {
       });
 
       if (error) {
-        console.error('Error creating sending domain:', error);
+        console.error('❌ [useSendingDomains] Erreur RPC:', error);
         toast({
           title: "Erreur",
           description: `Impossible de créer le domaine d'envoi: ${error.message}`,
@@ -94,10 +99,12 @@ export const useSendingDomains = () => {
         return null;
       }
 
+      console.log('📥 [useSendingDomains] Réponse RPC brute:', data);
+
       const result = data as unknown as CreateDomainResponse;
 
       if (!result || typeof result !== 'object' || typeof result.success !== 'boolean') {
-        console.error('Invalid response structure:', result);
+        console.error('❌ [useSendingDomains] Structure de réponse invalide:', result);
         toast({
           title: "Erreur",
           description: "Réponse invalide du serveur.",
@@ -107,31 +114,38 @@ export const useSendingDomains = () => {
       }
 
       if (result.success) {
+        console.log('✅ [useSendingDomains] Domaine créé avec succès, ID:', result.domain_id);
+        
         // Si un serveur SMTP a été sélectionné, lier le domaine au serveur
         if (domainData.smtp_server_id && result.domain_id) {
           try {
+            console.log('🔗 [useSendingDomains] Liaison au serveur SMTP:', domainData.smtp_server_id);
+            
             const { error: linkError } = await supabase
               .from('smtp_servers')
               .update({ sending_domain_id: result.domain_id })
               .eq('id', domainData.smtp_server_id);
 
             if (linkError) {
-              console.error('Error linking domain to SMTP server:', linkError);
+              console.error('⚠️ [useSendingDomains] Erreur liaison SMTP:', linkError);
+              toast({
+                title: "Avertissement",
+                description: "Domaine créé mais erreur lors de la liaison au serveur SMTP.",
+                variant: "destructive",
+              });
             } else {
-              console.log('Domain successfully linked to SMTP server');
+              console.log('✅ [useSendingDomains] Domaine lié avec succès au serveur SMTP');
             }
           } catch (linkError) {
-            console.error('Error linking domain to SMTP server:', linkError);
+            console.error('💥 [useSendingDomains] Exception liaison SMTP:', linkError);
           }
         }
 
-        toast({
-          title: "Domaine créé",
-          description: "Le domaine d'envoi a été créé avec succès.",
-        });
+        // Recharger la liste des domaines
         await loadDomains();
         return result;
       } else {
+        console.log('❌ [useSendingDomains] Création échouée:', result);
         toast({
           title: "Erreur",
           description: "Erreur lors de la création du domaine.",
@@ -140,10 +154,10 @@ export const useSendingDomains = () => {
         return null;
       }
     } catch (error) {
-      console.error('Error creating sending domain:', error);
+      console.error('💥 [useSendingDomains] Exception lors de la création:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de créer le domaine d'envoi.",
+        description: `Impossible de créer le domaine d'envoi: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
         variant: "destructive",
       });
       return null;
