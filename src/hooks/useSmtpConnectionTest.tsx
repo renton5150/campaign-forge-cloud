@@ -10,17 +10,28 @@ export interface ConnectionTestResult {
   error?: string;
 }
 
+export interface SmtpTestConfig {
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  from_email?: string;
+  from_name?: string;
+  test_email?: string;
+  encryption?: string;
+}
+
 export const useSmtpConnectionTest = () => {
   const [testing, setTesting] = useState(false);
   const [lastTest, setLastTest] = useState<ConnectionTestResult | null>(null);
   const { toast } = useToast();
 
-  const testConnection = async (serverData: any) => {
+  const testConnection = async (serverData: SmtpTestConfig, sendRealEmail: boolean = true) => {
     setTesting(true);
     setLastTest(null);
     
     try {
-      console.log('🔍 Démarrage du test de connexion SMTP...');
+      console.log('🔍 Démarrage du test de connexion SMTP...', { sendRealEmail });
       
       const { data, error } = await supabase.functions.invoke('send-test-email', {
         body: {
@@ -30,7 +41,8 @@ export const useSmtpConnectionTest = () => {
           smtp_password: serverData.password,
           from_email: serverData.from_email,
           from_name: serverData.from_name,
-          test_email: 'test@example.com'
+          test_email: sendRealEmail ? serverData.test_email : 'test@example.com',
+          send_real_email: sendRealEmail
         }
       });
 
@@ -49,9 +61,13 @@ export const useSmtpConnectionTest = () => {
       setLastTest(testResult);
       
       if (data.success) {
+        const message = sendRealEmail 
+          ? `Email de test envoyé avec succès à ${serverData.test_email}`
+          : data.message;
+        
         toast({
           title: "✅ Test de connexion réussi",
-          description: data.message,
+          description: message,
         });
       } else {
         toast({

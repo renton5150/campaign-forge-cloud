@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSmtpServers, SmtpServer } from '@/hooks/useSmtpServers';
 import { useToast } from '@/hooks/use-toast';
-import { Edit, Trash2, Plus, TestTube } from 'lucide-react';
+import { Edit, Trash2, Plus, TestTube, Mail } from 'lucide-react';
 import SmtpConfigurationModal from './SmtpConfigurationModal';
 import SmtpConnectionDiagnostic from './SmtpConnectionDiagnostic';
+import SmtpTestEmailModal from './SmtpTestEmailModal';
 
 export default function SmtpServersPage() {
   const { servers, loading, createServer, updateServer, deleteServer } = useSmtpServers();
@@ -15,6 +16,7 @@ export default function SmtpServersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState<SmtpServer | undefined>();
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
 
   const handleEdit = (server: SmtpServer) => {
     console.log('Edit button clicked for server:', server);
@@ -53,6 +55,11 @@ export default function SmtpServersPage() {
     setIsDiagnosticOpen(true);
   };
 
+  const handleTestEmail = (server: SmtpServer) => {
+    setSelectedServer(server);
+    setIsTestEmailOpen(true);
+  };
+
   const handleCloseModal = () => {
     console.log('Modal close requested');
     setIsModalOpen(false);
@@ -61,6 +68,11 @@ export default function SmtpServersPage() {
 
   const handleCloseDiagnostic = () => {
     setIsDiagnosticOpen(false);
+    setSelectedServer(undefined);
+  };
+
+  const handleCloseTestEmail = () => {
+    setIsTestEmailOpen(false);
     setSelectedServer(undefined);
   };
 
@@ -96,7 +108,15 @@ export default function SmtpServersPage() {
                     onClick={() => handleTest(server)}
                   >
                     <TestTube className="w-4 h-4 mr-2" />
-                    Tester
+                    Test Connexion
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTestEmail(server)}
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Envoyer Test
                   </Button>
                   <Button
                     variant="outline"
@@ -160,6 +180,14 @@ export default function SmtpServersPage() {
         <SmtpConnectionDiagnostic
           server={selectedServer}
           onClose={handleCloseDiagnostic}
+        />
+      )}
+
+      {isTestEmailOpen && selectedServer && (
+        <SmtpTestEmailModal
+          open={isTestEmailOpen}
+          server={selectedServer}
+          onClose={handleCloseTestEmail}
         />
       )}
     </div>
