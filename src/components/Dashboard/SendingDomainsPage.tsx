@@ -1,198 +1,138 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { Plus, FileText, CheckCircle, XCircle, Clock, Trash2, RefreshCw } from 'lucide-react';
-import { useSendingDomains, CreateDomainData, CreateDomainResponse } from '@/hooks/useSendingDomains';
-import { CreateDomainModal } from './CreateDomainModal';
-import { DnsInstructions } from './DnsInstructions';
-import { DomainSmtpStatus } from './DomainSmtpStatus';
-import DNSStatusBadges from './DNSStatusBadges';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/components/auth/AuthProvider';
 
-export default function SendingDomainsPage() {
-  const { domains, loading, verifyingDomains, createDomain, verifyDomain, deleteDomain } = useSendingDomains();
-  const { user } = useAuth();
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, RefreshCw, Settings, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { useSendingDomains } from '@/hooks/useSendingDomains';
+import { CreateDomainModal } from './CreateDomainModal';
+import { DNSInstructionsModal } from './DNSInstructionsModal';
+import { DNSStatusBadges } from './DNSStatusBadges';
+
+export const SendingDomainsPage = () => {
+  const { domains, isLoading, createDomain, deleteDomain, verifyDomain, isCreating, isDeleting, isVerifying } = useSendingDomains();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDnsModalOpen, setIsDnsModalOpen] = useState(false);
-  const [selectedDnsRecords, setSelectedDnsRecords] = useState<any>(null);
-  const [selectedDomainName, setSelectedDomainName] = useState('');
-  const [userTenantId, setUserTenantId] = useState<string>('');
+  const [selectedDomain, setSelectedDomain] = useState<any>(null);
 
-  useEffect(() => {
-    console.log('User role:', user?.role);
-    
-    // Pour les super admins, pas besoin de tenant_id
-    if (user?.role === 'super_admin') {
-      console.log('Super admin detected, not setting tenant_id');
-      setUserTenantId('');
-      return;
-    }
+  const handleCreateDomain = (domain: string) => {
+    createDomain(domain);
+    setIsCreateModalOpen(false);
+  };
 
-    // Pour les autres utilisateurs, récupérer le tenant_id
-    const fetchUserTenant = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('tenant_id')
-          .eq('id', authUser.id)
-          .single();
-        
-        if (userProfile?.tenant_id) {
-          setUserTenantId(userProfile.tenant_id);
-        }
-      }
-    };
-    
-    fetchUserTenant();
-  }, [user]);
-
-  const handleDomainCreated = (domainData: CreateDomainData, response: CreateDomainResponse) => {
-    setSelectedDomainName(domainData.domain_name);
-    setSelectedDnsRecords(response.dns_records);
+  const handleViewDnsInstructions = (domain: any) => {
+    setSelectedDomain(domain);
     setIsDnsModalOpen(true);
   };
 
-  const handleShowDnsInstructions = (domain: any) => {
-    const dnsRecords = {
-      dkim: {
-        host: `${domain.dkim_selector}._domainkey.${domain.domain_name}`,
-        value: `v=DKIM1; k=rsa; p=${domain.dkim_public_key}`
-      },
-      spf: {
-        host: domain.domain_name,
-        value: domain.spf_record
-      },
-      dmarc: {
-        host: `_dmarc.${domain.domain_name}`,
-        value: domain.dmarc_record
-      },
-      verification: {
-        host: `_lovable-verify.${domain.domain_name}`,
-        value: domain.verification_token
-      }
-    };
+  const getGlobalStatusBadge = (domain: any) => {
+    const variant = domain.status === 'verified' ? 'default' : 
+                   domain.status === 'failed' ? 'destructive' : 'secondary';
+    
+    const icon = domain.status === 'verified' ? <CheckCircle className="w-3 h-3" /> :
+                 domain.status === 'failed' ? <XCircle className="w-3 h-3" /> :
+                 <Clock className="w-3 h-3" />;
+    
+    const label = domain.status === 'verified' ? 'Vérifié' :
+                  domain.status === 'failed' ? 'Échec' : 'En attente';
 
-    setSelectedDomainName(domain.domain_name);
-    setSelectedDnsRecords(dnsRecords);
-    setIsDnsModalOpen(true);
-  };
-
-  const handleDelete = async (domainId: string, domainName: string) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer le domaine "${domainName}" ?`)) {
-      await deleteDomain(domainId);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'verified':
-        return <Badge className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />🟢 Vérifié</Badge>;
-      case 'verifying':
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1 animate-spin" />🔵 Vérification</Badge>;
-      case 'failed':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />🔴 Échec</Badge>;
-      default:
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />🟡 En attente</Badge>;
-    }
-  };
-
-  if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2">Chargement des domaines d'envoi...</span>
+      <Badge variant={variant} className="text-xs px-2 py-1">
+        {icon}
+        <span className="ml-1">{label}</span>
+      </Badge>
+    );
+  };
+
+  // Calculate statistics
+  const totalDomains = domains.length;
+  const verifiedDomains = domains.filter(d => d.status === 'verified').length;
+  const failedDomains = domains.filter(d => d.status === 'failed').length;
+  const pendingDomains = domains.filter(d => d.status === 'pending').length;
+
+  // DNS-specific statistics
+  const dkimIssues = domains.filter(d => d.status === 'failed').length;
+  const spfIssues = domains.filter(d => d.spf_status === 'failed').length;
+  const dmarcIssues = domains.filter(d => d.dmarc_status === 'failed').length;
+  const verificationIssues = domains.filter(d => d.verification_status === 'failed').length;
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">📧 Domaines d'envoi</h1>
-          <p className="text-gray-600">Gérez vos domaines avec authentification DKIM/SPF/DMARC</p>
+          <h1 className="text-3xl font-bold tracking-tight">Domaines d'envoi</h1>
+          <p className="text-muted-foreground">Gérez vos domaines d'envoi et leur configuration DNS</p>
         </div>
-        
-        <Button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="mr-2 h-4 w-4" />
+        <Button onClick={() => setIsCreateModalOpen(true)} disabled={isCreating}>
+          <Plus className="w-4 h-4 mr-2" />
           Ajouter un domaine
         </Button>
       </div>
 
-      {/* Statistiques améliorées */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total domaines</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Domaines</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{domains.length}</div>
+            <div className="text-2xl font-bold">{totalDomains}</div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">🟢 Entièrement vérifiés</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Vérifiés</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {domains.filter(d => d.status === 'verified').length}
+            <div className="text-2xl font-bold text-green-600">{verifiedDomains}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">En échec</CardTitle>
+            <XCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{failedDomains}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              SPF: {spfIssues} | DMARC: {dmarcIssues} | Vérif: {verificationIssues}
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">🟡 Partiellement vérifiés</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">En attente</CardTitle>
+            <Clock className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {domains.filter(d => d.status === 'pending').length}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">🔴 Échecs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {domains.filter(d => d.status === 'failed').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">📊 DKIM OK</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {domains.filter(d => d.dkim_status === 'verified').length}
-            </div>
+            <div className="text-2xl font-bold text-orange-600">{pendingDomains}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Table des domaines avec statuts DNS détaillés */}
+      {/* Domains Table */}
       <Card>
         <CardHeader>
           <CardTitle>Domaines configurés</CardTitle>
+          <CardDescription>
+            Liste de vos domaines d'envoi avec leur statut de validation DNS détaillé
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -201,8 +141,6 @@ export default function SendingDomainsPage() {
                 <TableHead>Domaine</TableHead>
                 <TableHead>Statut Global</TableHead>
                 <TableHead>Statut DNS Détaillé</TableHead>
-                <TableHead>Serveur SMTP</TableHead>
-                <TableHead>Sélecteur</TableHead>
                 <TableHead>Créé le</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -210,92 +148,77 @@ export default function SendingDomainsPage() {
             <TableBody>
               {domains.map((domain) => (
                 <TableRow key={domain.id}>
-                  <TableCell className="font-medium">{domain.domain_name}</TableCell>
-                  <TableCell>{getStatusBadge(domain.status)}</TableCell>
-                  <TableCell className="min-w-[280px]">
+                  <TableCell className="font-medium">{domain.domain}</TableCell>
+                  <TableCell>
+                    {getGlobalStatusBadge(domain)}
+                  </TableCell>
+                  <TableCell>
                     <DNSStatusBadges
-                      dkimStatus={domain.dkim_status}
+                      dkimStatus={domain.status || 'pending'}
                       spfStatus={domain.spf_status || 'pending'}
                       dmarcStatus={domain.dmarc_status || 'pending'}
                       verificationStatus={domain.verification_status || 'pending'}
-                      domainName={domain.domain_name}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <DomainSmtpStatus 
-                      domainId={domain.id} 
-                      domainName={domain.domain_name} 
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                      {domain.dkim_selector}
-                    </code>
                   </TableCell>
                   <TableCell>
                     {new Date(domain.created_at).toLocaleDateString('fr-FR')}
                   </TableCell>
                   <TableCell>
-                    <div className="flex space-x-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleShowDnsInstructions(domain)}
-                        title="Voir les instructions DNS"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => verifyDomain(domain.id)}
-                        disabled={verifyingDomains.has(domain.id)}
-                        title="Vérifier le domaine"
+                        disabled={isVerifying}
                       >
-                        <RefreshCw className={`h-4 w-4 ${verifyingDomains.has(domain.id) ? 'animate-spin' : ''}`} />
+                        <RefreshCw className="w-4 h-4 mr-1" />
+                        Vérifier
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(domain.id, domain.domain_name)}
-                        title="Supprimer le domaine"
+                        onClick={() => handleViewDnsInstructions(domain)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Settings className="w-4 h-4 mr-1" />
+                        DNS
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteDomain(domain.id)}
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
+              {domains.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    Aucun domaine configuré. Cliquez sur "Ajouter un domaine" pour commencer.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
-          
-          {domains.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <p className="text-lg">Aucun domaine d'envoi configuré</p>
-              <p className="text-sm">Créez d'abord un serveur SMTP, puis ajoutez votre domaine</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Modals */}
       <CreateDomainModal
         open={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onDomainCreated={handleDomainCreated}
-        onCreateDomain={createDomain}
-        tenantId={userTenantId}
-        isSuperAdmin={user?.role === 'super_admin'}
+        onOpenChange={setIsCreateModalOpen}
+        onCreateDomain={handleCreateDomain}
       />
 
-      {selectedDnsRecords && (
-        <DnsInstructions
+      {selectedDomain && (
+        <DNSInstructionsModal
           open={isDnsModalOpen}
-          onClose={() => setIsDnsModalOpen(false)}
-          domainName={selectedDomainName}
-          dnsRecords={selectedDnsRecords}
+          onOpenChange={setIsDnsModalOpen}
+          domain={selectedDomain}
         />
       )}
     </div>
   );
-}
+};

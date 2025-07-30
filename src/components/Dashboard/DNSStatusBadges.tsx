@@ -4,132 +4,119 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
 
+type DNSStatus = 'pending' | 'verified' | 'failed';
+
 interface DNSStatusBadgesProps {
-  dkimStatus: string;
-  spfStatus: string;
-  dmarcStatus: string;
-  verificationStatus: string;
-  domainName: string;
+  dkimStatus: DNSStatus;
+  spfStatus: DNSStatus;
+  dmarcStatus: DNSStatus;
+  verificationStatus: DNSStatus;
 }
 
-const DNSStatusBadges: React.FC<DNSStatusBadgesProps> = ({
+const getStatusIcon = (status: DNSStatus) => {
+  switch (status) {
+    case 'verified':
+      return <CheckCircle className="w-3 h-3" />;
+    case 'failed':
+      return <XCircle className="w-3 h-3" />;
+    default:
+      return <Clock className="w-3 h-3" />;
+  }
+};
+
+const getStatusVariant = (status: DNSStatus) => {
+  switch (status) {
+    case 'verified':
+      return 'default';
+    case 'failed':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+};
+
+const getStatusLabel = (type: string, status: DNSStatus) => {
+  const statusText = status === 'verified' ? 'Vérifié' : 
+                     status === 'failed' ? 'Échec' : 'En attente';
+  return `${type}: ${statusText}`;
+};
+
+const getTooltipContent = (type: string, status: DNSStatus) => {
+  const descriptions = {
+    DKIM: 'DomainKeys Identified Mail - Authentifie les emails sortants',
+    SPF: 'Sender Policy Framework - Autorise les serveurs d\'envoi',
+    DMARC: 'Domain-based Message Authentication - Politique d\'authentification',
+    Verification: 'Vérification du domaine - Confirmation de propriété'
+  };
+  
+  return (
+    <div className="text-xs">
+      <div className="font-semibold">{descriptions[type as keyof typeof descriptions]}</div>
+      <div className="mt-1">
+        Statut: {status === 'verified' ? 'Vérifié' : 
+                 status === 'failed' ? 'Échec' : 'En attente'}
+      </div>
+    </div>
+  );
+};
+
+export const DNSStatusBadges: React.FC<DNSStatusBadgesProps> = ({
   dkimStatus,
   spfStatus,
   dmarcStatus,
-  verificationStatus,
-  domainName
+  verificationStatus
 }) => {
-  const getStatusBadge = (status: string, type: string) => {
-    const getIcon = () => {
-      switch (status) {
-        case 'verified':
-          return <CheckCircle className="h-3 w-3 mr-1" />;
-        case 'failed':
-          return <XCircle className="h-3 w-3 mr-1" />;
-        default:
-          return <Clock className="h-3 w-3 mr-1" />;
-      }
-    };
-
-    const getVariant = () => {
-      switch (status) {
-        case 'verified':
-          return 'default';
-        case 'failed':
-          return 'destructive';
-        default:
-          return 'secondary';
-      }
-    };
-
-    const getBgColor = () => {
-      switch (status) {
-        case 'verified':
-          return 'bg-green-600';
-        case 'failed':
-          return '';
-        default:
-          return '';
-      }
-    };
-
-    return (
-      <Badge 
-        variant={getVariant()} 
-        className={`text-xs ${status === 'verified' ? getBgColor() : ''}`}
-      >
-        {getIcon()}
-        {type.toUpperCase()}
-      </Badge>
-    );
-  };
-
-  const getTooltipContent = (status: string, type: string) => {
-    const statusText = {
-      'verified': '✅ Vérifié',
-      'failed': '❌ Échec',
-      'pending': '⏳ En attente'
-    }[status] || '⏳ En attente';
-
-    const descriptions = {
-      'dkim': 'DKIM (DomainKeys Identified Mail) - Authentification des emails par signature cryptographique',
-      'spf': 'SPF (Sender Policy Framework) - Autorise les serveurs à envoyer des emails pour ce domaine',
-      'dmarc': 'DMARC (Domain-based Message Authentication) - Politique de gestion des emails non authentifiés',
-      'verification': 'Verification Token - Preuve de propriété du domaine'
-    };
-
-    return (
-      <div className="max-w-xs">
-        <div className="font-medium">{type.toUpperCase()}: {statusText}</div>
-        <div className="text-sm text-gray-600 mt-1">{descriptions[type.toLowerCase() as keyof typeof descriptions]}</div>
-        {status === 'failed' && (
-          <div className="text-sm text-red-600 mt-1">Vérifiez la configuration DNS pour {domainName}</div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <TooltipProvider>
       <div className="flex flex-wrap gap-1">
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div>{getStatusBadge(dkimStatus, 'DKIM')}</div>
+          <TooltipTrigger>
+            <Badge variant={getStatusVariant(dkimStatus)} className="text-xs px-2 py-1">
+              {getStatusIcon(dkimStatus)}
+              <span className="ml-1">DKIM</span>
+            </Badge>
           </TooltipTrigger>
           <TooltipContent>
-            {getTooltipContent(dkimStatus, 'dkim')}
+            {getTooltipContent('DKIM', dkimStatus)}
           </TooltipContent>
         </Tooltip>
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div>{getStatusBadge(spfStatus, 'SPF')}</div>
+          <TooltipTrigger>
+            <Badge variant={getStatusVariant(spfStatus)} className="text-xs px-2 py-1">
+              {getStatusIcon(spfStatus)}
+              <span className="ml-1">SPF</span>
+            </Badge>
           </TooltipTrigger>
           <TooltipContent>
-            {getTooltipContent(spfStatus, 'spf')}
+            {getTooltipContent('SPF', spfStatus)}
           </TooltipContent>
         </Tooltip>
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div>{getStatusBadge(dmarcStatus, 'DMARC')}</div>
+          <TooltipTrigger>
+            <Badge variant={getStatusVariant(dmarcStatus)} className="text-xs px-2 py-1">
+              {getStatusIcon(dmarcStatus)}
+              <span className="ml-1">DMARC</span>
+            </Badge>
           </TooltipTrigger>
           <TooltipContent>
-            {getTooltipContent(dmarcStatus, 'dmarc')}
+            {getTooltipContent('DMARC', dmarcStatus)}
           </TooltipContent>
         </Tooltip>
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div>{getStatusBadge(verificationStatus, 'VERIF')}</div>
+          <TooltipTrigger>
+            <Badge variant={getStatusVariant(verificationStatus)} className="text-xs px-2 py-1">
+              {getStatusIcon(verificationStatus)}
+              <span className="ml-1">Verification</span>
+            </Badge>
           </TooltipTrigger>
           <TooltipContent>
-            {getTooltipContent(verificationStatus, 'verification')}
+            {getTooltipContent('Verification', verificationStatus)}
           </TooltipContent>
         </Tooltip>
       </div>
     </TooltipProvider>
   );
 };
-
-export default DNSStatusBadges;
