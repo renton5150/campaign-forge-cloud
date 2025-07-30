@@ -1263,7 +1263,7 @@ export type Database = {
           last_verification_attempt: string | null
           spf_record: string | null
           status: string | null
-          tenant_id: string
+          tenant_id: string | null
           updated_at: string | null
           verification_errors: Json | null
           verification_token: string | null
@@ -1281,7 +1281,7 @@ export type Database = {
           last_verification_attempt?: string | null
           spf_record?: string | null
           status?: string | null
-          tenant_id: string
+          tenant_id?: string | null
           updated_at?: string | null
           verification_errors?: Json | null
           verification_token?: string | null
@@ -1299,7 +1299,7 @@ export type Database = {
           last_verification_attempt?: string | null
           spf_record?: string | null
           status?: string | null
-          tenant_id?: string
+          tenant_id?: string | null
           updated_at?: string | null
           verification_errors?: Json | null
           verification_token?: string | null

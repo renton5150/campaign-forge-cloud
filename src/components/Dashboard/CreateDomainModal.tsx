@@ -43,24 +43,12 @@ export function CreateDomainModal({
     console.log('Selected SMTP server:', selectedSmtpServerId);
     console.log('Is super admin:', isSuperAdmin);
     console.log('Tenant ID:', tenantId);
-    console.log('Active SMTP servers:', activeSmtpServers.length);
     
     if (!domainName.trim()) {
       console.log('❌ Erreur: nom de domaine vide');
       toast({
         title: "Erreur",
         description: "Veuillez saisir un nom de domaine.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Pour les super admins, le serveur SMTP n'est pas obligatoire
-    if (!isSuperAdmin && !selectedSmtpServerId) {
-      console.log('❌ Erreur: serveur SMTP requis pour utilisateur non-admin');
-      toast({
-        title: "Erreur",
-        description: "Veuillez sélectionner un serveur SMTP.",
         variant: "destructive",
       });
       return;
@@ -86,6 +74,7 @@ export function CreateDomainModal({
       
       const domainData: CreateDomainData & { smtp_server_id?: string } = {
         domain_name: domainName.trim(),
+        // Pour les super admins, ne pas passer de tenant_id (ce qui permettra de créer un domaine système)
         tenant_id: isSuperAdmin ? undefined : tenantId,
         smtp_server_id: selectedSmtpServerId || undefined
       };
@@ -105,7 +94,9 @@ export function CreateDomainModal({
         
         toast({
           title: "Succès",
-          description: "Le domaine d'envoi a été créé avec succès.",
+          description: isSuperAdmin 
+            ? "Le domaine système a été créé avec succès." 
+            : "Le domaine d'envoi a été créé avec succès.",
         });
       } else {
         console.log('❌ Échec de création:', response);
@@ -175,7 +166,7 @@ export function CreateDomainModal({
 
           <div className="space-y-2">
             <Label htmlFor="smtp-server">
-              Serveur SMTP {!isSuperAdmin && <span className="text-red-500">*</span>}
+              Serveur SMTP (optionnel)
             </Label>
             <Select value={selectedSmtpServerId} onValueChange={setSelectedSmtpServerId}>
               <SelectTrigger>
@@ -194,16 +185,12 @@ export function CreateDomainModal({
                 ))}
               </SelectContent>
             </Select>
-            {!isSuperAdmin && activeSmtpServers.length === 0 && !smtpLoading && (
-              <p className="text-sm text-red-600">
-                Aucun serveur SMTP actif trouvé. Créez d'abord un serveur SMTP.
-              </p>
-            )}
-            {isSuperAdmin && (
-              <p className="text-sm text-gray-600">
-                En tant que super admin, vous pouvez créer le domaine sans serveur SMTP et le configurer plus tard.
-              </p>
-            )}
+            <p className="text-sm text-gray-600">
+              {isSuperAdmin 
+                ? "En tant que super admin, vous pouvez créer le domaine sans serveur SMTP et le configurer plus tard."
+                : "Sélectionnez un serveur SMTP pour lier automatiquement le domaine."
+              }
+            </p>
           </div>
 
           {selectedServer && (
@@ -238,7 +225,7 @@ export function CreateDomainModal({
             </Button>
             <Button 
               type="submit" 
-              disabled={isLoading || (!isSuperAdmin && activeSmtpServers.length === 0)}
+              disabled={isLoading}
             >
               {isLoading ? 'Création...' : 'Créer le domaine'}
             </Button>

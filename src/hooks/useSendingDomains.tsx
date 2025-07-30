@@ -76,17 +76,22 @@ export const useSendingDomains = () => {
     try {
       console.log('🚀 [useSendingDomains] Début création domaine:', domainData);
 
-      // Pour les super admins (tenant_id undefined), passer null
-      const tenantId = domainData.tenant_id === undefined ? null : domainData.tenant_id;
+      // Déterminer le tenant_id à passer à la fonction
+      let tenantIdToPass: string | null = null;
+      
+      if (domainData.tenant_id !== undefined) {
+        tenantIdToPass = domainData.tenant_id;
+      }
+      // Si tenant_id est undefined, on passe null (domaine système pour super admin)
 
       console.log('📤 [useSendingDomains] Appel RPC avec:', {
         p_domain_name: domainData.domain_name,
-        p_tenant_id: tenantId
+        p_tenant_id: tenantIdToPass
       });
 
       const { data, error } = await supabase.rpc('create_sending_domain', {
         p_domain_name: domainData.domain_name,
-        p_tenant_id: tenantId
+        p_tenant_id: tenantIdToPass
       });
 
       if (error) {
