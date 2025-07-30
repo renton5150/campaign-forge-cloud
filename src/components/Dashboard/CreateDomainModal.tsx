@@ -1,3 +1,4 @@
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,16 +56,6 @@ export function CreateDomainModal({
       return;
     }
 
-    // Validation du tenant_id seulement pour les non-super admins
-    if (!isSuperAdmin && !tenantId) {
-      toast({
-        title: "Erreur",
-        description: "Tenant ID manquant. Veuillez vous reconnecter.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Validation basique du format de domaine
     const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
     if (!domainRegex.test(domainName.trim())) {
@@ -79,9 +70,16 @@ export function CreateDomainModal({
     setIsLoading(true);
 
     try {
+      console.log('Submitting domain creation with:', {
+        domain_name: domainName.trim(),
+        tenant_id: isSuperAdmin ? undefined : tenantId,
+        smtp_server_id: selectedSmtpServerId,
+        isSuperAdmin
+      });
+
       const domainData: CreateDomainData & { smtp_server_id?: string } = {
         domain_name: domainName.trim(),
-        tenant_id: isSuperAdmin ? undefined : tenantId, // Pas de tenant_id pour les super admins
+        tenant_id: isSuperAdmin ? undefined : tenantId,
         smtp_server_id: selectedSmtpServerId
       };
 

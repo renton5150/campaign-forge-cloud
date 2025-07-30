@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,9 +28,12 @@ export default function SendingDomainsPage() {
   const [userTenantId, setUserTenantId] = useState<string>('');
 
   useEffect(() => {
+    console.log('User role:', user?.role);
+    
     // Pour les super admins, pas besoin de tenant_id
     if (user?.role === 'super_admin') {
-      setUserTenantId(''); // Laisser vide pour les super admins
+      console.log('Super admin detected, not setting tenant_id');
+      setUserTenantId('');
       return;
     }
 
@@ -273,7 +275,7 @@ export default function SendingDomainsPage() {
         onClose={() => setIsCreateModalOpen(false)}
         onDomainCreated={handleDomainCreated}
         onCreateDomain={createDomain}
-        tenantId={userTenantId} // Peut être vide pour les super admins
+        tenantId={userTenantId}
         isSuperAdmin={user?.role === 'super_admin'}
       />
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +7,7 @@ export type SendingDomain = Tables<'sending_domains'>;
 
 export interface CreateDomainData {
   domain_name: string;
-  tenant_id?: string; // Rendre optionnel pour les super admins
+  tenant_id?: string;
   smtp_server_id?: string;
 }
 
@@ -77,7 +76,7 @@ export const useSendingDomains = () => {
     try {
       console.log('Creating sending domain:', domainData);
 
-      // Pour les super admins sans tenant_id, utiliser null
+      // Pour les super admins, passer null comme tenant_id pour que la fonction SQL utilise auth.uid()
       const tenantId = domainData.tenant_id || null;
 
       const { data, error } = await supabase.rpc('create_sending_domain', {
@@ -89,7 +88,7 @@ export const useSendingDomains = () => {
         console.error('Error creating sending domain:', error);
         toast({
           title: "Erreur",
-          description: "Impossible de créer le domaine d'envoi.",
+          description: `Impossible de créer le domaine d'envoi: ${error.message}`,
           variant: "destructive",
         });
         return null;
