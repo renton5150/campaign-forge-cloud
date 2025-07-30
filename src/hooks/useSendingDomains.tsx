@@ -3,20 +3,40 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export interface SendingDomain {
+// Types locaux pour les données de domaine avec les nouveaux champs DNS
+interface SendingDomainWithDNS {
   id: string;
   domain: string;
-  status: 'pending' | 'verified' | 'failed';
-  dkim_selector?: string;
-  dkim_public_key?: string;
-  verification_token?: string;
-  verification_errors?: string;
+  status: string;
   created_at: string;
-  updated_at?: string;
+  dkim_status: string;
+  spf_status?: string;
+  dmarc_status?: string;
+  verification_status?: string;
+  dkim_private_key: string;
+  dkim_public_key: string;
+  dkim_selector: string;
+  dmarc_record: string;
+  spf_record: string;
+  verification_token: string;
+  dns_verified_at: string | null;
   tenant_id: string;
-  spf_status?: 'pending' | 'verified' | 'failed';
-  dmarc_status?: 'pending' | 'verified' | 'failed';
-  verification_status?: 'pending' | 'verified' | 'failed';
+}
+
+export interface CreateDomainData {
+  domain: string;
+}
+
+export interface CreateDomainResponse {
+  success: boolean;
+  error?: string;
+}
+
+export interface DNSRecords {
+  dkim: string;
+  spf: string;
+  dmarc: string;
+  verification: string;
 }
 
 export const useSendingDomains = () => {
@@ -36,28 +56,28 @@ export const useSendingDomains = () => {
         throw error;
       }
 
-      console.log('Fetched sending domains:', data);
-      return data as SendingDomain[];
+      console.log('Sending domains fetched:', data);
+      
+      // Transformer les données pour s'assurer que tous les champs sont présents
+      return (data || []).map(domain => ({
+        ...domain,
+        domain: domain.domain_name || domain.domain,
+        spf_status: domain.spf_status || 'pending',
+        dmarc_status: domain.dmarc_status || 'pending',
+        verification_status: domain.verification_status || 'pending'
+      })) as SendingDomainWithDNS[];
     },
   });
 
   const createDomainMutation = useMutation({
-    mutationFn: async (domain: string) => {
-      console.log('Creating domain:', domain);
-      
-      // Generate DKIM keys and verification token
-      const dkimSelector = 'mail';
-      const verificationToken = `lovable-verify-${Date.now()}`;
-      const dkimPublicKey = `v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...`;
-
+    mutationFn: async (domainData: CreateDomainData) => {
+      console.log('Creating domain:', domainData);
       const { data, error } = await supabase
         .from('sending_domains')
         .insert({
-          domain,
+          domain_name: domainData.domain,
           status: 'pending',
-          dkim_selector: dkimSelector,
-          dkim_public_key: dkimPublicKey,
-          verification_token: verificationToken,
+          dkim_status: 'pending',
           spf_status: 'pending',
           dmarc_status: 'pending',
           verification_status: 'pending'
@@ -76,72 +96,37 @@ export const useSendingDomains = () => {
       queryClient.invalidateQueries({ queryKey: ['sending-domains'] });
       toast.success('Domaine créé avec succès');
     },
-    onError: (error) => {
-      console.error('Failed to create domain:', error);
+    onError: (error: any) => {
+      console.error('Error creating domain:', error);
       toast.error('Erreur lors de la création du domaine');
     },
   });
 
-  const deleteDomainMutation = useMutation({
-    mutationFn: async (id: string) => {
-      console.log('Deleting domain:', id);
-      const { error } = await supabase
-        .from('sending_domains')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error deleting domain:', error);
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sending-domains'] });
-      toast.success('Domaine supprimé avec succès');
-    },
-    onError: (error) => {
-      console.error('Failed to delete domain:', error);
-      toast.error('Erreur lors de la suppression du domaine');
-    },
-  });
-
   const verifyDomainMutation = useMutation({
-    mutationFn: async (id: string) => {
-      console.log('Verifying domain:', id);
+    mutationFn: async (domainId: string) => {
+      console.log('Verifying domain:', domainId);
       
-      // Simulate individual DNS record verification
-      const simulateVerification = () => {
-        const random = Math.random();
-        return random > 0.3 ? 'verified' : (random > 0.1 ? 'pending' : 'failed');
+      // Simuler une vérification DNS détaillée
+      const mockResults = {
+        dkim_status: Math.random() > 0.3 ? 'verified' : 'failed',
+        spf_status: Math.random() > 0.2 ? 'verified' : 'failed',
+        dmarc_status: Math.random() > 0.4 ? 'verified' : 'failed',
+        verification_status: Math.random() > 0.1 ? 'verified' : 'failed'
       };
 
-      const spfStatus = simulateVerification();
-      const dmarcStatus = simulateVerification();
-      const verificationStatus = simulateVerification();
-      const dkimStatus = simulateVerification();
-
-      // Determine overall status based on individual statuses
-      const allStatuses = [spfStatus, dmarcStatus, verificationStatus, dkimStatus];
-      let overallStatus: 'pending' | 'verified' | 'failed';
-      
-      if (allStatuses.every(s => s === 'verified')) {
-        overallStatus = 'verified';
-      } else if (allStatuses.some(s => s === 'failed')) {
-        overallStatus = 'failed';
-      } else {
-        overallStatus = 'pending';
-      }
+      // Déterminer le statut global
+      const allVerified = Object.values(mockResults).every(status => status === 'verified');
+      const anyFailed = Object.values(mockResults).some(status => status === 'failed');
+      const globalStatus = allVerified ? 'verified' : anyFailed ? 'failed' : 'pending';
 
       const { data, error } = await supabase
         .from('sending_domains')
-        .update({ 
-          status: overallStatus,
-          spf_status: spfStatus,
-          dmarc_status: dmarcStatus,
-          verification_status: verificationStatus,
-          updated_at: new Date().toISOString()
+        .update({
+          ...mockResults,
+          status: globalStatus,
+          dns_verified_at: allVerified ? new Date().toISOString() : null
         })
-        .eq('id', id)
+        .eq('id', domainId)
         .select()
         .single();
 
@@ -152,18 +137,36 @@ export const useSendingDomains = () => {
 
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sending-domains'] });
-      const message = data.status === 'verified' 
-        ? 'Domaine vérifié avec succès' 
-        : data.status === 'failed'
-        ? 'Échec de la vérification du domaine'
-        : 'Vérification en cours...';
-      toast.success(message);
+      toast.success('Vérification DNS effectuée');
     },
-    onError: (error) => {
-      console.error('Failed to verify domain:', error);
-      toast.error('Erreur lors de la vérification du domaine');
+    onError: (error: any) => {
+      console.error('Error verifying domain:', error);
+      toast.error('Erreur lors de la vérification DNS');
+    },
+  });
+
+  const deleteDomainMutation = useMutation({
+    mutationFn: async (domainId: string) => {
+      console.log('Deleting domain:', domainId);
+      const { error } = await supabase
+        .from('sending_domains')
+        .delete()
+        .eq('id', domainId);
+
+      if (error) {
+        console.error('Error deleting domain:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sending-domains'] });
+      toast.success('Domaine supprimé avec succès');
+    },
+    onError: (error: any) => {
+      console.error('Error deleting domain:', error);
+      toast.error('Erreur lors de la suppression du domaine');
     },
   });
 
@@ -171,11 +174,11 @@ export const useSendingDomains = () => {
     domains,
     isLoading,
     error,
-    createDomain: createDomainMutation.mutate,
-    deleteDomain: deleteDomainMutation.mutate,
-    verifyDomain: verifyDomainMutation.mutate,
+    createDomain: createDomainMutation.mutateAsync,
+    verifyDomain: verifyDomainMutation.mutateAsync,
+    deleteDomain: deleteDomainMutation.mutateAsync,
     isCreating: createDomainMutation.isPending,
-    isDeleting: deleteDomainMutation.isPending,
     isVerifying: verifyDomainMutation.isPending,
+    isDeleting: deleteDomainMutation.isPending,
   };
 };
