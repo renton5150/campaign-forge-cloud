@@ -1,4 +1,3 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +14,7 @@ interface CreateDomainModalProps {
   onDomainCreated: (domainData: CreateDomainData, response: CreateDomainResponse) => void;
   onCreateDomain: (domainData: CreateDomainData & { smtp_server_id?: string }) => Promise<CreateDomainResponse | null>;
   tenantId: string;
+  isSuperAdmin?: boolean;
 }
 
 export function CreateDomainModal({ 
@@ -22,7 +22,8 @@ export function CreateDomainModal({
   onClose, 
   onDomainCreated, 
   onCreateDomain, 
-  tenantId 
+  tenantId,
+  isSuperAdmin = false
 }: CreateDomainModalProps) {
   const [domainName, setDomainName] = useState('');
   const [selectedSmtpServerId, setSelectedSmtpServerId] = useState('');
@@ -54,6 +55,16 @@ export function CreateDomainModal({
       return;
     }
 
+    // Validation du tenant_id seulement pour les non-super admins
+    if (!isSuperAdmin && !tenantId) {
+      toast({
+        title: "Erreur",
+        description: "Tenant ID manquant. Veuillez vous reconnecter.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validation basique du format de domaine
     const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
     if (!domainRegex.test(domainName.trim())) {
@@ -70,7 +81,7 @@ export function CreateDomainModal({
     try {
       const domainData: CreateDomainData & { smtp_server_id?: string } = {
         domain_name: domainName.trim(),
-        tenant_id: tenantId,
+        tenant_id: isSuperAdmin ? undefined : tenantId, // Pas de tenant_id pour les super admins
         smtp_server_id: selectedSmtpServerId
       };
 
@@ -106,10 +117,23 @@ export function CreateDomainModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Ajouter un domaine d'envoi</DialogTitle>
+          <DialogTitle>
+            Ajouter un domaine d'envoi
+            {isSuperAdmin && (
+              <span className="ml-2 text-sm font-normal text-blue-600">(Super Admin)</span>
+            )}
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {isSuperAdmin && (
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-sm text-blue-800">
+                🔧 <strong>Mode Super Administrateur</strong> - Ce domaine sera créé au niveau système.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="smtp-server">Serveur SMTP</Label>
             <Select value={selectedSmtpServerId} onValueChange={setSelectedSmtpServerId}>

@@ -17,9 +17,11 @@ import { CreateDomainModal } from './CreateDomainModal';
 import { DnsInstructions } from './DnsInstructions';
 import { DomainSmtpStatus } from './DomainSmtpStatus';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function SendingDomainsPage() {
   const { domains, loading, verifyingDomains, createDomain, verifyDomain, deleteDomain } = useSendingDomains();
+  const { user } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDnsModalOpen, setIsDnsModalOpen] = useState(false);
   const [selectedDnsRecords, setSelectedDnsRecords] = useState<any>(null);
@@ -27,14 +29,20 @@ export default function SendingDomainsPage() {
   const [userTenantId, setUserTenantId] = useState<string>('');
 
   useEffect(() => {
-    // Récupérer le tenant_id de l'utilisateur connecté
+    // Pour les super admins, pas besoin de tenant_id
+    if (user?.role === 'super_admin') {
+      setUserTenantId(''); // Laisser vide pour les super admins
+      return;
+    }
+
+    // Pour les autres utilisateurs, récupérer le tenant_id
     const fetchUserTenant = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
         const { data: userProfile } = await supabase
           .from('users')
           .select('tenant_id')
-          .eq('id', user.id)
+          .eq('id', authUser.id)
           .single();
         
         if (userProfile?.tenant_id) {
@@ -44,7 +52,7 @@ export default function SendingDomainsPage() {
     };
     
     fetchUserTenant();
-  }, []);
+  }, [user]);
 
   const handleDomainCreated = (domainData: CreateDomainData, response: CreateDomainResponse) => {
     setSelectedDomainName(domainData.domain_name);
@@ -265,7 +273,8 @@ export default function SendingDomainsPage() {
         onClose={() => setIsCreateModalOpen(false)}
         onDomainCreated={handleDomainCreated}
         onCreateDomain={createDomain}
-        tenantId={userTenantId}
+        tenantId={userTenantId} // Peut être vide pour les super admins
+        isSuperAdmin={user?.role === 'super_admin'}
       />
 
       {selectedDnsRecords && (

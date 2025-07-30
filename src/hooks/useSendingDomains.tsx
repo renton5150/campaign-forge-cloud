@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,7 +8,7 @@ export type SendingDomain = Tables<'sending_domains'>;
 
 export interface CreateDomainData {
   domain_name: string;
-  tenant_id: string;
+  tenant_id?: string; // Rendre optionnel pour les super admins
   smtp_server_id?: string;
 }
 
@@ -76,9 +77,12 @@ export const useSendingDomains = () => {
     try {
       console.log('Creating sending domain:', domainData);
 
+      // Pour les super admins sans tenant_id, utiliser null
+      const tenantId = domainData.tenant_id || null;
+
       const { data, error } = await supabase.rpc('create_sending_domain', {
         p_domain_name: domainData.domain_name,
-        p_tenant_id: domainData.tenant_id
+        p_tenant_id: tenantId
       });
 
       if (error) {
@@ -91,10 +95,8 @@ export const useSendingDomains = () => {
         return null;
       }
 
-      // Conversion sécurisée de la réponse
       const result = data as unknown as CreateDomainResponse;
 
-      // Vérifier que la réponse a la structure attendue
       if (!result || typeof result !== 'object' || typeof result.success !== 'boolean') {
         console.error('Invalid response structure:', result);
         toast({
@@ -116,7 +118,6 @@ export const useSendingDomains = () => {
 
             if (linkError) {
               console.error('Error linking domain to SMTP server:', linkError);
-              // Ne pas bloquer la création du domaine pour cette erreur
             } else {
               console.log('Domain successfully linked to SMTP server');
             }
@@ -127,7 +128,7 @@ export const useSendingDomains = () => {
 
         toast({
           title: "Domaine créé",
-          description: "Le domaine d'envoi a été créé et lié au serveur SMTP avec succès.",
+          description: "Le domaine d'envoi a été créé avec succès.",
         });
         await loadDomains();
         return result;
