@@ -1,4 +1,3 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,10 +123,10 @@ export default function SmtpConfigurationModal({
                       </SelectTrigger>
                       <SelectContent>
                         {verifiedDomains.map((domain) => (
-                          <SelectItem key={domain.id} value={domain.domain_name}>
+                          <SelectItem key={domain.id} value={domain.domain}>
                             <div className="flex items-center space-x-2">
                               <CheckCircle className="h-4 w-4 text-green-600" />
-                              <span>{domain.domain_name}</span>
+                              <span>{domain.domain}</span>
                             </div>
                           </SelectItem>
                         ))}

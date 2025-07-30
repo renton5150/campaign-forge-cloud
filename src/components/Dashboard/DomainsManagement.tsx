@@ -399,6 +399,13 @@ const DomainsManagement = () => {
   const showDNSInstructions = (domain: Domain) => {
     console.log('📋 AFFICHAGE INSTRUCTIONS DNS POUR:', domain);
     
+    // Mapper Domain vers SendingDomainWithDNS pour compatibilité
+    const mappedDomain = {
+      ...domain,
+      domain: domain.domain_name, // Mapper domain_name vers domain
+      status: domain.verified ? 'verified' : (domain.dkim_status as string || 'pending')
+    };
+    
     // Vérifier si on a la config SMTP pour ce domaine
     const smtpConfig = smtpConfigs[domain.domain_name];
     if (smtpConfig && domain.dkim_selector && domain.dkim_public_key) {
@@ -421,7 +428,7 @@ const DomainsManagement = () => {
       }
     }
     
-    setSelectedDomain(domain);
+    setSelectedDomain(mappedDomain);
     setDnsModalOpen(true);
   };
 
