@@ -1,4 +1,3 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useState } from 'react';
 import { CreateDomainData } from '@/hooks/useSendingDomains';
-import { SmtpConfigurationModal } from './SmtpConfigurationModal';
+import SmtpConfigurationModal from './SmtpConfigurationModal';
 
 interface SmtpConfig {
   provider: string;
