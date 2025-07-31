@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -74,12 +75,14 @@ export const useSendingDomains = () => {
   });
 
   const createDomainMutation = useMutation({
-    mutationFn: async (domainData: CreateDomainData) => {
-      console.log('Creating domain:', domainData);
-      const { data, error } = await supabase
+    mutationFn: async ({ domainData, smtpServerId }: { domainData: CreateDomainData; smtpServerId?: string }) => {
+      console.log('Creating domain:', domainData, 'with SMTP server:', smtpServerId);
+      
+      // Créer le domaine
+      const { data: newDomain, error: domainError } = await supabase
         .from('sending_domains')
         .insert({
-          domain_name: domainData.domain, // Utiliser domain_name pour la BDD
+          domain_name: domainData.domain,
           status: 'pending',
           dkim_status: 'pending',
           spf_status: 'pending',
@@ -89,15 +92,35 @@ export const useSendingDomains = () => {
         .select()
         .single();
 
-      if (error) {
-        console.error('Error creating domain:', error);
-        throw error;
+      if (domainError) {
+        console.error('Error creating domain:', domainError);
+        throw domainError;
       }
 
-      return data;
+      // Si un serveur SMTP est sélectionné, le rattacher au domaine
+      if (smtpServerId && newDomain) {
+        console.log('Attaching SMTP server to domain...');
+        const { error: smtpError } = await supabase
+          .from('smtp_servers')
+          .update({
+            sending_domain_id: newDomain.id
+          })
+          .eq('id', smtpServerId);
+
+        if (smtpError) {
+          console.error('Error attaching SMTP server:', smtpError);
+          // Ne pas faire échouer la création du domaine si l'attachement SMTP échoue
+          toast.error('Domaine créé mais impossible de rattacher le serveur SMTP');
+        } else {
+          console.log('SMTP server attached successfully');
+        }
+      }
+
+      return newDomain;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sending-domains'] });
+      queryClient.invalidateQueries({ queryKey: ['smtp-servers'] }); // Invalider aussi les serveurs SMTP
       toast.success('Domaine créé avec succès');
     },
     onError: (error: any) => {
@@ -178,7 +201,8 @@ export const useSendingDomains = () => {
     domains,
     isLoading,
     error,
-    createDomain: createDomainMutation.mutateAsync,
+    createDomain: (domainData: CreateDomainData, smtpServerId?: string) => 
+      createDomainMutation.mutateAsync({ domainData, smtpServerId }),
     verifyDomain: verifyDomainMutation.mutateAsync,
     deleteDomain: deleteDomainMutation.mutateAsync,
     isCreating: createDomainMutation.isPending,
