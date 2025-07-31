@@ -1,19 +1,34 @@
+
 import { useState } from 'react';
 import { useSendingDomains } from '@/hooks/useSendingDomains';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Shield, CheckCircle, XCircle, Clock, RefreshCw } from 'lucide-react';
+import { Plus, Shield, CheckCircle, XCircle, Clock, RefreshCw, Trash2 } from 'lucide-react';
 import { CreateDomainModal } from './CreateDomainModal';
+import { DeleteDomainModal } from './DeleteDomainModal';
 import { DNSInstructionsModal } from './DNSInstructionsModal';
 import { DNSStatusBadges } from './DNSStatusBadges';
 
+interface SmtpConfig {
+  provider: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  apiKey?: string;
+  fromEmail: string;
+  fromName: string;
+}
+
 const SendingDomainsPage = () => {
-  const { domains, isLoading, createDomain, verifyDomain, deleteDomain, isCreating, isVerifying } = useSendingDomains();
+  const { domains, isLoading, createDomain, verifyDomain, deleteDomain, isCreating, isVerifying, isDeleting } = useSendingDomains();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDNSModal, setShowDNSModal] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<any>(null);
+  const [domainToDelete, setDomainToDelete] = useState<any>(null);
 
   // Calculer les statistiques
   const totalDomains = domains.length;
@@ -21,8 +36,12 @@ const SendingDomainsPage = () => {
   const pendingDomains = domains.filter(d => d.status === 'pending').length;
   const failedDomains = domains.filter(d => d.status === 'failed').length;
 
-  const handleCreateDomain = async (domainData: any) => {
+  const handleCreateDomain = async (domainData: any, smtpConfig?: SmtpConfig) => {
     try {
+      if (smtpConfig) {
+        console.log('Creating domain with SMTP config:', { domainData, smtpConfig });
+        // TODO: Implement SMTP-aware domain creation
+      }
       await createDomain(domainData);
       setShowCreateModal(false);
     } catch (error) {
@@ -38,9 +57,26 @@ const SendingDomainsPage = () => {
     }
   };
 
+  const handleDeleteDomain = async () => {
+    if (!domainToDelete) return;
+    
+    try {
+      await deleteDomain(domainToDelete.id);
+      setShowDeleteModal(false);
+      setDomainToDelete(null);
+    } catch (error) {
+      console.error('Error deleting domain:', error);
+    }
+  };
+
   const handleShowDNS = (domain: any) => {
     setSelectedDomain(domain);
     setShowDNSModal(true);
+  };
+
+  const handleShowDeleteModal = (domain: any) => {
+    setDomainToDelete(domain);
+    setShowDeleteModal(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -175,6 +211,7 @@ const SendingDomainsPage = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleShowDNS(domain)}
+                          title="Instructions DNS"
                         >
                           DNS
                         </Button>
@@ -183,9 +220,20 @@ const SendingDomainsPage = () => {
                           size="sm"
                           onClick={() => handleVerifyDomain(domain.id)}
                           disabled={isVerifying}
+                          title="Vérifier le domaine"
                         >
-                          <RefreshCw className="w-3 h-3 mr-1" />
+                          <RefreshCw className={`w-3 h-3 mr-1 ${isVerifying ? 'animate-spin' : ''}`} />
                           Vérifier
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleShowDeleteModal(domain)}
+                          disabled={isDeleting}
+                          title="Supprimer le domaine"
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
                     </TableCell>
@@ -203,6 +251,19 @@ const SendingDomainsPage = () => {
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateDomain}
       />
+
+      {domainToDelete && (
+        <DeleteDomainModal
+          open={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDomainToDelete(null);
+          }}
+          onConfirm={handleDeleteDomain}
+          domainName={domainToDelete.domain}
+          isDeleting={isDeleting}
+        />
+      )}
 
       <DNSInstructionsModal
         open={showDNSModal}
