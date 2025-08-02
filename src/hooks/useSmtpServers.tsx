@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -31,27 +30,98 @@ export const useSmtpServers = () => {
 
   const loadServers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('smtp_servers')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading SMTP servers:', error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger les serveurs d'envoi.",
-          variant: "destructive",
-        });
+      console.log('🔍 [DEBUG] Début du chargement des serveurs SMTP...');
+      
+      // Vérifier l'authentification
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('🔍 [DEBUG] Utilisateur authentifié:', user?.id, userError);
+      
+      if (userError || !user) {
+        console.error('❌ [DEBUG] Utilisateur non authentifié:', userError);
+        setServers([]);
+        setLoading(false);
         return;
       }
 
-      setServers(data || []);
+      // Récupérer le profil utilisateur pour le tenant_id et role
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('tenant_id, role')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('🔍 [DEBUG] Profil utilisateur:', userProfile, profileError);
+
+      if (profileError) {
+        console.error('❌ [DEBUG] Erreur profil utilisateur:', profileError);
+        toast({
+          title: "Erreur",
+          description: "Impossible de récupérer le profil utilisateur.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Tentative 1: Récupération avec filtrage par tenant (si pas super_admin)
+      let query = supabase.from('smtp_servers').select('*');
+      
+      if (userProfile?.role !== 'super_admin') {
+        console.log('🔍 [DEBUG] Utilisateur normal, filtrage par tenant_id:', userProfile?.tenant_id);
+        query = query.eq('tenant_id', userProfile?.tenant_id);
+      } else {
+        console.log('🔍 [DEBUG] Super admin, récupération de tous les serveurs');
+      }
+
+      const { data: servers1, error: error1 } = await query.order('created_at', { ascending: false });
+      
+      console.log('🔍 [DEBUG] Résultat requête 1 (avec filtrage):', {
+        servers: servers1,
+        error: error1,
+        count: servers1?.length || 0
+      });
+
+      if (error1) {
+        console.error('❌ [DEBUG] Erreur requête 1:', error1);
+        
+        // Tentative 2: Récupération sans filtrage pour diagnostiquer
+        console.log('🔍 [DEBUG] Tentative 2: récupération sans filtrage...');
+        const { data: serversAll, error: errorAll } = await supabase
+          .from('smtp_servers')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        console.log('🔍 [DEBUG] Résultat requête 2 (sans filtrage):', {
+          servers: serversAll,
+          error: errorAll,
+          count: serversAll?.length || 0
+        });
+
+        if (serversAll && serversAll.length > 0) {
+          console.log('🔍 [DEBUG] Serveurs trouvés sans filtrage, problème de RLS détecté');
+          toast({
+            title: "Problème de permissions détecté",
+            description: `${serversAll.length} serveur(s) trouvé(s) mais non accessible(s). Problème de sécurité RLS.`,
+            variant: "destructive",
+          });
+        }
+
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les serveurs d'envoi: " + error1.message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ [DEBUG] Serveurs chargés avec succès:', servers1?.length || 0);
+      setServers(servers1 || []);
     } catch (error) {
-      console.error('Error loading SMTP servers:', error);
+      console.error('💥 [DEBUG] Erreur dans loadServers:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de charger les serveurs d'envoi.",
+        description: "Erreur inattendue lors du chargement des serveurs.",
         variant: "destructive",
       });
     } finally {
@@ -61,6 +131,8 @@ export const useSmtpServers = () => {
 
   const createServer = async (serverData: SmtpServerFormData) => {
     try {
+      console.log('🔍 [DEBUG] Création serveur SMTP:', serverData);
+      
       // Récupérer l'utilisateur authentifié
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
