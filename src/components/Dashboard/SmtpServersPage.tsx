@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSmtpServers, SmtpServer } from '@/hooks/useSmtpServers';
 import { useSendingDomains } from '@/hooks/useSendingDomains';
 import { useToast } from '@/hooks/use-toast';
-import { Edit, Trash2, Plus, TestTube, Mail, Link2, AlertTriangle } from 'lucide-react';
+import { Edit, Trash2, Plus, TestTube, Mail, Link2 } from 'lucide-react';
 import SmtpConfigurationModal from './SmtpConfigurationModal';
 import SmtpConnectionDiagnostic from './SmtpConnectionDiagnostic';
 import SmtpTestEmailModal from './SmtpTestEmailModal';
-import { supabase } from '@/integrations/supabase/client';
 
 export default function SmtpServersPage() {
   const { servers, loading, createServer, updateServer, deleteServer } = useSmtpServers();
@@ -19,56 +19,17 @@ export default function SmtpServersPage() {
   const [selectedServer, setSelectedServer] = useState<SmtpServer | undefined>();
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-
-  // Debug effect to monitor servers state
-  useEffect(() => {
-    console.log('🔍 [UI DEBUG] SmtpServersPage - État des serveurs:', {
-      servers,
-      loading,
-      serversCount: servers?.length || 0,
-      serversData: servers
-    });
-    
-    // Récupérer des infos de debug supplémentaires
-    const getDebugInfo = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('tenant_id, role')
-          .eq('id', user?.id)
-          .single();
-        
-        setDebugInfo({
-          user: user?.id,
-          tenant_id: userProfile?.tenant_id,
-          role: userProfile?.role,
-          serversCount: servers?.length || 0,
-          loadingState: loading
-        });
-      } catch (error) {
-        console.error('Debug info error:', error);
-      }
-    };
-
-    if (!loading) {
-      getDebugInfo();
-    }
-  }, [servers, loading]);
 
   const getLinkedDomain = (serverId: string) => {
     return domains.find(domain => domain.id === serverId);
   };
 
   const handleEdit = (server: SmtpServer) => {
-    console.log('Edit button clicked for server:', server);
     setSelectedServer(server);
     setIsModalOpen(true);
   };
 
   const handleCreate = () => {
-    console.log('Create button clicked');
     setSelectedServer(undefined);
     setIsModalOpen(true);
   };
@@ -104,7 +65,6 @@ export default function SmtpServersPage() {
   };
 
   const handleCloseModal = () => {
-    console.log('Modal close requested');
     setIsModalOpen(false);
     setSelectedServer(undefined);
   };
@@ -149,33 +109,6 @@ export default function SmtpServersPage() {
           Ajouter un serveur
         </Button>
       </div>
-
-      {/* Debug Panel - Visible seulement si aucun serveur n'est trouvé */}
-      {debugInfo && servers.length === 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-yellow-800">
-              <AlertTriangle className="h-5 w-5" />
-              Informations de diagnostic
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-yellow-700"><strong>Utilisateur ID:</strong> {debugInfo.user}</p>
-                <p className="text-yellow-700"><strong>Tenant ID:</strong> {debugInfo.tenant_id || 'Non défini'}</p>
-              </div>
-              <div>
-                <p className="text-yellow-700"><strong>Rôle:</strong> {debugInfo.role}</p>
-                <p className="text-yellow-700"><strong>Serveurs trouvés:</strong> {debugInfo.serversCount}</p>
-              </div>
-            </div>
-            <div className="mt-4 p-3 bg-yellow-100 rounded border border-yellow-300">
-              <p className="text-yellow-800 font-medium">🔍 Vérifiez les logs de la console pour plus de détails sur le problème de chargement.</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="grid gap-6">
         {servers.map((server) => {
