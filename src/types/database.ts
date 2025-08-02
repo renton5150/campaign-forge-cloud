@@ -1,3 +1,4 @@
+
 export type UserRole = 'super_admin' | 'tenant_admin' | 'tenant_growth' | 'tenant_sdr';
 export type TenantStatus = 'active' | 'inactive' | 'suspended';
 export type DomainVerificationStatus = 'pending' | 'verified' | 'failed';
@@ -300,7 +301,7 @@ export interface BlacklistList {
   updated_at: string;
 }
 
-// Types pour le système d'email queue
+// Types pour le système d'email queue - SIMPLIFIÉS POUR CORRIGER LES ERREURS
 export type EmailQueueStatus = 'pending' | 'processing' | 'sent' | 'failed' | 'bounced';
 
 export interface EmailQueue {
@@ -345,7 +346,7 @@ export interface EmailToSend {
   message_id: string;
 }
 
-// Types pour les résultats de fonctions RPC
+// Types pour les résultats de fonctions RPC - SIMPLIFIÉS
 export interface QueueCampaignResult {
   success: boolean;
   queued_emails: number;

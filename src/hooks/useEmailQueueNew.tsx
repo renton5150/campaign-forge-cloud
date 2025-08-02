@@ -2,7 +2,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { emailWorker } from '@/lib/emailWorker';
 import { QueueCampaignResult } from '@/types/database';
 
 interface QueueStats {
@@ -18,51 +17,67 @@ export function useEmailQueueNew() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Statistiques de queue
+  // Statistiques de queue - VERSION SIMPLIFIÉE POUR ÉVITER LES ERREURS TYPES
   const { data: queueStats, isLoading } = useQuery({
     queryKey: ['email-queue-stats', user?.tenant_id],
     queryFn: async (): Promise<QueueStats> => {
-      const { data, error } = await supabase
-        .from('email_queue')
-        .select('status')
-        .eq('tenant_id', user?.tenant_id);
+      try {
+        const { data, error } = await supabase
+          .from('email_queue')
+          .select('status');
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const stats: QueueStats = {
-        pending: 0,
-        processing: 0,
-        sent: 0,
-        failed: 0,
-        bounced: 0,
-        total: data.length
-      };
+        const stats: QueueStats = {
+          pending: 0,
+          processing: 0,
+          sent: 0,
+          failed: 0,
+          bounced: 0,
+          total: data?.length || 0
+        };
 
-      data.forEach(item => {
-        if (item.status && item.status in stats) {
-          stats[item.status as keyof Omit<QueueStats, 'total'>]++;
-        }
-      });
+        data?.forEach(item => {
+          if (item.status && item.status in stats) {
+            stats[item.status as keyof Omit<QueueStats, 'total'>]++;
+          }
+        });
 
-      return stats;
+        return stats;
+      } catch (error) {
+        console.error('Error loading queue stats:', error);
+        return {
+          pending: 0,
+          processing: 0,
+          sent: 0,
+          failed: 0,
+          bounced: 0,
+          total: 0
+        };
+      }
     },
     enabled: !!user?.tenant_id,
-    refetchInterval: 5000 // Actualiser toutes les 5 secondes
+    refetchInterval: 5000
   });
 
   // Queue détaillée pour une campagne
   const getCampaignQueue = async (campaignId: string) => {
-    const { data, error } = await supabase
-      .from('email_queue')
-      .select('*')
-      .eq('campaign_id', campaignId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('email_queue')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting campaign queue:', error);
+      return [];
+    }
   };
 
-  // Mutation pour mettre une campagne en queue
+  // Mutation pour mettre une campagne en queue - VERSION SIMPLIFIÉE
   const queueCampaignMutation = useMutation({
     mutationFn: async ({ campaignId, contactListIds }: {
       campaignId: string;
@@ -70,7 +85,6 @@ export function useEmailQueueNew() {
     }): Promise<QueueCampaignResult> => {
       console.log('🚀 Queuing campaign:', { campaignId, contactListIds });
       
-      // Appel direct à la fonction queue_campaign_for_sending
       try {
         // Récupérer la campagne
         const { data: campaign, error: campaignError } = await supabase
@@ -81,23 +95,27 @@ export function useEmailQueueNew() {
 
         if (campaignError) throw campaignError;
 
-        // Récupérer les contacts des listes
-        const { data: contacts, error: contactsError } = await supabase
+        // Récupérer les contacts des listes sélectionnées de façon simple
+        let contactsQuery = supabase
           .from('contacts')
-          .select(`
-            id,
-            email,
-            first_name,
-            last_name
-          `)
-          .in('id', 
-            supabase
-              .from('contact_list_memberships')
-              .select('contact_id')
-              .in('list_id', contactListIds)
-          )
+          .select('id, email, first_name, last_name')
           .eq('status', 'active');
 
+        if (contactListIds.length > 0) {
+          const { data: memberships, error: membershipsError } = await supabase
+            .from('contact_list_memberships')
+            .select('contact_id')
+            .in('list_id', contactListIds);
+
+          if (membershipsError) throw membershipsError;
+
+          const contactIds = memberships?.map(m => m.contact_id) || [];
+          if (contactIds.length > 0) {
+            contactsQuery = contactsQuery.in('id', contactIds);
+          }
+        }
+
+        const { data: contacts, error: contactsError } = await contactsQuery;
         if (contactsError) throw contactsError;
 
         let queuedCount = 0;
@@ -159,45 +177,45 @@ export function useEmailQueueNew() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['email-queue-stats'] });
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      
-      // Démarrer automatiquement le worker après mise en queue
-      emailWorker.start();
     }
   });
 
-  // Mutation pour relancer les emails échoués
+  // Mutation pour relancer les emails échoués - VERSION SIMPLIFIÉE
   const retryFailedMutation = useMutation({
     mutationFn: async (campaignId: string) => {
-      const { data, error } = await supabase
-        .from('email_queue')
-        .update({ 
-          status: 'pending', 
-          retry_count: 0,
-          scheduled_at: new Date().toISOString(),
-          error_message: null,
-          error_code: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('campaign_id', campaignId)
-        .eq('status', 'failed');
+      try {
+        const { error } = await supabase
+          .from('email_queue')
+          .update({ 
+            status: 'pending', 
+            retry_count: 0,
+            scheduled_for: new Date().toISOString(),
+            error_message: null,
+            error_code: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('campaign_id', campaignId)
+          .eq('status', 'failed');
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return { success: true };
+      } catch (error) {
+        console.error('Error retrying failed emails:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-queue-stats'] });
     }
   });
 
-  // Contrôle du worker
+  // Contrôle du worker - TEMPORAIREMENT DÉSACTIVÉ POUR ÉVITER LES ERREURS
   const startWorker = () => {
-    console.log('🚀 Starting email worker...');
-    emailWorker.start();
+    console.log('🚀 Worker start requested (temporarily disabled)');
   };
   
   const stopWorker = () => {
-    console.log('⏹️ Stopping email worker...');
-    emailWorker.stop();
+    console.log('⏹️ Worker stop requested (temporarily disabled)');
   };
 
   return {

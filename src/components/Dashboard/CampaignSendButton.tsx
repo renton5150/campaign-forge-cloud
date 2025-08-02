@@ -8,7 +8,7 @@ import { Send, Loader2 } from 'lucide-react';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useEmailQueueNew } from '@/hooks/useEmailQueueNew';
 import { useToast } from '@/hooks/use-toast';
-import { Campaign, QueueCampaignResult } from '@/types/database';
+import { Campaign } from '@/types/database';
 
 interface CampaignSendButtonProps {
   campaign: Campaign;
@@ -32,22 +32,27 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
     }
 
     try {
-      const result: QueueCampaignResult = await queueCampaign({
+      const result = await queueCampaign({
         campaignId: campaign.id,
         contactListIds: selectedLists
       });
 
+      // Accès sécurisé aux propriétés du résultat
+      const queuedEmails = result?.queued_emails || 0;
+      const message = result?.message || `${queuedEmails} emails ajoutés à la queue d'envoi`;
+
       toast({
         title: "✅ Campagne mise en queue",
-        description: `${result.queued_emails} emails ajoutés à la queue d'envoi`,
+        description: message,
       });
 
       setIsDialogOpen(false);
       setSelectedLists([]);
     } catch (error: any) {
+      console.error('Error sending campaign:', error);
       toast({
         title: "Erreur",
-        description: error.message || "Erreur lors de la mise en queue",
+        description: error?.message || "Erreur lors de la mise en queue",
         variant: "destructive",
       });
     }
