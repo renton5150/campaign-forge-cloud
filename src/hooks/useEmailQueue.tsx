@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -101,68 +100,29 @@ export function useEmailQueue() {
       htmlContent: string; 
       contactListIds: string[];
       blacklistListIds?: string[];
-    }): Promise<{ queued: number; uniqueContacts: number; cleaningResult: ContactCleaningResult }> => {
+    }) => {
       
-      console.log('🚀 Début de l\'envoi de campagne avec personnalisation');
+      console.log('🚀 Début de l\'envoi de campagne via nouvelle queue');
       
-      // Nettoyer les contacts avec la blacklist
-      const cleaningResult = await cleanContactsForCampaign(
-        contactListIds,
-        blacklistListIds,
-        user?.tenant_id || null
-      );
-
-      if (cleaningResult.cleanedContacts.length === 0) {
-        throw new Error('Aucun contact valide trouvé après nettoyage de la blacklist');
-      }
-
-      console.log(`📧 Préparation de ${cleaningResult.cleanedContacts.length} emails personnalisés`);
-
-      // Créer les entrées en queue avec les contacts nettoyés et personnalisés
-      const timestamp = new Date().getTime();
-      const queueEntries = cleaningResult.cleanedContacts.map((contact, index) => {
-        const contactName = contact.first_name || contact.last_name 
-          ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
-          : null;
-
-        // Préparer les données de personnalisation
-        const personalizationData = prepareContactPersonalizationData(contact);
-
-        // Personnaliser l'objet et le contenu
-        const personalizedSubject = replaceVariables(subject, personalizationData, '');
-        const personalizedHtmlContent = replaceVariables(htmlContent, personalizationData, '');
-
-        console.log(`📝 Personnalisation pour ${contact.email}:`, {
-          originalSubject: subject,
-          personalizedSubject,
-          hasCustomFields: Object.keys(personalizationData.custom_fields || {}).length > 0
-        });
-
-        return {
-          campaign_id: campaignId,
-          contact_email: contact.email,
-          contact_name: contactName,
-          subject: personalizedSubject,
-          html_content: personalizedHtmlContent,
-          message_id: `${campaignId}-${contact.email}-${timestamp}-${index}`,
-          status: 'pending' as const,
-          scheduled_for: new Date().toISOString(),
-        };
+      // Utiliser la nouvelle fonction de mise en queue
+      const { data, error } = await supabase.rpc('queue_campaign_for_sending', {
+        p_campaign_id: campaignId,
+        p_contact_list_ids: contactListIds
       });
-
-      const { data, error } = await supabase
-        .from('email_queue')
-        .insert(queueEntries)
-        .select();
 
       if (error) throw error;
 
-      console.log('✅ Campagne personnalisée mise en queue avec succès');
+      console.log('✅ Campagne mise en queue avec succès:', data);
 
       return {
-        queued: queueEntries.length,
-        uniqueContacts: cleaningResult.cleanedContacts.length,
-        cleaningResult
+        queued: data.queued_emails,
+        uniqueContacts: data.queued_emails,
+        cleaningResult: {
+          cleanedContacts: [],
+          totalOriginalContacts: data.queued_emails,
+          blacklistedEmails: [],
+          duplicateEmails: data.duplicates_skipped || 0
+        }
       };
     },
     onSuccess: (result) => {

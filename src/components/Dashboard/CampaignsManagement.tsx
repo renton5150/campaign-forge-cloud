@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { CampaignsHeader } from './CampaignsList/CampaignsHeader';
 import { CampaignsStats } from './CampaignsList/CampaignsStats';
 import { CampaignsTable } from './CampaignsList/CampaignsTable';
+import { EmailQueueMonitor } from './EmailQueueMonitor';
 
 export default function CampaignsManagement() {
   const { campaigns, isLoading } = useCampaigns();
@@ -144,6 +144,7 @@ export default function CampaignsManagement() {
         </TabsContent>
 
         <TabsContent value="queue" className="space-y-4">
+          <EmailQueueMonitor />
           <EmailQueueDashboard campaignId={selectedCampaign?.id} />
         </TabsContent>
 

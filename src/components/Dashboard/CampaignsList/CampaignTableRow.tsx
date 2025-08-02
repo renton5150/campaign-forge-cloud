@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +8,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Campaign } from '@/types/database';
 import DeleteCampaignModal from './DeleteCampaignModal';
+import { CampaignSendButton } from '../CampaignSendButton';
 
 interface CampaignTableRowProps {
   campaign: Campaign & {
@@ -107,39 +107,42 @@ export default function CampaignTableRow({
         </TableCell>
         
         <TableCell>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(campaign)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Modifier
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onViewStats(campaign)}>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Statistiques
-              </DropdownMenuItem>
-              {hasFailedEmails && onRetryFailed && (
-                <DropdownMenuItem 
-                  onClick={() => onRetryFailed(campaign.id)}
-                  disabled={isRetrying}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
-                  Relancer les échecs
+          <div className="flex items-center gap-2">
+            <CampaignSendButton campaign={campaign} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(campaign)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Modifier
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem 
-                onClick={() => setShowDeleteModal(true)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem onClick={() => onViewStats(campaign)}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Statistiques
+                </DropdownMenuItem>
+                {hasFailedEmails && onRetryFailed && (
+                  <DropdownMenuItem 
+                    onClick={() => onRetryFailed(campaign.id)}
+                    disabled={isRetrying}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
+                    Relancer les échecs
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem 
+                  onClick={() => setShowDeleteModal(true)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Supprimer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </TableCell>
       </TableRow>
 
