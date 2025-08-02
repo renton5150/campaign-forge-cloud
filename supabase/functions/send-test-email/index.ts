@@ -1,5 +1,5 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,111 +16,14 @@ interface SMTPConfig {
   from_name: string
 }
 
-// Validation pour serveurs 7tic/OVH
-function validateSmtpConfig(config: SMTPConfig): { valid: boolean; error?: string } {
-  // Validation spécifique pour 7tic/OVH
-  if (config.host.includes('ovh.net') || config.host.includes('7tic')) {
-    // Pour 7tic/OVH, l'email d'expédition doit correspondre au compte configuré
-    if (!config.from_email || !config.from_email.includes('@')) {
-      return {
-        valid: false,
-        error: 'Adresse email d\'expédition invalide pour le serveur 7tic/OVH'
-      }
-    }
-    
-    // Vérifier que username et from_email correspondent (cas courant avec 7tic)
-    if (config.username !== config.from_email) {
-      console.log(`Attention: Username (${config.username}) diffère de from_email (${config.from_email}) sur serveur 7tic/OVH`)
-    }
-  }
-  
-  return { valid: true }
-}
-
-// Fonction pour l'authentification PLAIN
-async function authPlain(socket: Deno.TcpConn, encoder: TextEncoder, decoder: TextDecoder, username: string, password: string): Promise<boolean> {
-  const sendCommand = async (command: string): Promise<string> => {
-    console.log(`>>> ${command}`)
-    await socket.write(encoder.encode(command + "\r\n"))
-    const buffer = new Uint8Array(1024)
-    const n = await socket.read(buffer)
-    if (n === null) throw new Error("Connexion fermée par le serveur")
-    const response = decoder.decode(buffer.subarray(0, n)).trim()
-    console.log(`<<< ${response}`)
-    return response
-  }
-
-  try {
-    const authResponse = await sendCommand('AUTH PLAIN')
-    if (!authResponse.startsWith('334')) {
-      return false
-    }
-    
-    // Créer la chaîne d'authentification PLAIN: \0username\0password
-    const authString = `\0${username}\0${password}`
-    const authB64 = btoa(authString)
-    
-    const finalResponse = await sendCommand(authB64)
-    return finalResponse.startsWith('235')
-  } catch (error) {
-    console.error('Erreur AUTH PLAIN:', error)
-    return false
-  }
-}
-
-// Fonction pour l'authentification LOGIN
-async function authLogin(socket: Deno.TcpConn, encoder: TextEncoder, decoder: TextDecoder, username: string, password: string): Promise<boolean> {
-  const sendCommand = async (command: string): Promise<string> => {
-    console.log(`>>> ${command}`)
-    await socket.write(encoder.encode(command + "\r\n"))
-    const buffer = new Uint8Array(1024)
-    const n = await socket.read(buffer)
-    if (n === null) throw new Error("Connexion fermée par le serveur")
-    const response = decoder.decode(buffer.subarray(0, n)).trim()
-    console.log(`<<< ${response}`)
-    return response
-  }
-
-  try {
-    const authResponse = await sendCommand('AUTH LOGIN')
-    if (!authResponse.startsWith('334')) {
-      return false
-    }
-    
-    // Encoder username en base64
-    const usernameB64 = btoa(username)
-    const userResponse = await sendCommand(usernameB64)
-    if (!userResponse.startsWith('334')) {
-      return false
-    }
-    
-    // Encoder password en base64
-    const passwordB64 = btoa(password)
-    const passResponse = await sendCommand(passwordB64)
-    return passResponse.startsWith('235')
-  } catch (error) {
-    console.error('Erreur AUTH LOGIN:', error)
-    return false
-  }
-}
-
-async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmail: boolean = true, htmlContent?: string, subject?: string) {
+async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmail: boolean = true) {
   let socket: Deno.TcpConn | null = null
+  const startTime = Date.now()
   
   try {
-    // Validation de la configuration
-    const validation = validateSmtpConfig(config)
-    if (!validation.valid) {
-      return {
-        success: false,
-        error: 'Configuration SMTP invalide',
-        details: validation.error
-      }
-    }
+    console.log(`🔌 [${Date.now() - startTime}ms] Connexion SMTP à ${config.host}:${config.port}`)
     
-    console.log(`Connexion SMTP à ${config.host}:${config.port}`)
-    
-    // Si ce n'est pas un envoi réel, faire juste un test de connexion
+    // Si ce n'est pas un envoi réel, faire juste un test de connexion simple
     if (!sendRealEmail) {
       socket = await Deno.connect({
         hostname: config.host,
@@ -133,9 +36,7 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmai
       if (n === null) throw new Error("Connexion fermée par le serveur")
       const welcome = decoder.decode(buffer.subarray(0, n))
       
-      if (!welcome.startsWith('220')) {
-        throw new Error(`Erreur de connexion SMTP: ${welcome}`)
-      }
+      console.log(`✅ [${Date.now() - startTime}ms] Test de connexion réussi: ${welcome.trim()}`)
       
       return {
         success: true,
@@ -143,7 +44,7 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmai
         details: {
           server: `${config.host}:${config.port}`,
           response: welcome.trim(),
-          type: 'connection_test'
+          duration_ms: Date.now() - startTime
         }
       }
     }
@@ -157,41 +58,47 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmai
     const encoder = new TextEncoder()
     const decoder = new TextDecoder()
     
-    // Fonction pour lire les réponses SMTP
-    const readResponse = async (): Promise<string> => {
+    // Fonction pour lire les réponses SMTP avec timeout
+    const readResponse = async (timeoutMs: number = 10000): Promise<string> => {
       const buffer = new Uint8Array(1024)
-      const n = await socket!.read(buffer)
+      
+      const readPromise = socket!.read(buffer)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Timeout de lecture SMTP (${timeoutMs}ms)`)), timeoutMs)
+      })
+      
+      const n = await Promise.race([readPromise, timeoutPromise])
       if (n === null) throw new Error("Connexion fermée par le serveur")
       return decoder.decode(buffer.subarray(0, n))
     }
     
-    // Fonction pour envoyer des commandes SMTP
-    const sendCommand = async (command: string): Promise<string> => {
-      console.log(`>>> ${command}`)
+    // Fonction pour envoyer des commandes SMTP avec timeout
+    const sendCommand = async (command: string, timeoutMs: number = 10000): Promise<string> => {
+      console.log(`📤 [${Date.now() - startTime}ms] >>> ${command}`)
       await socket!.write(encoder.encode(command + "\r\n"))
-      const response = await readResponse()
-      console.log(`<<< ${response.trim()}`)
+      const response = await readResponse(timeoutMs)
+      console.log(`📥 [${Date.now() - startTime}ms] <<< ${response.trim()}`)
       return response.trim()
     }
     
     // 1. Lire le message de bienvenue
-    const welcome = await readResponse()
-    console.log(`<<< ${welcome.trim()}`)
+    const welcome = await readResponse(5000)
+    console.log(`📥 [${Date.now() - startTime}ms] <<< ${welcome.trim()}`)
     
     if (!welcome.startsWith('220')) {
       throw new Error(`Erreur de connexion SMTP: ${welcome}`)
     }
     
-    // 2. EHLO avec nom de domaine correct
+    // 2. EHLO
     const domain = config.from_email.split('@')[1] || config.host
-    const ehloResponse = await sendCommand(`EHLO ${domain}`)
+    const ehloResponse = await sendCommand(`EHLO ${domain}`, 5000)
     if (!ehloResponse.startsWith('250')) {
       throw new Error(`Erreur EHLO: ${ehloResponse}`)
     }
     
     // 3. STARTTLS si supporté
     if (ehloResponse.includes('STARTTLS')) {
-      const tlsResponse = await sendCommand('STARTTLS')
+      const tlsResponse = await sendCommand('STARTTLS', 5000)
       if (!tlsResponse.startsWith('220')) {
         throw new Error(`Erreur STARTTLS: ${tlsResponse}`)
       }
@@ -200,150 +107,130 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmai
       socket = await Deno.startTls(socket, { hostname: config.host })
       
       // Nouveau EHLO après TLS
-      const ehloTlsResponse = await sendCommand(`EHLO ${domain}`)
+      const ehloTlsResponse = await sendCommand(`EHLO ${domain}`, 5000)
       if (!ehloTlsResponse.startsWith('250')) {
         throw new Error(`Erreur EHLO après TLS: ${ehloTlsResponse}`)
       }
     }
     
-    // 4. Authentification avec méthodes multiples
-    console.log('Début de l\'authentification...')
+    // 4. Authentification AUTH PLAIN ou LOGIN
+    console.log(`🔐 [${Date.now() - startTime}ms] Début de l'authentification...`)
+    
     let authSuccess = false
     
-    // Tenter AUTH PLAIN d'abord pour les serveurs OVH/7tic
-    if (config.host.includes('ovh.net') || config.host.includes('7tic')) {
-      console.log('Tentative AUTH PLAIN pour serveur OVH/7tic...')
-      authSuccess = await authPlain(socket, encoder, decoder, config.username, config.password)
+    // Tenter AUTH PLAIN d'abord
+    try {
+      const authResponse = await sendCommand('AUTH PLAIN', 3000)
+      if (authResponse.startsWith('334')) {
+        const authString = `\0${config.username}\0${config.password}`
+        const authB64 = btoa(authString)
+        const finalResponse = await sendCommand(authB64, 5000)
+        authSuccess = finalResponse.startsWith('235')
+      }
+    } catch (e) {
+      console.log(`⚠️ AUTH PLAIN échoué: ${e.message}`)
     }
     
-    // Si AUTH PLAIN échoue ou n'est pas utilisé, tenter AUTH LOGIN
+    // Si AUTH PLAIN échoue, tenter AUTH LOGIN
     if (!authSuccess) {
-      console.log('Tentative AUTH LOGIN...')
-      authSuccess = await authLogin(socket, encoder, decoder, config.username, config.password)
+      try {
+        const authResponse = await sendCommand('AUTH LOGIN', 3000)
+        if (authResponse.startsWith('334')) {
+          const usernameB64 = btoa(config.username)
+          const userResponse = await sendCommand(usernameB64, 3000)
+          if (userResponse.startsWith('334')) {
+            const passwordB64 = btoa(config.password)
+            const passResponse = await sendCommand(passwordB64, 5000)
+            authSuccess = passResponse.startsWith('235')
+          }
+        }
+      } catch (e) {
+        console.log(`⚠️ AUTH LOGIN échoué: ${e.message}`)
+      }
     }
     
     if (!authSuccess) {
       throw new Error('Authentification échouée avec toutes les méthodes disponibles')
     }
     
-    console.log('Authentification réussie!')
+    console.log(`✅ [${Date.now() - startTime}ms] Authentification réussie!`)
     
-    // 5. MAIL FROM avec Return-Path
-    const mailFromResponse = await sendCommand(`MAIL FROM:<${config.from_email}>`)
+    // 5. MAIL FROM
+    const mailFromResponse = await sendCommand(`MAIL FROM:<${config.from_email}>`, 3000)
     if (!mailFromResponse.startsWith('250')) {
       throw new Error(`Erreur MAIL FROM: ${mailFromResponse}`)
     }
     
     // 6. RCPT TO
-    const rcptToResponse = await sendCommand(`RCPT TO:<${testEmail}>`)
+    const rcptToResponse = await sendCommand(`RCPT TO:<${testEmail}>`, 3000)
     if (!rcptToResponse.startsWith('250')) {
       throw new Error(`Erreur RCPT TO: ${rcptToResponse}`)
     }
     
     // 7. DATA
-    const dataResponse = await sendCommand('DATA')
+    const dataResponse = await sendCommand('DATA', 3000)
     if (!dataResponse.startsWith('354')) {
       throw new Error(`Erreur DATA: ${dataResponse}`)
     }
     
-    // 8. Contenu de l'email
+    // 8. Contenu de l'email simplifié
     const messageId = `<test-${Date.now()}@${domain}>`
     const date = new Date().toUTCString()
+    const testSubject = `Test SMTP - ${config.from_name}`
     
-    let emailContent: string[]
+    const emailContent = [
+      `Message-ID: ${messageId}`,
+      `Date: ${date}`,
+      `From: ${config.from_name} <${config.from_email}>`,
+      `To: ${testEmail}`,
+      `Subject: ${testSubject}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      ``,
+      `Test SMTP réussi !`,
+      ``,
+      `Ce message confirme que votre serveur SMTP ${config.host}:${config.port} fonctionne correctement.`,
+      ``,
+      `Configuration testée :`,
+      `- Serveur : ${config.host}:${config.port}`,
+      `- Utilisateur : ${config.username}`,
+      `- Expéditeur : ${config.from_email}`,
+      `- Date du test : ${date}`,
+      ``,
+      `Cordialement,`,
+      `${config.from_name}`,
+      `.`
+    ].join('\r\n') + '\r\n'
     
-    if (htmlContent && subject) {
-      // Email avec le template de la campagne
-      emailContent = [
-        `Return-Path: <${config.from_email}>`,
-        `Message-ID: ${messageId}`,
-        `Date: ${date}`,
-        `From: ${config.from_name} <${config.from_email}>`,
-        `To: ${testEmail}`,
-        `Reply-To: ${config.from_email}`,
-        `Subject: =?UTF-8?B?${btoa(subject)}?=`,
-        `MIME-Version: 1.0`,
-        `Content-Type: text/html; charset=UTF-8`,
-        `Content-Transfer-Encoding: 8bit`,
-        `X-Mailer: Campaign Test Client`,
-        `X-Priority: 3`,
-        ``,
-        htmlContent,
-        ``,
-        `.`
-      ]
-    } else {
-      // Email de test par défaut
-      const testSubject = sendRealEmail 
-        ? `Test SMTP - ${config.from_name}`
-        : 'Test de connexion SMTP'
-      
-      emailContent = [
-        `Return-Path: <${config.from_email}>`,
-        `Message-ID: ${messageId}`,
-        `Date: ${date}`,
-        `From: ${config.from_name} <${config.from_email}>`,
-        `To: ${testEmail}`,
-        `Reply-To: ${config.from_email}`,
-        `Subject: =?UTF-8?B?${btoa(testSubject)}?=`,
-        `MIME-Version: 1.0`,
-        `Content-Type: text/html; charset=UTF-8`,
-        `Content-Transfer-Encoding: 8bit`,
-        `X-Mailer: SMTP Test Client`,
-        `X-Priority: 3`,
-        ``,
-        `<!DOCTYPE html>`,
-        `<html>`,
-        `<head><meta charset="UTF-8"></head>`,
-        `<body>`,
-        `<h2>✅ Test SMTP réussi !</h2>`,
-        `<p>Félicitations ! Votre serveur SMTP <strong>${config.host}</strong> fonctionne correctement.</p>`,
-        `<hr>`,
-        `<h3>Configuration testée :</h3>`,
-        `<ul>`,
-        `<li><strong>Serveur :</strong> ${config.host}:${config.port}</li>`,
-        `<li><strong>Utilisateur :</strong> ${config.username}</li>`,
-        `<li><strong>Expéditeur :</strong> ${config.from_email}</li>`,
-        `<li><strong>Date du test :</strong> ${date}</li>`,
-        `</ul>`,
-        `<p><em>Si vous recevez cet email, votre configuration SMTP est opérationnelle.</em></p>`,
-        `<p>Cordialement,<br><strong>${config.from_name}</strong></p>`,
-        `</body>`,
-        `</html>`,
-        `.`
-      ]
-    }
-    
-    await socket.write(encoder.encode(emailContent.join('\r\n') + '\r\n'))
-    const sendResponse = await readResponse()
-    console.log(`<<< ${sendResponse.trim()}`)
+    await socket.write(encoder.encode(emailContent))
+    const sendResponse = await readResponse(10000)
+    console.log(`📥 [${Date.now() - startTime}ms] <<< ${sendResponse.trim()}`)
     
     if (!sendResponse.startsWith('250')) {
       throw new Error(`Erreur envoi email: ${sendResponse}`)
     }
     
     // 9. QUIT
-    await sendCommand('QUIT')
+    await sendCommand('QUIT', 3000)
     
-    const successMessage = sendRealEmail
-      ? `Email de test envoyé avec succès à ${testEmail}`
-      : `Test de connexion réussi`
+    const duration = Date.now() - startTime
+    console.log(`✅ [${duration}ms] Email de test envoyé avec succès`)
     
     return {
       success: true,
-      message: successMessage,
+      message: `Email de test envoyé avec succès à ${testEmail}`,
       details: {
         messageId,
         server: `${config.host}:${config.port}`,
         timestamp: date,
         from: config.from_email,
         to: testEmail,
-        type: sendRealEmail ? 'real_email' : 'connection_test'
+        duration_ms: duration
       }
     }
     
-  } catch (error) {
-    console.error('Erreur envoi SMTP:', error)
+  } catch (error: any) {
+    const duration = Date.now() - startTime
+    console.error(`❌ [${duration}ms] Erreur envoi SMTP:`, error.message)
     
     // Analyse des erreurs SMTP spécifiques
     const errorMessage = error.message || error.toString()
@@ -352,7 +239,7 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmai
       return {
         success: false,
         error: 'Limite SMTP dépassée',
-        details: `Le serveur SMTP ${config.host} a retourné une erreur 566 (limite dépassée). Veuillez attendre quelques minutes avant de retenter le test. Cette erreur est courante avec les serveurs qui limitent le nombre d'emails par minute.`
+        details: `Le serveur SMTP a retourné une erreur 566. Attendez quelques minutes avant de retenter.`
       }
     }
     
@@ -360,39 +247,15 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmai
       return {
         success: false,
         error: 'Authentification SMTP échouée',
-        details: 'Nom d\'utilisateur ou mot de passe incorrect. Vérifiez vos identifiants SMTP.'
+        details: 'Nom d\'utilisateur ou mot de passe incorrect.'
       }
     }
     
-    if (errorMessage.includes('550')) {
+    if (errorMessage.includes('Timeout')) {
       return {
         success: false,
-        error: 'Adresse email rejetée',
-        details: 'L\'adresse email de destination est rejetée par le serveur. Vérifiez l\'adresse email ou les restrictions du serveur.'
-      }
-    }
-    
-    if (errorMessage.includes('554')) {
-      return {
-        success: false,
-        error: 'Email rejeté par le serveur',
-        details: 'Le serveur SMTP a rejeté l\'email. Cela peut être dû à des restrictions anti-spam ou à un contenu non autorisé.'
-      }
-    }
-    
-    if (errorMessage.includes('Authentification échouée')) {
-      return {
-        success: false,
-        error: 'Authentification impossible',
-        details: 'Impossible de s\'authentifier avec les méthodes AUTH PLAIN et AUTH LOGIN. Vérifiez vos identifiants et la configuration du serveur.'
-      }
-    }
-    
-    if (errorMessage.includes('STARTTLS')) {
-      return {
-        success: false,
-        error: 'Erreur de chiffrement TLS',
-        details: 'Impossible d\'établir une connexion TLS sécurisée. Vérifiez la configuration du port et du chiffrement.'
+        error: 'Timeout de connexion SMTP',
+        details: `Le serveur met trop de temps à répondre (${duration}ms). Vérifiez la connectivité.`
       }
     }
     
@@ -414,12 +277,16 @@ async function sendTestEmail(config: SMTPConfig, testEmail: string, sendRealEmai
 }
 
 serve(async (req) => {
+  const startTime = Date.now()
+  
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    console.log(`🚀 [${Date.now() - startTime}ms] Début du traitement de la requête`)
+    
     const { 
       smtp_host, 
       smtp_port, 
@@ -428,20 +295,16 @@ serve(async (req) => {
       from_email, 
       from_name,
       test_email,
-      send_real_email = true,
-      html_content,
-      subject
+      send_real_email = true
     } = await req.json()
 
-    console.log('Test SMTP avec configuration:', {
+    console.log(`📋 [${Date.now() - startTime}ms] Configuration reçue:`, {
       host: smtp_host,
       port: smtp_port,
       username: smtp_username,
       from_email,
       test_email,
-      send_real_email,
-      has_html_content: !!html_content,
-      has_subject: !!subject
+      send_real_email
     })
 
     const config: SMTPConfig = {
@@ -453,7 +316,9 @@ serve(async (req) => {
       from_name: from_name || 'Test Sender'
     }
 
-    const result = await sendTestEmail(config, test_email, send_real_email, html_content, subject)
+    const result = await sendTestEmail(config, test_email, send_real_email)
+    
+    console.log(`✅ [${Date.now() - startTime}ms] Résultat final:`, result)
 
     return new Response(
       JSON.stringify(result),
@@ -463,8 +328,9 @@ serve(async (req) => {
       },
     )
 
-  } catch (error) {
-    console.error('Erreur dans la fonction Edge:', error)
+  } catch (error: any) {
+    const duration = Date.now() - startTime
+    console.error(`💥 [${duration}ms] Erreur dans la fonction Edge:`, error)
     
     return new Response(
       JSON.stringify({
