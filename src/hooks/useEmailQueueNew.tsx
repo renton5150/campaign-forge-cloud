@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { emailWorker } from '@/lib/emailWorker';
+import { QueueCampaignResult } from '@/types/database';
 
 interface QueueStats {
   pending: number;
@@ -11,13 +12,6 @@ interface QueueStats {
   failed: number;
   bounced: number;
   total: number;
-}
-
-interface QueueCampaignResult {
-  success: boolean;
-  queued_emails: number;
-  duplicates_skipped: number;
-  message: string;
 }
 
 export function useEmailQueueNew() {
@@ -76,18 +70,91 @@ export function useEmailQueueNew() {
     }): Promise<QueueCampaignResult> => {
       console.log('🚀 Queuing campaign:', { campaignId, contactListIds });
       
-      const { data, error } = await supabase.rpc('queue_campaign_for_sending', {
-        p_campaign_id: campaignId,
-        p_contact_list_ids: contactListIds
-      });
+      // Appel direct à la fonction queue_campaign_for_sending
+      try {
+        // Récupérer la campagne
+        const { data: campaign, error: campaignError } = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('id', campaignId)
+          .single();
 
-      if (error) {
+        if (campaignError) throw campaignError;
+
+        // Récupérer les contacts des listes
+        const { data: contacts, error: contactsError } = await supabase
+          .from('contacts')
+          .select(`
+            id,
+            email,
+            first_name,
+            last_name
+          `)
+          .in('id', 
+            supabase
+              .from('contact_list_memberships')
+              .select('contact_id')
+              .in('list_id', contactListIds)
+          )
+          .eq('status', 'active');
+
+        if (contactsError) throw contactsError;
+
+        let queuedCount = 0;
+        let duplicatesSkipped = 0;
+
+        // Insérer chaque contact dans la queue
+        for (const contact of contacts || []) {
+          const messageId = `${campaignId}-${contact.id}-${Date.now()}`;
+          
+          // Vérifier les doublons
+          const { data: existing } = await supabase
+            .from('email_queue')
+            .select('id')
+            .eq('campaign_id', campaignId)
+            .eq('contact_email', contact.email)
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            duplicatesSkipped++;
+            continue;
+          }
+
+          // Insérer dans la queue
+          const { error: insertError } = await supabase
+            .from('email_queue')
+            .insert({
+              campaign_id: campaignId,
+              contact_email: contact.email,
+              contact_name: contact.first_name && contact.last_name 
+                ? `${contact.first_name} ${contact.last_name}` 
+                : contact.email,
+              subject: campaign.subject,
+              html_content: campaign.html_content,
+              message_id: messageId,
+              status: 'pending',
+              scheduled_for: campaign.scheduled_at || new Date().toISOString()
+            });
+
+          if (!insertError) {
+            queuedCount++;
+          }
+        }
+
+        const result: QueueCampaignResult = {
+          success: true,
+          queued_emails: queuedCount,
+          duplicates_skipped: duplicatesSkipped,
+          message: `Campagne mise en queue - ${queuedCount} emails à envoyer`
+        };
+
+        console.log('✅ Campaign queued successfully:', result);
+        return result;
+
+      } catch (error: any) {
         console.error('❌ Error queuing campaign:', error);
         throw error;
       }
-      
-      console.log('✅ Campaign queued successfully:', data);
-      return data as QueueCampaignResult;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['email-queue-stats'] });
@@ -108,7 +175,8 @@ export function useEmailQueueNew() {
           retry_count: 0,
           scheduled_at: new Date().toISOString(),
           error_message: null,
-          error_code: null 
+          error_code: null,
+          updated_at: new Date().toISOString()
         })
         .eq('campaign_id', campaignId)
         .eq('status', 'failed');

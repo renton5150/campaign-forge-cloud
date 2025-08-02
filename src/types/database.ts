@@ -299,3 +299,60 @@ export interface BlacklistList {
   created_at: string;
   updated_at: string;
 }
+
+// Types pour le système d'email queue
+export type EmailQueueStatus = 'pending' | 'processing' | 'sent' | 'failed' | 'bounced';
+
+export interface EmailQueue {
+  id: string;
+  campaign_id: string;
+  contact_email: string;
+  contact_name: string | null;
+  subject: string;
+  html_content: string;
+  status: EmailQueueStatus;
+  message_id: string | null;
+  retry_count: number;
+  scheduled_for: string;
+  sent_at: string | null;
+  error_message: string | null;
+  error_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SmtpRateLimits {
+  id: string;
+  smtp_server_id: string;
+  emails_sent_hour: number;
+  emails_sent_day: number;
+  emails_sent_minute: number;
+  last_reset_hour: string;
+  last_reset_day: string;
+  last_reset_minute: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailToSend {
+  queue_id: string;
+  campaign_id: string;
+  recipient_email: string;
+  recipient_name: string;
+  subject: string;
+  content_html: string;
+  smtp_server_id: string;
+  message_id: string;
+}
+
+// Types pour les résultats de fonctions RPC
+export interface QueueCampaignResult {
+  success: boolean;
+  queued_emails: number;
+  duplicates_skipped: number;
+  message: string;
+}
+
+export interface CleanupResult {
+  cleaned_count: number;
+}

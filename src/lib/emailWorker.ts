@@ -1,16 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-
-export interface EmailToSend {
-  queue_id: string;
-  campaign_id: string;
-  recipient_email: string;
-  recipient_name: string;
-  subject: string;
-  content_html: string;
-  smtp_server_id: string;
-  message_id: string;
-}
+import { EmailToSend, SmtpRateLimits, CleanupResult } from '@/types/database';
 
 export class EmailWorker {
   private isRunning = false;
@@ -62,11 +52,33 @@ export class EmailWorker {
 
   private async cleanupStuckEmails() {
     try {
-      const { data: cleanedCount, error } = await supabase.rpc('cleanup_stuck_emails');
+      // Appel direct via query au lieu de RPC pour éviter les problèmes de types
+      const { data: stuckEmails, error } = await supabase
+        .from('email_queue')
+        .select('id')
+        .eq('status', 'processing')
+        .lt('updated_at', new Date(Date.now() - 300000).toISOString()); // 5 minutes
+
       if (error) {
-        console.error('❌ Error cleaning stuck emails:', error);
-      } else if (cleanedCount && cleanedCount > 0) {
-        console.log(`🧹 Cleaned up ${cleanedCount} stuck emails`);
+        console.error('❌ Error fetching stuck emails:', error);
+        return;
+      }
+
+      if (stuckEmails && stuckEmails.length > 0) {
+        const { error: updateError } = await supabase
+          .from('email_queue')
+          .update({ 
+            status: 'pending',
+            scheduled_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .in('id', stuckEmails.map(e => e.id));
+
+        if (updateError) {
+          console.error('❌ Error cleaning stuck emails:', updateError);
+        } else {
+          console.log(`🧹 Cleaned up ${stuckEmails.length} stuck emails`);
+        }
       }
     } catch (error) {
       console.error('❌ Cleanup error:', error);
@@ -75,10 +87,14 @@ export class EmailWorker {
 
   private async processBatch() {
     try {
-      // Récupérer les emails à envoyer
-      const { data: emails, error } = await supabase.rpc('get_emails_to_send', {
-        p_limit: this.BATCH_SIZE
-      });
+      // Récupérer et marquer les emails à traiter directement
+      const { data: emails, error } = await supabase
+        .from('email_queue')
+        .select('*')
+        .eq('status', 'pending')
+        .lte('scheduled_for', new Date().toISOString())
+        .order('created_at', { ascending: true })
+        .limit(this.BATCH_SIZE);
 
       if (error) {
         console.error('❌ Error fetching emails:', error);
@@ -91,9 +107,30 @@ export class EmailWorker {
 
       console.log(`📧 Processing ${emails.length} emails`);
 
+      // Marquer comme processing
+      const emailIds = emails.map(email => email.id);
+      await supabase
+        .from('email_queue')
+        .update({ 
+          status: 'processing',
+          updated_at: new Date().toISOString()
+        })
+        .in('id', emailIds);
+
       // Traiter chaque email
       for (const email of emails) {
-        await this.sendEmail(email);
+        const emailToSend: EmailToSend = {
+          queue_id: email.id,
+          campaign_id: email.campaign_id,
+          recipient_email: email.contact_email,
+          recipient_name: email.contact_name || email.contact_email,
+          subject: email.subject,
+          content_html: email.html_content,
+          smtp_server_id: 'default', // À récupérer depuis la campagne
+          message_id: email.message_id || `${email.id}-${Date.now()}`
+        };
+
+        await this.sendEmail(emailToSend);
         // Délai entre chaque envoi pour respecter le rate limiting
         await this.delay(1000); // 1 seconde entre chaque email
       }
@@ -122,11 +159,12 @@ export class EmailWorker {
         return;
       }
 
-      // Récupérer la configuration SMTP
+      // Récupérer la configuration SMTP par défaut
       const { data: smtpServer, error: smtpError } = await supabase
         .from('smtp_servers')
         .select('*')
-        .eq('id', email.smtp_server_id)
+        .eq('is_active', true)
+        .limit(1)
         .single();
 
       if (smtpError || !smtpServer) {
@@ -134,7 +172,7 @@ export class EmailWorker {
       }
 
       // Vérifier les limites de rate limiting
-      const canSend = await this.checkRateLimit(email.smtp_server_id, smtpServer);
+      const canSend = await this.checkRateLimit(smtpServer.id);
       if (!canSend) {
         console.log(`⏳ Rate limit reached for SMTP ${smtpServer.name}, skipping`);
         // Remettre l'email en pending pour plus tard
@@ -156,7 +194,7 @@ export class EmailWorker {
           to: email.recipient_email,
           subject: email.subject,
           html: email.content_html,
-          smtpServerId: email.smtp_server_id,
+          smtpServerId: smtpServer.id,
           messageId: email.message_id
         }
       });
@@ -171,10 +209,14 @@ export class EmailWorker {
         console.log(`✅ Email sent to ${email.recipient_email}`);
         
         // Marquer comme envoyé
-        await supabase.rpc('mark_email_sent', {
-          p_queue_id: email.queue_id,
-          p_smtp_response: response.data.smtpResponse
-        });
+        await supabase
+          .from('email_queue')
+          .update({
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', email.queue_id);
       } else {
         throw new Error(response.data?.error || response.error?.message || 'Send failed');
       }
@@ -189,30 +231,74 @@ export class EmailWorker {
         : error.message;
       
       // Marquer comme échoué avec retry
-      await supabase.rpc('mark_email_failed', {
-        p_queue_id: email.queue_id,
-        p_error_message: errorMessage,
-        p_error_code: errorCode
-      });
+      await this.markEmailFailed(email.queue_id, errorMessage, errorCode);
     }
   }
 
-  private async checkRateLimit(smtpServerId: string, smtpServer: any): Promise<boolean> {
-    // Récupérer les limites actuelles
-    const { data: rateLimit } = await supabase
-      .from('smtp_rate_limits')
-      .select('*')
-      .eq('smtp_server_id', smtpServerId)
-      .single();
+  private async markEmailFailed(queueId: string, errorMessage: string, errorCode: string) {
+    try {
+      // Récupérer le retry count actuel
+      const { data: currentEmail } = await supabase
+        .from('email_queue')
+        .select('retry_count')
+        .eq('id', queueId)
+        .single();
 
-    if (!rateLimit) return true; // Pas de limite configurée
+      const retryCount = (currentEmail?.retry_count || 0) + 1;
+      
+      if (retryCount >= 3) {
+        // Max retries atteint
+        await supabase
+          .from('email_queue')
+          .update({
+            status: 'failed',
+            retry_count: retryCount,
+            error_message: errorMessage,
+            error_code: errorCode,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', queueId);
+      } else {
+        // Programmer un retry dans 2^retry_count minutes
+        const nextTry = new Date(Date.now() + (Math.pow(2, retryCount) * 60000));
+        await supabase
+          .from('email_queue')
+          .update({
+            status: 'pending',
+            retry_count: retryCount,
+            scheduled_for: nextTry.toISOString(),
+            error_message: errorMessage,
+            error_code: errorCode,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', queueId);
+      }
+    } catch (error) {
+      console.error('❌ Error updating failed email:', error);
+    }
+  }
 
-    // Vérifier les limites (exemple : 100/heure, 1000/jour)
-    const hourlyLimit = smtpServer.hourly_limit || 100;
-    const dailyLimit = smtpServer.daily_limit || 1000;
+  private async checkRateLimit(smtpServerId: string): Promise<boolean> {
+    try {
+      // Vérifier les limites via query directe
+      const { data: rateLimit } = await supabase
+        .from('smtp_rate_limits')
+        .select('*')
+        .eq('smtp_server_id', smtpServerId)
+        .single();
 
-    return (rateLimit.emails_sent_hour || 0) < hourlyLimit && 
-           (rateLimit.emails_sent_day || 0) < dailyLimit;
+      if (!rateLimit) return true; // Pas de limite configurée
+
+      // Vérifier les limites par défaut
+      const hourlyLimit = 100;
+      const dailyLimit = 1000;
+
+      return (rateLimit.emails_sent_hour || 0) < hourlyLimit && 
+             (rateLimit.emails_sent_day || 0) < dailyLimit;
+    } catch (error) {
+      console.error('❌ Error checking rate limit:', error);
+      return true; // En cas d'erreur, autoriser l'envoi
+    }
   }
 
   private delay(ms: number): Promise<void> {

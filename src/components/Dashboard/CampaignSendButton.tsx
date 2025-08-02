@@ -8,7 +8,7 @@ import { Send, Loader2 } from 'lucide-react';
 import { useContactLists } from '@/hooks/useContactLists';
 import { useEmailQueueNew } from '@/hooks/useEmailQueueNew';
 import { useToast } from '@/hooks/use-toast';
-import { Campaign } from '@/types/database';
+import { Campaign, QueueCampaignResult } from '@/types/database';
 
 interface CampaignSendButtonProps {
   campaign: Campaign;
@@ -32,7 +32,7 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
     }
 
     try {
-      const result = await queueCampaign({
+      const result: QueueCampaignResult = await queueCampaign({
         campaignId: campaign.id,
         contactListIds: selectedLists
       });

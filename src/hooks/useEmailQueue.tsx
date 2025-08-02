@@ -2,22 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-
-export interface EmailQueueItem {
-  id: string;
-  campaign_id: string;
-  contact_email: string;
-  contact_name: string | null;
-  subject: string;
-  html_content: string;
-  status: 'pending' | 'processing' | 'sent' | 'failed';
-  message_id: string | null;
-  scheduled_for: string;
-  sent_at: string | null;
-  error_message: string | null;
-  retry_count: number;
-  created_at: string;
-}
+import { EmailQueue, QueueCampaignResult } from '@/types/database';
 
 export interface QueueStats {
   pending: number;
@@ -25,13 +10,6 @@ export interface QueueStats {
   sent: number;
   failed: number;
   total: number;
-}
-
-interface QueueCampaignResult {
-  success: boolean;
-  queued_emails: number;
-  duplicates_skipped: number;
-  message: string;
 }
 
 export function useEmailQueue() {
@@ -67,17 +45,18 @@ export function useEmailQueue() {
   // Obtenir la queue d'une campagne
   const { data: queueItems, isLoading } = useQuery({
     queryKey: ['email-queue', user?.tenant_id],
-    queryFn: async () => {
+    queryFn: async (): Promise<EmailQueue[]> => {
       const { data, error } = await supabase
         .from('email_queue')
         .select(`
-          *
+          *,
+          campaigns!inner(tenant_id)
         `)
-        .eq('tenant_id', user?.tenant_id)
+        .eq('campaigns.tenant_id', user?.tenant_id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data as EmailQueue[];
     },
     enabled: !!user,
   });
@@ -104,27 +83,94 @@ export function useEmailQueue() {
       
       console.log('🚀 Début de l\'envoi de campagne via nouvelle queue');
       
-      // Utiliser la nouvelle fonction de mise en queue
-      const { data, error } = await supabase.rpc('queue_campaign_for_sending', {
-        p_campaign_id: campaignId,
-        p_contact_list_ids: contactListIds
-      });
+      // Utiliser l'implémentation directe comme dans useEmailQueueNew
+      try {
+        // Récupérer la campagne
+        const { data: campaign, error: campaignError } = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('id', campaignId)
+          .single();
 
-      if (error) throw error;
+        if (campaignError) throw campaignError;
 
-      const result = data as QueueCampaignResult;
-      console.log('✅ Campagne mise en queue avec succès:', result);
+        // Récupérer les contacts des listes
+        const { data: contacts, error: contactsError } = await supabase
+          .from('contacts')
+          .select(`
+            id,
+            email,
+            first_name,
+            last_name
+          `)
+          .in('id', 
+            supabase
+              .from('contact_list_memberships')
+              .select('contact_id')
+              .in('list_id', contactListIds)
+          )
+          .eq('status', 'active');
 
-      return {
-        queued: result.queued_emails,
-        uniqueContacts: result.queued_emails,
-        cleaningResult: {
-          cleanedContacts: [],
-          totalOriginalContacts: result.queued_emails,
-          blacklistedEmails: [],
-          duplicateEmails: result.duplicates_skipped || 0
+        if (contactsError) throw contactsError;
+
+        let queuedCount = 0;
+        let duplicatesSkipped = 0;
+
+        // Insérer chaque contact dans la queue
+        for (const contact of contacts || []) {
+          const messageId = `${campaignId}-${contact.id}-${Date.now()}`;
+          
+          // Vérifier les doublons
+          const { data: existing } = await supabase
+            .from('email_queue')
+            .select('id')
+            .eq('campaign_id', campaignId)
+            .eq('contact_email', contact.email)
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            duplicatesSkipped++;
+            continue;
+          }
+
+          // Insérer dans la queue
+          const { error: insertError } = await supabase
+            .from('email_queue')
+            .insert({
+              campaign_id: campaignId,
+              contact_email: contact.email,
+              contact_name: contact.first_name && contact.last_name 
+                ? `${contact.first_name} ${contact.last_name}` 
+                : contact.email,
+              subject: campaign.subject,
+              html_content: campaign.html_content,
+              message_id: messageId,
+              status: 'pending',
+              scheduled_for: campaign.scheduled_at || new Date().toISOString()
+            });
+
+          if (!insertError) {
+            queuedCount++;
+          }
         }
-      };
+
+        console.log('✅ Campagne mise en queue avec succès:', { queuedCount, duplicatesSkipped });
+
+        return {
+          queued: queuedCount,
+          uniqueContacts: queuedCount,
+          cleaningResult: {
+            cleanedContacts: [],
+            totalOriginalContacts: queuedCount,
+            blacklistedEmails: [],
+            duplicateEmails: duplicatesSkipped || 0
+          }
+        };
+
+      } catch (error: any) {
+        console.error('❌ Error in sendCampaign:', error);
+        throw error;
+      }
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['email-queue'] });
@@ -136,7 +182,7 @@ export function useEmailQueue() {
   // Relancer les emails échoués
   const retryFailedEmails = useMutation({
     mutationFn: async (campaignId: string) => {
-      // D'abord récupérer les emails échoués
+      // Récupérer les emails échoués et les mettre à jour
       const { data: failedEmails, error: selectError } = await supabase
         .from('email_queue')
         .select('id, retry_count')
@@ -145,26 +191,23 @@ export function useEmailQueue() {
 
       if (selectError) throw selectError;
 
-      // Ensuite les mettre à jour un par un
-      const updates = failedEmails.map(email => 
-        supabase
-          .from('email_queue')
-          .update({ 
-            status: 'pending',
-            retry_count: (email.retry_count || 0) + 1,
-            error_message: null
-          })
-          .eq('id', email.id)
-      );
+      // Mettre à jour le statut
+      const { error: updateError } = await supabase
+        .from('email_queue')
+        .update({ 
+          status: 'pending',
+          retry_count: 0,
+          error_message: null,
+          error_code: null,
+          scheduled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('campaign_id', campaignId)
+        .eq('status', 'failed');
 
-      const results = await Promise.all(updates);
-      const errors = results.filter(result => result.error);
-      
-      if (errors.length > 0) {
-        throw errors[0].error;
-      }
+      if (updateError) throw updateError;
 
-      return failedEmails.length;
+      return failedEmails?.length || 0;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-queue'] });
