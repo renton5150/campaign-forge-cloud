@@ -1,8 +1,7 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { cleanContactsForCampaign, ContactCleaningResult } from '@/utils/contactCleaning';
-import { replaceVariables, ContactPersonalizationData } from '@/utils/emailPersonalization';
 
 export interface EmailQueueItem {
   id: string;
@@ -28,6 +27,13 @@ export interface QueueStats {
   total: number;
 }
 
+interface QueueCampaignResult {
+  success: boolean;
+  queued_emails: number;
+  duplicates_skipped: number;
+  message: string;
+}
+
 export function useEmailQueue() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -50,7 +56,9 @@ export function useEmailQueue() {
     };
 
     data.forEach(item => {
-      stats[item.status as keyof Omit<QueueStats, 'total'>]++;
+      if (item.status && item.status in stats) {
+        stats[item.status as keyof Omit<QueueStats, 'total'>]++;
+      }
     });
 
     return stats;
@@ -63,30 +71,18 @@ export function useEmailQueue() {
       const { data, error } = await supabase
         .from('email_queue')
         .select(`
-          *,
-          campaigns!inner(tenant_id)
+          *
         `)
+        .eq('tenant_id', user?.tenant_id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as EmailQueueItem[];
+      return data;
     },
     enabled: !!user,
   });
 
-  // Fonction pour préparer les données de personnalisation d'un contact
-  const prepareContactPersonalizationData = (contact: any): ContactPersonalizationData => {
-    return {
-      email: contact.email,
-      first_name: contact.first_name,
-      last_name: contact.last_name,
-      company: contact.company,
-      phone: contact.phone,
-      custom_fields: contact.custom_fields || {}
-    };
-  };
-
-  // Envoyer une campagne avec nettoyage de blacklist et personnalisation
+  // Envoyer une campagne avec la nouvelle fonction de queue
   const sendCampaign = useMutation({
     mutationFn: async ({ 
       campaignId, 
@@ -100,7 +96,11 @@ export function useEmailQueue() {
       htmlContent: string; 
       contactListIds: string[];
       blacklistListIds?: string[];
-    }) => {
+    }): Promise<{
+      queued: number;
+      uniqueContacts: number;
+      cleaningResult: any;
+    }> => {
       
       console.log('🚀 Début de l\'envoi de campagne via nouvelle queue');
       
@@ -112,16 +112,17 @@ export function useEmailQueue() {
 
       if (error) throw error;
 
-      console.log('✅ Campagne mise en queue avec succès:', data);
+      const result = data as QueueCampaignResult;
+      console.log('✅ Campagne mise en queue avec succès:', result);
 
       return {
-        queued: data.queued_emails,
-        uniqueContacts: data.queued_emails,
+        queued: result.queued_emails,
+        uniqueContacts: result.queued_emails,
         cleaningResult: {
           cleanedContacts: [],
-          totalOriginalContacts: data.queued_emails,
+          totalOriginalContacts: result.queued_emails,
           blacklistedEmails: [],
-          duplicateEmails: data.duplicates_skipped || 0
+          duplicateEmails: result.duplicates_skipped || 0
         }
       };
     },
@@ -150,7 +151,7 @@ export function useEmailQueue() {
           .from('email_queue')
           .update({ 
             status: 'pending',
-            retry_count: email.retry_count + 1,
+            retry_count: (email.retry_count || 0) + 1,
             error_message: null
           })
           .eq('id', email.id)

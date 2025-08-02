@@ -65,7 +65,7 @@ export class EmailWorker {
       const { data: cleanedCount, error } = await supabase.rpc('cleanup_stuck_emails');
       if (error) {
         console.error('❌ Error cleaning stuck emails:', error);
-      } else if (cleanedCount > 0) {
+      } else if (cleanedCount && cleanedCount > 0) {
         console.log(`🧹 Cleaned up ${cleanedCount} stuck emails`);
       }
     } catch (error) {
@@ -211,8 +211,8 @@ export class EmailWorker {
     const hourlyLimit = smtpServer.hourly_limit || 100;
     const dailyLimit = smtpServer.daily_limit || 1000;
 
-    return rateLimit.emails_sent_hour < hourlyLimit && 
-           rateLimit.emails_sent_day < dailyLimit;
+    return (rateLimit.emails_sent_hour || 0) < hourlyLimit && 
+           (rateLimit.emails_sent_day || 0) < dailyLimit;
   }
 
   private delay(ms: number): Promise<void> {

@@ -13,6 +13,13 @@ interface QueueStats {
   total: number;
 }
 
+interface QueueCampaignResult {
+  success: boolean;
+  queued_emails: number;
+  duplicates_skipped: number;
+  message: string;
+}
+
 export function useEmailQueueNew() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -38,7 +45,9 @@ export function useEmailQueueNew() {
       };
 
       data.forEach(item => {
-        stats[item.status as keyof Omit<QueueStats, 'total'>]++;
+        if (item.status && item.status in stats) {
+          stats[item.status as keyof Omit<QueueStats, 'total'>]++;
+        }
       });
 
       return stats;
@@ -64,7 +73,7 @@ export function useEmailQueueNew() {
     mutationFn: async ({ campaignId, contactListIds }: {
       campaignId: string;
       contactListIds: string[];
-    }) => {
+    }): Promise<QueueCampaignResult> => {
       console.log('🚀 Queuing campaign:', { campaignId, contactListIds });
       
       const { data, error } = await supabase.rpc('queue_campaign_for_sending', {
@@ -78,7 +87,7 @@ export function useEmailQueueNew() {
       }
       
       console.log('✅ Campaign queued successfully:', data);
-      return data;
+      return data as QueueCampaignResult;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['email-queue-stats'] });
