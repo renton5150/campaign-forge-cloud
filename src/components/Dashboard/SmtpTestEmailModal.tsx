@@ -24,32 +24,21 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
   const handleSendTest = async () => {
     if (!testEmail.trim()) return;
 
-    console.log('🎯 Démarrage du test d\'envoi d\'email...', {
+    console.log('🎯 [MODAL] Démarrage du test d\'envoi d\'email...', {
       server: server.name,
       testEmail: testEmail.trim()
     });
 
-    try {
-      const result = await testConnection({
-        host: server.host,
-        port: server.port,
-        username: server.username,
-        password: server.password,
-        from_email: server.from_email,
-        from_name: server.from_name,
-        test_email: testEmail.trim(),
-        encryption: server.encryption || 'tls'
-      });
-
-      console.log('📊 Résultat du test:', result);
-
-      if (result.success) {
-        // Fermer le modal seulement si le test réussit
-        setTimeout(() => onClose(), 2000);
-      }
-    } catch (error) {
-      console.error('💥 Erreur lors du test d\'envoi:', error);
-    }
+    await testConnection({
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      password: server.password,
+      from_email: server.from_email,
+      from_name: server.from_name,
+      test_email: testEmail.trim(),
+      encryption: server.encryption || 'tls'
+    });
   };
 
   return (
@@ -60,7 +49,7 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Informations du serveur */}
+          {/* Configuration du serveur */}
           <Card>
             <CardContent className="pt-4">
               <div className="text-sm space-y-2">
@@ -96,65 +85,65 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
               required
               disabled={testing}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Un email de test sera envoyé à cette adresse pour vérifier le bon fonctionnement du serveur SMTP.
-            </p>
           </div>
 
-          {/* Résultat du test */}
-          {lastTest && (
-            <Card className={lastTest.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+          {/* État du test */}
+          {testing && (
+            <Card className="border-blue-200 bg-blue-50">
               <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-sm font-medium ${lastTest.success ? 'text-green-800' : 'text-red-800'}`}>
-                    {lastTest.success ? '✅ Test réussi' : '❌ Test échoué'}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span className="text-sm text-blue-800">Test en cours...</span>
                 </div>
-                {lastTest.message && (
-                  <p className={`text-sm ${lastTest.success ? 'text-green-700' : 'text-red-700'}`}>
-                    {lastTest.message}
-                  </p>
-                )}
-                {lastTest.error && (
-                  <p className="text-sm text-red-700 mt-1">
-                    <strong>Erreur :</strong> {lastTest.error}
-                  </p>
-                )}
-                {lastTest.details && typeof lastTest.details === 'string' && (
-                  <p className="text-xs text-gray-600 mt-2">
-                    <strong>Détails :</strong> {lastTest.details}
-                  </p>
-                )}
+                <p className="text-xs text-blue-600 mt-1">
+                  Connexion au serveur SMTP et envoi de l'email de test...
+                </p>
               </CardContent>
             </Card>
           )}
 
-          {/* Indicateur de progression */}
-          {testing && (
-            <div className="flex items-center justify-center p-4">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                <span className="text-sm text-gray-600">Test en cours... (max 30s)</span>
-              </div>
-            </div>
+          {/* Résultat du test */}
+          {!testing && lastTest && (
+            <Card className={lastTest.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+              <CardContent className="pt-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${lastTest.success ? 'text-green-800' : 'text-red-800'}`}>
+                      {lastTest.success ? '✅ Test réussi' : '❌ Test échoué'}
+                    </span>
+                  </div>
+                  
+                  {lastTest.message && (
+                    <p className={`text-sm ${lastTest.success ? 'text-green-700' : 'text-red-700'}`}>
+                      {lastTest.message}
+                    </p>
+                  )}
+                  
+                  {lastTest.error && (
+                    <p className="text-sm text-red-700">
+                      <strong>Erreur :</strong> {lastTest.error}
+                    </p>
+                  )}
+                  
+                  {lastTest.details && (
+                    <p className="text-xs text-gray-600">
+                      <strong>Détails :</strong> {lastTest.details}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={testing}>
-              {testing ? 'Test en cours...' : 'Fermer'}
+              Fermer
             </Button>
             <Button 
               onClick={handleSendTest} 
               disabled={testing || !testEmail.trim()}
             >
-              {testing ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Envoi en cours...
-                </>
-              ) : (
-                'Envoyer email de test'
-              )}
+              {testing ? 'Test en cours...' : 'Envoyer email de test'}
             </Button>
           </div>
         </div>

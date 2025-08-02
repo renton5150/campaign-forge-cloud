@@ -27,7 +27,7 @@ export const useSmtpConnectionTest = () => {
   const { toast } = useToast();
 
   const testConnection = async (serverData: SmtpTestConfig, sendRealEmail: boolean = true) => {
-    console.log('🔍 Début du test de connexion SMTP...', { 
+    console.log('🔍 [CLIENT] Début du test de connexion SMTP...', { 
       serverData: { 
         host: serverData.host, 
         port: serverData.port, 
@@ -41,25 +41,8 @@ export const useSmtpConnectionTest = () => {
     setTesting(true);
     setLastTest(null);
     
-    // Timeout côté client après 30 secondes
-    const timeoutId = setTimeout(() => {
-      console.error('⏰ Timeout du test SMTP côté client (30s)');
-      setTesting(false);
-      const timeoutResult: ConnectionTestResult = {
-        success: false,
-        error: 'Timeout du test - le serveur met trop de temps à répondre'
-      };
-      setLastTest(timeoutResult);
-      
-      toast({
-        title: "⏰ Timeout du test",
-        description: "Le test a pris trop de temps. Vérifiez votre configuration SMTP.",
-        variant: "destructive",
-      });
-    }, 30000);
-    
     try {
-      console.log('📤 Appel de la fonction Edge send-test-email...');
+      console.log('📤 [CLIENT] Appel de la fonction Edge send-test-email...');
       
       const requestBody = {
         smtp_host: serverData.host,
@@ -72,48 +55,59 @@ export const useSmtpConnectionTest = () => {
         send_real_email: sendRealEmail
       };
       
-      console.log('📤 Corps de la requête:', requestBody);
+      console.log('📤 [CLIENT] Corps de la requête:', { ...requestBody, smtp_password: '***' });
 
-      const { data, error } = await supabase.functions.invoke('send-test-email', {
+      // Appel direct à la fonction Edge avec timeout côté client
+      const timeoutId = setTimeout(() => {
+        throw new Error('Timeout côté client après 60 secondes');
+      }, 60000);
+
+      const response = await supabase.functions.invoke('send-test-email', {
         body: requestBody
       });
 
       clearTimeout(timeoutId);
       
-      console.log('📥 Réponse brute de la fonction Edge:', { data, error });
+      console.log('📥 [CLIENT] Réponse brute complète:', response);
+      console.log('📥 [CLIENT] Réponse data:', response.data);
+      console.log('📥 [CLIENT] Réponse error:', response.error);
 
-      if (error) {
-        console.error('❌ Erreur lors de l\'invocation de la fonction:', error);
-        throw new Error(error.message || 'Erreur de connexion à la fonction Edge');
+      // Vérifier s'il y a une erreur de transport
+      if (response.error) {
+        console.error('❌ [CLIENT] Erreur de transport:', response.error);
+        throw new Error(`Erreur de transport: ${response.error.message || response.error}`);
       }
 
-      // Vérifier que data existe et a la structure attendue
-      if (!data || typeof data !== 'object') {
-        console.error('❌ Réponse invalide de la fonction Edge:', data);
-        throw new Error('Réponse invalide de la fonction Edge');
+      // Vérifier que data existe
+      if (!response.data) {
+        console.error('❌ [CLIENT] Pas de data dans la réponse');
+        throw new Error('Réponse vide de la fonction Edge');
       }
+
+      const data = response.data;
+      console.log('📊 [CLIENT] Data traitée:', data);
 
       const testResult: ConnectionTestResult = {
-        success: data.success || false,
+        success: data.success === true,
         message: data.message,
         details: data.details,
-        error: data.success ? undefined : (data.error || data.details)
+        error: data.success !== true ? (data.error || data.details || 'Erreur inconnue') : undefined
       };
       
-      console.log('✅ Résultat du test traité:', testResult);
+      console.log('✅ [CLIENT] Résultat du test final:', testResult);
       setLastTest(testResult);
       
-      if (data.success) {
+      if (testResult.success) {
         const message = sendRealEmail 
           ? `Email de test envoyé avec succès à ${serverData.test_email}`
-          : (data.message || 'Test de connexion réussi');
+          : (testResult.message || 'Test de connexion réussi');
         
         toast({
           title: "✅ Test de connexion réussi",
           description: message,
         });
       } else {
-        const errorMsg = data.error || data.details || 'Erreur inconnue';
+        const errorMsg = testResult.error || 'Erreur inconnue';
         toast({
           title: "❌ Test de connexion échoué",
           description: errorMsg,
@@ -124,8 +118,7 @@ export const useSmtpConnectionTest = () => {
       return testResult;
       
     } catch (error: any) {
-      clearTimeout(timeoutId);
-      console.error('❌ Erreur lors du test de connexion:', error);
+      console.error('❌ [CLIENT] Erreur lors du test de connexion:', error);
       
       const testResult: ConnectionTestResult = {
         success: false,
