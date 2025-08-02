@@ -8,6 +8,8 @@ export interface ConnectionTestResult {
   message?: string;
   details?: any;
   error?: string;
+  responseTime?: number;
+  suggestions?: string[];
 }
 
 export interface SmtpTestConfig {
@@ -57,8 +59,8 @@ export const useSmtpConnectionTest = () => {
       
       console.log('📤 [CLIENT] Corps de la requête:', { ...requestBody, smtp_password: '***' });
 
-      // Appel direct à la fonction Edge avec timeout côté client
-      const timeoutId = setTimeout(() => {
+      // Appel direct à la fonction Edge avec timeout côté client étendu (60s)
+      const clientTimeout = setTimeout(() => {
         throw new Error('Timeout côté client après 60 secondes');
       }, 60000);
 
@@ -66,7 +68,7 @@ export const useSmtpConnectionTest = () => {
         body: requestBody
       });
 
-      clearTimeout(timeoutId);
+      clearTimeout(clientTimeout);
       
       console.log('📥 [CLIENT] Réponse brute complète:', response);
       console.log('📥 [CLIENT] Réponse data:', response.data);
@@ -91,7 +93,9 @@ export const useSmtpConnectionTest = () => {
         success: data.success === true,
         message: data.message,
         details: data.details,
-        error: data.success !== true ? (data.error || data.details || 'Erreur inconnue') : undefined
+        error: data.success !== true ? (data.error || data.details || 'Erreur inconnue') : undefined,
+        responseTime: data.responseTime || undefined,
+        suggestions: data.suggestions || undefined
       };
       
       console.log('✅ [CLIENT] Résultat du test final:', testResult);
@@ -99,8 +103,8 @@ export const useSmtpConnectionTest = () => {
       
       if (testResult.success) {
         const message = sendRealEmail 
-          ? `Email de test envoyé avec succès à ${serverData.test_email}`
-          : (testResult.message || 'Test de connexion réussi');
+          ? `Email de test envoyé avec succès à ${serverData.test_email} (${testResult.responseTime || 0}ms)`
+          : `Test de connectivité réussi (${testResult.responseTime || 0}ms)`;
         
         toast({
           title: "✅ Test de connexion réussi",
@@ -108,9 +112,11 @@ export const useSmtpConnectionTest = () => {
         });
       } else {
         const errorMsg = testResult.error || 'Erreur inconnue';
+        const timeInfo = testResult.responseTime ? ` (${testResult.responseTime}ms)` : '';
+        
         toast({
           title: "❌ Test de connexion échoué",
-          description: errorMsg,
+          description: errorMsg + timeInfo,
           variant: "destructive",
         });
       }
@@ -122,7 +128,8 @@ export const useSmtpConnectionTest = () => {
       
       const testResult: ConnectionTestResult = {
         success: false,
-        error: error.message || 'Erreur inconnue lors du test'
+        error: error.message || 'Erreur inconnue lors du test',
+        responseTime: 0
       };
       
       setLastTest(testResult);

@@ -9,6 +9,8 @@ import { SmtpServer } from '@/hooks/useSmtpServers';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info, Zap, Clock } from 'lucide-react';
 
 interface SmtpTestEmailModalProps {
   open: boolean;
@@ -20,13 +22,15 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
   const { user } = useAuth();
   const { testConnection, testing, lastTest } = useSmtpConnectionTest();
   const [testEmail, setTestEmail] = useState(user?.email || '');
+  const [testMode, setTestMode] = useState<'full' | 'quick'>('full');
 
   const handleSendTest = async () => {
     if (!testEmail.trim()) return;
 
     console.log('🎯 [MODAL] Démarrage du test d\'envoi d\'email...', {
       server: server.name,
-      testEmail: testEmail.trim()
+      testEmail: testEmail.trim(),
+      mode: testMode
     });
 
     await testConnection({
@@ -38,8 +42,10 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
       from_name: server.from_name,
       test_email: testEmail.trim(),
       encryption: server.encryption || 'tls'
-    });
+    }, testMode === 'full');
   };
+
+  const isTurboSmtp = server.host?.includes('turbo-smtp.com');
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -73,6 +79,50 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
             </CardContent>
           </Card>
 
+          {/* Avertissement spécifique Turbo SMTP */}
+          {isTurboSmtp && (
+            <Alert className="border-amber-200 bg-amber-50">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <strong>Serveur Turbo SMTP détecté</strong>
+                <p className="text-sm mt-1">
+                  Ce serveur est connu pour être lent (15-30 secondes). 
+                  Utilisez le test rapide pour vérifier la connectivité uniquement.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Mode de test */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Mode de test</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={testMode === 'quick' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTestMode('quick')}
+                className="flex-1"
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Test rapide (5s)
+              </Button>
+              <Button
+                variant={testMode === 'full' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTestMode('full')}
+                className="flex-1"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Test complet (30s)
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {testMode === 'quick' 
+                ? 'Vérifie uniquement la connectivité TCP au serveur SMTP' 
+                : 'Teste la connexion complète et envoie un vrai email'}
+            </p>
+          </div>
+
           {/* Email de test */}
           <div>
             <Label htmlFor="test_email">Adresse email de test</Label>
@@ -93,10 +143,16 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  <span className="text-sm text-blue-800">Test en cours...</span>
+                  <span className="text-sm text-blue-800">
+                    {testMode === 'quick' ? 'Test rapide en cours...' : 'Test complet en cours...'}
+                  </span>
                 </div>
                 <p className="text-xs text-blue-600 mt-1">
-                  Connexion au serveur SMTP et envoi de l'email de test...
+                  {testMode === 'quick' 
+                    ? 'Vérification de la connectivité TCP...'
+                    : isTurboSmtp 
+                      ? 'Connexion au serveur Turbo SMTP (peut prendre 15-30 secondes)...'
+                      : 'Connexion au serveur SMTP et envoi de l\'email de test...'}
                 </p>
               </CardContent>
             </Card>
@@ -111,6 +167,11 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
                     <span className={`text-sm font-medium ${lastTest.success ? 'text-green-800' : 'text-red-800'}`}>
                       {lastTest.success ? '✅ Test réussi' : '❌ Test échoué'}
                     </span>
+                    {lastTest.responseTime && (
+                      <Badge variant="outline" className="text-xs">
+                        {lastTest.responseTime}ms
+                      </Badge>
+                    )}
                   </div>
                   
                   {lastTest.message && (
@@ -130,9 +191,35 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
                       <strong>Détails :</strong> {lastTest.details}
                     </p>
                   )}
+
+                  {lastTest.suggestions && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-gray-700">Suggestions :</p>
+                      <ul className="text-xs text-gray-600 list-disc list-inside space-y-1">
+                        {lastTest.suggestions.map((suggestion, index) => (
+                          <li key={index}>{suggestion}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Informations sur les ports pour Turbo SMTP */}
+          {isTurboSmtp && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Ports recommandés pour Turbo SMTP :</strong>
+                <ul className="text-sm mt-1 space-y-1">
+                  <li>• Port 587 (STARTTLS) - Plus rapide</li>
+                  <li>• Port 465 (SSL) - Sécurisé mais plus lent</li>
+                  <li>• Port 25 (SMTP) - Non recommandé</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
           )}
 
           <div className="flex justify-end space-x-2">
@@ -143,7 +230,7 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
               onClick={handleSendTest} 
               disabled={testing || !testEmail.trim()}
             >
-              {testing ? 'Test en cours...' : 'Envoyer email de test'}
+              {testing ? 'Test en cours...' : testMode === 'quick' ? 'Test rapide' : 'Test complet'}
             </Button>
           </div>
         </div>
