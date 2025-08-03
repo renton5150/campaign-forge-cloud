@@ -16,26 +16,80 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useEmailQueueNew } from '@/hooks/useEmailQueueNew';
+import { useQueueProcessor } from '@/hooks/useQueueProcessor';
+import { useToast } from '@/hooks/use-toast';
 
 export function EmailQueueMonitor() {
   const { 
     queueStats, 
-    isLoading, 
-    startWorker, 
-    stopWorker 
+    isLoading
   } = useEmailQueueNew();
   
-  const [workerStatus, setWorkerStatus] = useState<'stopped' | 'running'>('stopped');
+  const { processQueue, isProcessing } = useQueueProcessor();
+  const { toast } = useToast();
+  
+  const [isAutoProcessing, setIsAutoProcessing] = useState(false);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
 
-  const handleStartWorker = () => {
-    startWorker();
-    setWorkerStatus('running');
+  // Démarrer le traitement automatique professionnel
+  const handleStartProcessor = async () => {
+    try {
+      setIsAutoProcessing(true);
+      
+      // Première exécution immédiate
+      await processQueue.mutateAsync();
+      
+      toast({
+        title: "🚀 Processeur professionnel démarré",
+        description: "Le système traite automatiquement les emails en queue",
+      });
+
+      // Traitement automatique toutes les 30 secondes
+      const id = setInterval(async () => {
+        if (!isProcessing) {
+          try {
+            await processQueue.mutateAsync();
+          } catch (error) {
+            console.log('Background processing:', error);
+            // Continue en arrière-plan même si une itération échoue
+          }
+        }
+      }, 30000);
+      
+      setIntervalId(id);
+    } catch (error: any) {
+      console.error('Error starting processor:', error);
+      setIsAutoProcessing(false);
+      toast({
+        title: "Erreur",
+        description: "Impossible de démarrer le processeur",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleStopWorker = () => {
-    stopWorker();
-    setWorkerStatus('stopped');
+  // Arrêter le traitement automatique
+  const handleStopProcessor = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
+    setIsAutoProcessing(false);
+    
+    toast({
+      title: "⏹️ Processeur arrêté",
+      description: "Le traitement automatique a été arrêté",
+    });
   };
+
+  // Nettoyage à la fermeture du composant
+  useEffect(() => {
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [intervalId]);
 
   if (isLoading) {
     return (
@@ -57,29 +111,48 @@ export function EmailQueueMonitor() {
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Queue d'envoi d'emails
+            Queue d'envoi professionnelle
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant={workerStatus === 'running' ? 'default' : 'secondary'}>
-              {workerStatus === 'running' ? (
+            <Badge variant={isAutoProcessing ? 'default' : 'secondary'}>
+              {isAutoProcessing ? (
                 <>
                   <Activity className="h-3 w-3 mr-1" />
-                  Worker actif
+                  Processeur actif
                 </>
               ) : (
                 <>
                   <Square className="h-3 w-3 mr-1" />
-                  Worker arrêté
+                  Processeur arrêté
                 </>
               )}
             </Badge>
-            {workerStatus === 'stopped' ? (
-              <Button onClick={handleStartWorker} size="sm" className="bg-green-600 hover:bg-green-700">
-                <Play className="h-4 w-4 mr-2" />
-                Démarrer
+            
+            {!isAutoProcessing ? (
+              <Button 
+                onClick={handleStartProcessor} 
+                size="sm" 
+                className="bg-green-600 hover:bg-green-700"
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Traitement...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Démarrer Pro
+                  </>
+                )}
               </Button>
             ) : (
-              <Button onClick={handleStopWorker} size="sm" variant="outline">
+              <Button 
+                onClick={handleStopProcessor} 
+                size="sm" 
+                variant="outline"
+              >
                 <Square className="h-4 w-4 mr-2" />
                 Arrêter
               </Button>
@@ -88,6 +161,16 @@ export function EmailQueueMonitor() {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Système professionnel actuel */}
+        {isAutoProcessing && (
+          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <Activity className="h-4 w-4 text-green-600 animate-pulse" />
+            <span className="text-sm text-green-800">
+              <strong>Système professionnel actif :</strong> Rate limiting, anti-doublon, retry automatique
+            </span>
+          </div>
+        )}
+
         {/* Statistiques principales */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="text-center">
@@ -159,7 +242,7 @@ export function EmailQueueMonitor() {
           <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
             <AlertTriangle className="h-4 w-4 text-red-600" />
             <span className="text-sm text-red-800">
-              {queueStats.failed} emails ont échoué. Vérifiez la configuration SMTP.
+              {queueStats.failed} emails ont échoué. Le système de retry professionnel les reprendra automatiquement.
             </span>
           </div>
         )}
@@ -173,6 +256,18 @@ export function EmailQueueMonitor() {
             </p>
           </div>
         )}
+
+        {/* Informations système professionnel */}
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <h4 className="text-sm font-medium text-blue-800 mb-1">Système Professionnel</h4>
+          <ul className="text-xs text-blue-700 space-y-1">
+            <li>✅ Rate limiting intelligent par serveur SMTP</li>
+            <li>✅ Protection anti-doublon avec message_id unique</li>
+            <li>✅ Retry automatique avec backoff exponentiel</li>
+            <li>✅ Traitement parallèle optimisé</li>
+            <li>✅ Support Mailgun/SendGrid/SMTP natif</li>
+          </ul>
+        </div>
       </CardContent>
     </Card>
   );
