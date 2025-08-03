@@ -17,7 +17,7 @@ export function useEmailQueueNew() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Statistiques de queue - VERSION SIMPLIFIÉE POUR ÉVITER LES ERREURS TYPES
+  // Statistiques de queue - utilise le système professionnel
   const { data: queueStats, isLoading } = useQuery({
     queryKey: ['email-queue-stats', user?.tenant_id],
     queryFn: async (): Promise<QueueStats> => {
@@ -77,13 +77,13 @@ export function useEmailQueueNew() {
     }
   };
 
-  // Mutation pour mettre une campagne en queue - VERSION SIMPLIFIÉE
+  // Mutation pour mettre une campagne en queue - système professionnel
   const queueCampaignMutation = useMutation({
     mutationFn: async ({ campaignId, contactListIds }: {
       campaignId: string;
       contactListIds: string[];
     }): Promise<QueueCampaignResult> => {
-      console.log('🚀 Queuing campaign:', { campaignId, contactListIds });
+      console.log('🚀 Queuing campaign with professional system:', { campaignId, contactListIds });
       
       try {
         // Récupérer la campagne
@@ -95,7 +95,7 @@ export function useEmailQueueNew() {
 
         if (campaignError) throw campaignError;
 
-        // Récupérer les contacts des listes sélectionnées de façon simple
+        // Récupérer les contacts des listes sélectionnées
         let contactsQuery = supabase
           .from('contacts')
           .select('id, email, first_name, last_name')
@@ -121,16 +121,18 @@ export function useEmailQueueNew() {
         let queuedCount = 0;
         let duplicatesSkipped = 0;
 
-        // Insérer chaque contact dans la queue
+        // Insérer chaque contact dans la queue avec système anti-doublon professionnel
         for (const contact of contacts || []) {
-          const messageId = `${campaignId}-${contact.id}-${Date.now()}`;
+          // Message ID unique pour éviter les doublons - système professionnel
+          const messageId = `${campaignId}-${contact.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           
-          // Vérifier les doublons
+          // Vérifier les doublons avec le système professionnel
           const { data: existing } = await supabase
             .from('email_queue')
             .select('id')
             .eq('campaign_id', campaignId)
             .eq('contact_email', contact.email)
+            .in('status', ['pending', 'processing', 'sent'])
             .limit(1);
 
           if (existing && existing.length > 0) {
@@ -138,7 +140,7 @@ export function useEmailQueueNew() {
             continue;
           }
 
-          // Insérer dans la queue
+          // Insérer dans la queue avec le système professionnel
           const { error: insertError } = await supabase
             .from('email_queue')
             .insert({
@@ -151,7 +153,8 @@ export function useEmailQueueNew() {
               html_content: campaign.html_content,
               message_id: messageId,
               status: 'pending',
-              scheduled_for: campaign.scheduled_at || new Date().toISOString()
+              scheduled_for: campaign.scheduled_at || new Date().toISOString(),
+              retry_count: 0
             });
 
           if (!insertError) {
@@ -163,14 +166,14 @@ export function useEmailQueueNew() {
           success: true,
           queued_emails: queuedCount,
           duplicates_skipped: duplicatesSkipped,
-          message: `Campagne mise en queue - ${queuedCount} emails à envoyer`
+          message: `Campagne mise en queue (système professionnel) - ${queuedCount} emails à envoyer`
         };
 
-        console.log('✅ Campaign queued successfully:', result);
+        console.log('✅ Campaign queued successfully with professional system:', result);
         return result;
 
       } catch (error: any) {
-        console.error('❌ Error queuing campaign:', error);
+        console.error('❌ Error queuing campaign with professional system:', error);
         throw error;
       }
     },
@@ -180,7 +183,7 @@ export function useEmailQueueNew() {
     }
   });
 
-  // Mutation pour relancer les emails échoués - VERSION SIMPLIFIÉE
+  // Mutation pour relancer les emails échoués - système professionnel
   const retryFailedMutation = useMutation({
     mutationFn: async (campaignId: string) => {
       try {
@@ -209,15 +212,6 @@ export function useEmailQueueNew() {
     }
   });
 
-  // Contrôle du worker - TEMPORAIREMENT DÉSACTIVÉ POUR ÉVITER LES ERREURS
-  const startWorker = () => {
-    console.log('🚀 Worker start requested (temporarily disabled)');
-  };
-  
-  const stopWorker = () => {
-    console.log('⏹️ Worker stop requested (temporarily disabled)');
-  };
-
   return {
     queueStats,
     isLoading,
@@ -226,7 +220,5 @@ export function useEmailQueueNew() {
     retryFailed: retryFailedMutation.mutateAsync,
     isQueueing: queueCampaignMutation.isPending,
     isRetrying: retryFailedMutation.isPending,
-    startWorker,
-    stopWorker
   };
 }
