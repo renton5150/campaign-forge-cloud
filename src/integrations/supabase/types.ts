@@ -769,6 +769,7 @@ export type Database = {
           contact_email: string
           contact_name: string | null
           created_at: string | null
+          error_code: string | null
           error_message: string | null
           html_content: string
           id: string
@@ -778,12 +779,14 @@ export type Database = {
           sent_at: string | null
           status: string | null
           subject: string
+          updated_at: string | null
         }
         Insert: {
           campaign_id: string
           contact_email: string
           contact_name?: string | null
           created_at?: string | null
+          error_code?: string | null
           error_message?: string | null
           html_content: string
           id?: string
@@ -793,12 +796,14 @@ export type Database = {
           sent_at?: string | null
           status?: string | null
           subject: string
+          updated_at?: string | null
         }
         Update: {
           campaign_id?: string
           contact_email?: string
           contact_name?: string | null
           created_at?: string | null
+          error_code?: string | null
           error_message?: string | null
           html_content?: string
           id?: string
@@ -808,6 +813,7 @@ export type Database = {
           sent_at?: string | null
           status?: string | null
           subject?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -1323,6 +1329,45 @@ export type Database = {
           },
         ]
       }
+      smtp_rate_limits: {
+        Row: {
+          created_at: string | null
+          emails_sent_day: number | null
+          emails_sent_hour: number | null
+          emails_sent_minute: number | null
+          id: string
+          last_reset_day: string | null
+          last_reset_hour: string | null
+          last_reset_minute: string | null
+          smtp_server_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          emails_sent_day?: number | null
+          emails_sent_hour?: number | null
+          emails_sent_minute?: number | null
+          id?: string
+          last_reset_day?: string | null
+          last_reset_hour?: string | null
+          last_reset_minute?: string | null
+          smtp_server_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          emails_sent_day?: number | null
+          emails_sent_hour?: number | null
+          emails_sent_minute?: number | null
+          id?: string
+          last_reset_day?: string | null
+          last_reset_hour?: string | null
+          last_reset_minute?: string | null
+          smtp_server_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       smtp_servers: {
         Row: {
           api_key: string | null
@@ -1637,6 +1682,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      cleanup_stuck_emails: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       create_domain_with_dkim: {
         Args: { p_domain_name: string; p_tenant_id: string }
         Returns: Json
@@ -1665,6 +1714,30 @@ export type Database = {
         Args: { campaign_id_param: string }
         Returns: Json
       }
+      get_emails_to_send: {
+        Args: { p_limit?: number }
+        Returns: {
+          queue_id: string
+          campaign_id: string
+          contact_email: string
+          contact_name: string
+          subject: string
+          html_content: string
+          message_id: string
+        }[]
+      }
+      mark_email_failed: {
+        Args: {
+          p_queue_id: string
+          p_error_message: string
+          p_error_code?: string
+        }
+        Returns: undefined
+      }
+      mark_email_sent: {
+        Args: { p_queue_id: string; p_smtp_response?: string }
+        Returns: undefined
+      }
       process_unsubscription: {
         Args: {
           p_token: string
@@ -1675,6 +1748,10 @@ export type Database = {
           p_ip_address?: unknown
           p_user_agent?: string
         }
+        Returns: Json
+      }
+      queue_campaign_for_sending: {
+        Args: { p_campaign_id: string; p_contact_list_ids: string[] }
         Returns: Json
       }
       user_has_permission: {

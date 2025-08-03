@@ -31,11 +31,12 @@ export const useSmtpServers = () => {
 
   const loadServers = async () => {
     try {
+      setLoading(true);
+      
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         setServers([]);
-        setLoading(false);
         return;
       }
 
@@ -51,7 +52,6 @@ export const useSmtpServers = () => {
           description: "Impossible de récupérer le profil utilisateur.",
           variant: "destructive",
         });
-        setLoading(false);
         return;
       }
 
@@ -70,7 +70,6 @@ export const useSmtpServers = () => {
           description: "Impossible de charger les serveurs d'envoi.",
           variant: "destructive",
         });
-        setLoading(false);
         return;
       }
 

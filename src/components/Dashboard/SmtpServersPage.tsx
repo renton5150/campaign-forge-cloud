@@ -1,98 +1,75 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Plus, Settings, TestTube, Trash2, Loader2 } from 'lucide-react';
 import { useSmtpServers, SmtpServer } from '@/hooks/useSmtpServers';
-import { useSendingDomains } from '@/hooks/useSendingDomains';
-import { useToast } from '@/hooks/use-toast';
-import { Edit, Trash2, Plus, TestTube, Mail, Link2 } from 'lucide-react';
-import SmtpConfigurationModal from './SmtpConfigurationModal';
-import SmtpConnectionDiagnostic from './SmtpConnectionDiagnostic';
-import SmtpTestEmailModal from './SmtpTestEmailModal';
+import { SmtpConfigurationModal } from './SmtpConfigurationModal';
+import { SmtpTestEmailModal } from './SmtpTestEmailModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-export default function SmtpServersPage() {
-  const { servers, loading, createServer, updateServer, deleteServer } = useSmtpServers();
-  const { domains } = useSendingDomains();
-  const { toast } = useToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedServer, setSelectedServer] = useState<SmtpServer | undefined>();
-  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
-  const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
-
-  const getLinkedDomain = (serverId: string) => {
-    return domains.find(domain => domain.id === serverId);
-  };
+export const SmtpServersPage = () => {
+  const { servers, loading, deleteServer } = useSmtpServers();
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [selectedServer, setSelectedServer] = useState<SmtpServer | null>(null);
+  const [serverToDelete, setServerToDelete] = useState<SmtpServer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEdit = (server: SmtpServer) => {
     setSelectedServer(server);
-    setIsModalOpen(true);
-  };
-
-  const handleCreate = () => {
-    setSelectedServer(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleSave = async (data: any) => {
-    try {
-      if (selectedServer) {
-        await updateServer(selectedServer.id, data);
-      } else {
-        await createServer(data);
-      }
-      setIsModalOpen(false);
-      setSelectedServer(undefined);
-    } catch (error) {
-      console.error('Error saving server:', error);
-    }
-  };
-
-  const handleDelete = async (serverId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce serveur ?')) {
-      await deleteServer(serverId);
-    }
+    setIsConfigModalOpen(true);
   };
 
   const handleTest = (server: SmtpServer) => {
     setSelectedServer(server);
-    setIsDiagnosticOpen(true);
+    setIsTestModalOpen(true);
   };
 
-  const handleTestEmail = (server: SmtpServer) => {
-    setSelectedServer(server);
-    setIsTestEmailOpen(true);
+  const handleDelete = async () => {
+    if (!serverToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteServer(serverToDelete.id);
+      setServerToDelete(null);
+    } catch (error) {
+      console.error('Error deleting server:', error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedServer(undefined);
+  const getServerTypeLabel = (type: string) => {
+    switch (type) {
+      case 'smtp': return 'SMTP';
+      case 'sendgrid': return 'SendGrid';
+      case 'mailgun': return 'Mailgun';
+      case 'amazon_ses': return 'Amazon SES';
+      default: return type;
+    }
   };
 
-  const handleCloseDiagnostic = () => {
-    setIsDiagnosticOpen(false);
-    setSelectedServer(undefined);
-  };
-
-  const handleCloseTestEmail = () => {
-    setIsTestEmailOpen(false);
-    setSelectedServer(undefined);
-  };
+  const getServerStatusBadge = (isActive: boolean) => (
+    <Badge variant={isActive ? 'default' : 'secondary'}>
+      {isActive ? 'Actif' : 'Inactif'}
+    </Badge>
+  );
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">📮 Serveurs SMTP</h1>
-            <p className="text-gray-600">Chargement des serveurs d'envoi d'emails...</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3">Chargement en cours...</span>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -101,149 +78,139 @@ export default function SmtpServersPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">📮 Serveurs SMTP</h1>
-          <p className="text-gray-600">Configurez vos serveurs d'envoi d'emails</p>
+          <h1 className="text-3xl font-bold tracking-tight">Serveurs SMTP</h1>
+          <p className="text-muted-foreground">
+            Gérez vos serveurs d'envoi d'emails
+          </p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="w-4 h-4 mr-2" />
+        <Button onClick={() => setIsConfigModalOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
           Ajouter un serveur
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        {servers.map((server) => {
-          const linkedDomain = getLinkedDomain(server.sending_domain_id || '');
-          
-          return (
+      {servers.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <Settings className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Aucun serveur configuré</h3>
+              <p className="text-muted-foreground mb-4">
+                Configurez votre premier serveur SMTP pour commencer à envoyer des emails.
+              </p>
+              <Button onClick={() => setIsConfigModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Configurer un serveur
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {servers.map((server) => (
             <Card key={server.id}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    {server.name}
-                    <Badge variant={server.is_active ? "default" : "secondary"}>
-                      {server.is_active ? 'Actif' : 'Inactif'}
-                    </Badge>
-                    {linkedDomain && (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        <Link2 className="h-3 w-3 mr-1" />
-                        {linkedDomain.domain}
-                      </Badge>
-                    )}
-                  </CardTitle>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      {server.name}
+                      {getServerStatusBadge(server.is_active)}
+                    </CardTitle>
+                    <CardDescription>
+                      {getServerTypeLabel(server.type)} • {server.from_email}
+                    </CardDescription>
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleTest(server)}
                     >
-                      <TestTube className="w-4 h-4 mr-2" />
-                      Test Connexion
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleTestEmail(server)}
-                    >
-                      <Mail className="w-4 h-4 mr-2" />
-                      Envoyer Test
+                      <TestTube className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleEdit(server)}
                     >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Modifier
+                      <Settings className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(server.id)}
+                      onClick={() => setServerToDelete(server)}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Supprimer
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <p className="text-sm text-gray-600">Type</p>
-                    <p className="font-medium">{server.type}</p>
+                    <span className="font-medium">Type:</span>
+                    <p className="text-muted-foreground">{getServerTypeLabel(server.type)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Hôte</p>
-                    <p className="font-medium">{server.host}</p>
+                    <span className="font-medium">Nom d'expéditeur:</span>
+                    <p className="text-muted-foreground">{server.from_name}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Port</p>
-                    <p className="font-medium">{server.port}</p>
+                    <span className="font-medium">Email d'expéditeur:</span>
+                    <p className="text-muted-foreground">{server.from_email}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Chiffrement</p>
-                    <p className="font-medium">{server.encryption || 'Aucun'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Nom expéditeur</p>
-                    <p className="font-medium">{server.from_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Email expéditeur</p>
-                    <p className="font-medium">{server.from_email}</p>
-                  </div>
-                </div>
-                
-                {!linkedDomain && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      ⚠️ Ce serveur n'est pas encore lié à un domaine d'envoi. 
-                      Créez un domaine pour l'authentifier avec DKIM/SPF.
+                    <span className="font-medium">Statut:</span>
+                    <p className="text-muted-foreground">
+                      {server.is_active ? 'Actif' : 'Inactif'}
                     </p>
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      {servers.length === 0 && !loading && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-lg text-gray-500">Aucun serveur SMTP configuré</p>
-            <p className="text-sm text-gray-400 mb-4">
-              Créez votre premier serveur SMTP pour commencer à envoyer des emails
-            </p>
-            <Button onClick={handleCreate}>
-              <Plus className="w-4 h-4 mr-2" />
-              Créer un serveur SMTP
-            </Button>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
       )}
 
       <SmtpConfigurationModal
-        open={isModalOpen}
-        onClose={handleCloseModal}
+        isOpen={isConfigModalOpen}
+        onClose={() => {
+          setIsConfigModalOpen(false);
+          setSelectedServer(null);
+        }}
         server={selectedServer}
-        onSave={handleSave}
       />
 
-      {isDiagnosticOpen && selectedServer && (
-        <SmtpConnectionDiagnostic
-          server={selectedServer}
-          onClose={handleCloseDiagnostic}
-        />
-      )}
+      <SmtpTestEmailModal
+        isOpen={isTestModalOpen}
+        onClose={() => {
+          setIsTestModalOpen(false);
+          setSelectedServer(null);
+        }}
+        server={selectedServer}
+      />
 
-      {isTestEmailOpen && selectedServer && (
-        <SmtpTestEmailModal
-          open={isTestEmailOpen}
-          server={selectedServer}
-          onClose={handleCloseTestEmail}
-        />
-      )}
+      <AlertDialog open={!!serverToDelete} onOpenChange={() => setServerToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le serveur</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer le serveur "{serverToDelete?.name}" ?
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-}
+};
