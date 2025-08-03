@@ -15,7 +15,7 @@ import { Info, Zap, Clock } from 'lucide-react';
 interface SmtpTestEmailModalProps {
   open: boolean;
   onClose: () => void;
-  server: SmtpServer;
+  server: SmtpServer | null;
 }
 
 export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEmailModalProps) {
@@ -23,6 +23,23 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
   const { testConnection, testing, lastTest } = useSmtpConnectionTest();
   const [testEmail, setTestEmail] = useState(user?.email || '');
   const [testMode, setTestMode] = useState<'full' | 'quick'>('full');
+
+  // Return early if server is null
+  if (!server) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Test d'envoi d'email</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4">
+            <p>Aucun serveur sélectionné</p>
+            <Button onClick={onClose} className="mt-4">Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const handleSendTest = async () => {
     if (!testEmail.trim()) return;
