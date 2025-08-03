@@ -10,12 +10,81 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, Zap, Clock } from 'lucide-react';
+import { Info, Zap, Clock, Server } from 'lucide-react';
 
 interface SmtpTestEmailModalProps {
   open: boolean;
   onClose: () => void;
   server: SmtpServer | null;
+}
+
+// Fonction pour détecter le type de serveur SMTP
+function getServerInfo(host: string | null) {
+  if (!host) return { type: 'Unknown', color: 'default' as const };
+  
+  const hostLower = host.toLowerCase();
+  
+  if (hostLower.includes('turbo-smtp.com')) {
+    return { 
+      type: 'Turbo SMTP', 
+      color: 'destructive' as const,
+      isKnownSlow: true,
+      recommendations: [
+        'Ce serveur est connu pour être lent (15-30 secondes)',
+        'Port 587 (STARTTLS) recommandé pour de meilleures performances',
+        'Port 465 (SSL) fonctionne mais plus lent'
+      ]
+    };
+  }
+  
+  if (hostLower.includes('ovh.net') || hostLower.includes('7tic')) {
+    return { 
+      type: '7TIC/OVH', 
+      color: 'default' as const,
+      isKnownSlow: false,
+      recommendations: [
+        'Utilisez votre adresse email complète comme nom d\'utilisateur',
+        'Port 465 (SSL) ou 587 (STARTTLS) recommandés',
+        'Vérifiez les paramètres de sécurité OVH'
+      ]
+    };
+  }
+  
+  if (hostLower.includes('gmail.com') || hostLower.includes('google.com')) {
+    return { 
+      type: 'Gmail', 
+      color: 'default' as const,
+      isKnownSlow: false,
+      recommendations: [
+        'Utilisez un mot de passe d\'application, pas votre mot de passe principal',
+        'Activez l\'authentification à 2 facteurs',
+        'Port 587 avec STARTTLS recommandé'
+      ]
+    };
+  }
+  
+  if (hostLower.includes('outlook') || hostLower.includes('live.com') || hostLower.includes('hotmail')) {
+    return { 
+      type: 'Outlook/Hotmail', 
+      color: 'default' as const,
+      isKnownSlow: false,
+      recommendations: [
+        'Utilisez l\'authentification moderne si possible',
+        'Port 587 avec STARTTLS recommandé',
+        'Vérifiez les paramètres de sécurité Microsoft'
+      ]
+    };
+  }
+  
+  return { 
+    type: 'SMTP Générique', 
+    color: 'secondary' as const,
+    isKnownSlow: false,
+    recommendations: [
+      'Consultez la documentation de votre fournisseur SMTP',
+      'Vérifiez les ports et protocoles supportés'
+    ]
+  };
 }
 
 export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEmailModalProps) {
@@ -46,6 +115,7 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
 
     console.log('🎯 [MODAL] Démarrage du test d\'envoi d\'email...', {
       server: server.name,
+      host: server.host,
       testEmail: testEmail.trim(),
       mode: testMode
     });
@@ -62,20 +132,27 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
     }, testMode === 'full');
   };
 
-  const isTurboSmtp = server.host?.includes('turbo-smtp.com');
+  const serverInfo = getServerInfo(server.host);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Test d'envoi d'email - {server.name}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Server className="h-5 w-5" />
+            Test d'envoi - {server.name}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Configuration du serveur */}
+          {/* Configuration du serveur avec détection automatique */}
           <Card>
             <CardContent className="pt-4">
               <div className="text-sm space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Type détecté :</span>
+                  <Badge variant={serverInfo.color}>{serverInfo.type}</Badge>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Serveur :</span>
                   <span className="font-medium">{server.host}:{server.port}</span>
@@ -96,12 +173,27 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
             </CardContent>
           </Card>
 
-          {/* Avertissement spécifique Turbo SMTP */}
-          {isTurboSmtp && (
+          {/* Recommandations spécifiques au serveur détecté */}
+          {serverInfo.recommendations && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Recommandations pour {serverInfo.type} :</strong>
+                <ul className="text-sm mt-1 space-y-1 list-disc list-inside">
+                  {serverInfo.recommendations.map((rec, index) => (
+                    <li key={index}>{rec}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Avertissement pour serveurs lents */}
+          {serverInfo.isKnownSlow && (
             <Alert className="border-amber-200 bg-amber-50">
               <Clock className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-amber-800">
-                <strong>Serveur Turbo SMTP détecté</strong>
+                <strong>Serveur {serverInfo.type} détecté</strong>
                 <p className="text-sm mt-1">
                   Ce serveur est connu pour être lent (15-30 secondes). 
                   Utilisez le test rapide pour vérifier la connectivité uniquement.
@@ -121,7 +213,7 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
                 className="flex-1"
               >
                 <Zap className="w-4 h-4 mr-2" />
-                Test rapide (5s)
+                Test rapide
               </Button>
               <Button
                 variant={testMode === 'full' ? 'default' : 'outline'}
@@ -130,12 +222,12 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
                 className="flex-1"
               >
                 <Clock className="w-4 h-4 mr-2" />
-                Test complet (30s)
+                Test complet
               </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {testMode === 'quick' 
-                ? 'Vérifie uniquement la connectivité TCP au serveur SMTP' 
+                ? 'Vérifie uniquement la connectivité TCP au serveur' 
                 : 'Teste la connexion complète et envoie un vrai email'}
             </p>
           </div>
@@ -167,9 +259,9 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
                 <p className="text-xs text-blue-600 mt-1">
                   {testMode === 'quick' 
                     ? 'Vérification de la connectivité TCP...'
-                    : isTurboSmtp 
-                      ? 'Connexion au serveur Turbo SMTP (peut prendre 15-30 secondes)...'
-                      : 'Connexion au serveur SMTP et envoi de l\'email de test...'}
+                    : serverInfo.isKnownSlow 
+                      ? `Connexion au serveur ${serverInfo.type} (peut prendre 15-30 secondes)...`
+                      : `Connexion au serveur ${serverInfo.type} et envoi de l'email de test...`}
                 </p>
               </CardContent>
             </Card>
@@ -222,21 +314,6 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* Informations sur les ports pour Turbo SMTP */}
-          {isTurboSmtp && (
-            <Alert className="border-blue-200 bg-blue-50">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
-                <strong>Ports recommandés pour Turbo SMTP :</strong>
-                <ul className="text-sm mt-1 space-y-1">
-                  <li>• Port 587 (STARTTLS) - Plus rapide</li>
-                  <li>• Port 465 (SSL) - Sécurisé mais plus lent</li>
-                  <li>• Port 25 (SMTP) - Non recommandé</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
           )}
 
           <div className="flex justify-end space-x-2">

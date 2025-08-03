@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,13 +14,122 @@ import {
   AlertTriangle, 
   Settings,
   RefreshCw,
-  Info
+  Info,
+  Server
 } from 'lucide-react';
 
 interface SmtpConnectionDiagnosticProps {
   server: SmtpServer;
   onClose: () => void;
 }
+
+// Fonction pour analyser les erreurs de manière dynamique
+const getErrorAnalysis = (error: string, serverHost: string) => {
+  const hostLower = serverHost.toLowerCase();
+  
+  // Détection du type de serveur
+  let serverType = 'SMTP Générique';
+  let specificSuggestions: string[] = [];
+  
+  if (hostLower.includes('turbo-smtp.com')) {
+    serverType = 'Turbo SMTP';
+    specificSuggestions = [
+      'Le serveur Turbo SMTP est connu pour être lent',
+      'Essayez le port 587 (STARTTLS) au lieu du port 465 (SSL)',
+      'Attendez 15-30 secondes pour les opérations'
+    ];
+  } else if (hostLower.includes('ovh.net') || hostLower.includes('7tic')) {
+    serverType = '7TIC/OVH';
+    specificSuggestions = [
+      'Pour OVH/7tic, utilisez votre adresse email complète comme nom d\'utilisateur',
+      'Vérifiez les paramètres de sécurité de votre compte OVH',
+      'Port 465 (SSL) ou 587 (STARTTLS) sont recommandés'
+    ];
+  } else if (hostLower.includes('gmail.com')) {
+    serverType = 'Gmail';
+    specificSuggestions = [
+      'Utilisez un mot de passe d\'application, pas votre mot de passe principal',
+      'Activez l\'authentification à 2 facteurs',
+      'Port 587 avec STARTTLS recommandé'
+    ];
+  } else if (hostLower.includes('outlook') || hostLower.includes('live.com')) {
+    serverType = 'Outlook/Hotmail';
+    specificSuggestions = [
+      'Utilisez l\'authentification moderne OAuth2 si possible',
+      'Vérifiez les paramètres de sécurité Microsoft',
+      'Port 587 avec STARTTLS recommandé'
+    ];
+  }
+
+  // Analyse de l'erreur
+  if (error.includes('Limite SMTP dépassée') || error.includes('566')) {
+    return {
+      type: `LIMITE DÉPASSÉE - ${serverType}`,
+      severity: 'high',
+      description: `Le serveur ${serverType} a atteint sa limite d'envoi`,
+      suggestions: [
+        'Attendez 5-10 minutes avant de retenter le test',
+        `Les serveurs ${serverType} limitent le nombre d'emails par minute`,
+        'Évitez de tester trop fréquemment la même configuration',
+        ...specificSuggestions
+      ]
+    };
+  }
+  
+  if (error.includes('Authentification') || error.includes('535')) {
+    return {
+      type: `AUTHENTIFICATION - ${serverType}`,
+      severity: 'medium',
+      description: `Authentification échouée sur ${serverType}`,
+      suggestions: [
+        'Vérifiez votre nom d\'utilisateur et mot de passe',
+        'Assurez-vous que le compte n\'est pas verrouillé',
+        ...specificSuggestions
+      ]
+    };
+  }
+  
+  if (error.includes('550')) {
+    return {
+      type: `ADRESSE EMAIL - ${serverType}`,
+      severity: 'medium',
+      description: `Adresse email rejetée par ${serverType}`,
+      suggestions: [
+        'Vérifiez l\'adresse email de destination',
+        'Assurez-vous que l\'adresse existe',
+        `Vérifiez les restrictions du serveur ${serverType}`,
+        ...specificSuggestions
+      ]
+    };
+  }
+  
+  if (error.includes('connexion') || error.includes('timeout')) {
+    return {
+      type: `CONNEXION - ${serverType}`,
+      severity: 'high',
+      description: `Impossible de se connecter au serveur ${serverType}`,
+      suggestions: [
+        `Vérifiez que ${serverHost} est accessible`,
+        'Contrôlez les paramètres de firewall',
+        'Testez la connectivité réseau',
+        'Vérifiez les paramètres de chiffrement (TLS/SSL)',
+        ...specificSuggestions
+      ]
+    };
+  }
+  
+  return {
+    type: `ERREUR - ${serverType}`,
+    severity: 'medium',
+    description: `Erreur détectée avec ${serverType}`,
+    suggestions: [
+      'Consultez les logs détaillés ci-dessous',
+      `Contactez le support de ${serverType}`,
+      'Vérifiez la configuration du serveur',
+      ...specificSuggestions
+    ]
+  };
+};
 
 export default function SmtpConnectionDiagnostic({ 
   server, 
@@ -39,74 +149,6 @@ export default function SmtpConnectionDiagnostic({
     if (onClose) {
       onClose();
     }
-  };
-
-  const getErrorAnalysis = (error: string) => {
-    if (error.includes('Limite SMTP dépassée') || error.includes('566')) {
-      return {
-        type: 'LIMITE DÉPASSÉE',
-        severity: 'high',
-        description: 'Le serveur SMTP a atteint sa limite d\'envoi',
-        suggestions: [
-          'Attendez 5-10 minutes avant de retenter le test',
-          'Les serveurs SMTP limitent le nombre d\'emails par minute',
-          'Évitez de tester trop fréquemment la même configuration',
-          'Contactez votre fournisseur SMTP pour connaître les limites'
-        ]
-      };
-    }
-    
-    if (error.includes('Authentification impossible') || error.includes('535')) {
-      return {
-        type: 'AUTHENTIFICATION',
-        severity: 'medium',
-        description: 'Authentification SMTP échouée',
-        suggestions: [
-          'Vérifiez votre nom d\'utilisateur et mot de passe',
-          'Assurez-vous que le compte n\'est pas verrouillé',
-          'Pour OVH/7tic, utilisez votre adresse email complète comme nom d\'utilisateur',
-          'Vérifiez les paramètres d\'authentification requis'
-        ]
-      };
-    }
-    
-    if (error.includes('550')) {
-      return {
-        type: 'ADRESSE EMAIL',
-        severity: 'medium',
-        description: 'Adresse email rejetée',
-        suggestions: [
-          'Vérifiez l\'adresse email de destination',
-          'Assurez-vous que l\'adresse existe',
-          'Vérifiez les restrictions du serveur SMTP'
-        ]
-      };
-    }
-    
-    if (error.includes('connexion')) {
-      return {
-        type: 'CONNEXION',
-        severity: 'high',
-        description: 'Impossible de se connecter au serveur SMTP',
-        suggestions: [
-          'Vérifiez l\'adresse du serveur et le port',
-          'Contrôlez les paramètres de firewall',
-          'Testez la connectivité réseau',
-          'Vérifiez les paramètres de chiffrement (TLS/SSL)'
-        ]
-      };
-    }
-    
-    return {
-      type: 'ERREUR GÉNÉRALE',
-      severity: 'medium',
-      description: 'Erreur non spécifique détectée',
-      suggestions: [
-        'Consultez les logs détaillés ci-dessous',
-        'Contactez votre fournisseur SMTP',
-        'Vérifiez la configuration du serveur'
-      ]
-    };
   };
 
   if (!showDiagnostic) {
@@ -184,9 +226,12 @@ export default function SmtpConnectionDiagnostic({
               </span>
             </div>
 
-            {/* Configuration serveur */}
+            {/* Configuration serveur avec détection automatique */}
             <div className="bg-gray-50 p-3 rounded-lg">
-              <h4 className="font-medium mb-2">Configuration testée:</h4>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                Configuration testée:
+              </h4>
               <div className="text-sm space-y-1">
                 <div><strong>Serveur:</strong> {server.host}:{server.port}</div>
                 <div><strong>Utilisateur:</strong> {server.username}</div>
@@ -203,19 +248,14 @@ export default function SmtpConnectionDiagnostic({
                   {lastTest.message}
                   {lastTest.details && (
                     <div className="mt-2 text-sm">
-                      <strong>Détails:</strong>
-                      <ul className="list-disc list-inside mt-1">
-                        <li>Message ID: {lastTest.details.messageId}</li>
-                        <li>Serveur: {lastTest.details.server}</li>
-                        <li>Timestamp: {lastTest.details.timestamp}</li>
-                      </ul>
+                      <strong>Détails:</strong> {lastTest.details}
                     </div>
                   )}
                 </AlertDescription>
               </Alert>
             )}
 
-            {/* Analyse d'erreur */}
+            {/* Analyse d'erreur dynamique */}
             {!lastTest.success && lastTest.error && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -226,7 +266,7 @@ export default function SmtpConnectionDiagnostic({
                       <div><strong>Détails:</strong> {lastTest.details}</div>
                     )}
                     {(() => {
-                      const analysis = getErrorAnalysis(lastTest.error);
+                      const analysis = getErrorAnalysis(lastTest.error, server.host || '');
                       return (
                         <div className="mt-2">
                           <div className="flex items-center gap-2 mb-2">
