@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Settings, TestTube, Trash2, Loader2 } from 'lucide-react';
 import { useSmtpServers, SmtpServer } from '@/hooks/useSmtpServers';
-import { SmtpConfigurationModal } from './SmtpConfigurationModal';
-import { SmtpTestEmailModal } from './SmtpTestEmailModal';
+import SmtpConfigurationModal from './SmtpConfigurationModal';
+import SmtpTestEmailModal from './SmtpTestEmailModal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export const SmtpServersPage = () => {
+const SmtpServersPage = () => {
   const { servers, loading, deleteServer } = useSmtpServers();
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
@@ -173,7 +173,7 @@ export const SmtpServersPage = () => {
       )}
 
       <SmtpConfigurationModal
-        isOpen={isConfigModalOpen}
+        open={isConfigModalOpen}
         onClose={() => {
           setIsConfigModalOpen(false);
           setSelectedServer(null);
@@ -182,7 +182,7 @@ export const SmtpServersPage = () => {
       />
 
       <SmtpTestEmailModal
-        isOpen={isTestModalOpen}
+        open={isTestModalOpen}
         onClose={() => {
           setIsTestModalOpen(false);
           setSelectedServer(null);
@@ -214,3 +214,5 @@ export const SmtpServersPage = () => {
     </div>
   );
 };
+
+export default SmtpServersPage;
