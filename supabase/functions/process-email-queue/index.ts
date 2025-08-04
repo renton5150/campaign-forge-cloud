@@ -269,13 +269,26 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
         const response = decoder.decode(result.value);
         console.log(`📥 [PROFESSIONAL-SMTP] Reçu: ${response.trim()}`);
         
-        if (expectedCode && !response.startsWith(expectedCode)) {
-          // Gestion spéciale pour les réponses multi-lignes (comme OVH/7TIC)
+        if (expectedCode) {
+          // Gestion spéciale pour les réponses multi-lignes SMTP
           const lines = response.trim().split(/\r?\n/);
-          const hasValidCode = lines.some(line => {
+          let hasValidCode = false;
+          
+          // Vérifier si la première ligne ou n'importe quelle ligne commence par le code attendu
+          for (const line of lines) {
             const cleanLine = line.trim().replace(/\r$/, '');
-            return cleanLine.startsWith(expectedCode + '-') || cleanLine.startsWith(expectedCode + ' ');
-          });
+            if (cleanLine.startsWith(expectedCode + '-') || 
+                cleanLine.startsWith(expectedCode + ' ') ||
+                cleanLine === expectedCode) {
+              hasValidCode = true;
+              break;
+            }
+          }
+          
+          // Pour EHLO, accepter aussi les réponses qui commencent par le bon code même sans tiret/espace
+          if (!hasValidCode && expectedCode === '250') {
+            hasValidCode = lines.some(line => line.trim().startsWith('250'));
+          }
           
           if (!hasValidCode) {
             throw new Error(`Réponse SMTP inattendue: ${response.trim()}`);
