@@ -180,23 +180,30 @@ export const useSmtpServers = () => {
 
   const updateServer = async (id: string, serverData: SmtpServerFormData) => {
     try {
+      // Préparer les données à mettre à jour, en excluant le mot de passe s'il est vide
+      const updateData: any = {
+        name: serverData.name,
+        type: serverData.type,
+        host: serverData.host || null,
+        port: serverData.port || null,
+        username: serverData.username || null,
+        api_key: serverData.api_key || null,
+        domain: serverData.domain || null,
+        region: serverData.region || null,
+        encryption: serverData.encryption || 'none',
+        from_name: serverData.from_name,
+        from_email: serverData.from_email,
+        is_active: serverData.is_active,
+      };
+      
+      // Ne mettre à jour le mot de passe que s'il a été saisi
+      if (serverData.password && serverData.password.trim() !== '') {
+        updateData.password = serverData.password;
+      }
+      
       const { data, error } = await supabase
         .from('smtp_servers')
-        .update({
-          name: serverData.name,
-          type: serverData.type,
-          host: serverData.host || null,
-          port: serverData.port || null,
-          username: serverData.username || null,
-          password: serverData.password || null,
-          api_key: serverData.api_key || null,
-          domain: serverData.domain || null,
-          region: serverData.region || null,
-          encryption: serverData.encryption || 'none',
-          from_name: serverData.from_name,
-          from_email: serverData.from_email,
-          is_active: serverData.is_active,
-        })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();

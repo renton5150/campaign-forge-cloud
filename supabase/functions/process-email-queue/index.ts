@@ -270,28 +270,38 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
         console.log(`📥 [PROFESSIONAL-SMTP] Reçu: ${response.trim()}`);
         
         if (expectedCode) {
-          // Gestion spéciale pour les réponses multi-lignes SMTP
+          // Gestion spéciale pour les réponses multi-lignes SMTP (OVH, 7TIC, etc.)
           const lines = response.trim().split(/\r?\n/);
           let hasValidCode = false;
           
-          // Vérifier si la première ligne ou n'importe quelle ligne commence par le code attendu
+          console.log(`🔍 [PROFESSIONAL-SMTP] Analyse réponse pour code ${expectedCode}:`, lines);
+          
+          // Vérifier chaque ligne pour le code attendu
           for (const line of lines) {
             const cleanLine = line.trim().replace(/\r$/, '');
-            if (cleanLine.startsWith(expectedCode + '-') || 
-                cleanLine.startsWith(expectedCode + ' ') ||
-                cleanLine === expectedCode) {
-              hasValidCode = true;
-              break;
+            
+            // Formats acceptés: "250", "250-", "250 ", "250-ENHANCEDSTATUSCODES", etc.
+            if (cleanLine.startsWith(expectedCode)) {
+              const nextChar = cleanLine.charAt(expectedCode.length);
+              if (nextChar === '' || nextChar === ' ' || nextChar === '-') {
+                hasValidCode = true;
+                console.log(`✅ [PROFESSIONAL-SMTP] Code ${expectedCode} trouvé dans: ${cleanLine}`);
+                break;
+              }
             }
           }
           
-          // Pour EHLO, accepter aussi les réponses qui commencent par le bon code même sans tiret/espace
-          if (!hasValidCode && expectedCode === '250') {
-            hasValidCode = lines.some(line => line.trim().startsWith('250'));
+          // Pour l'authentification (334), être plus permissif
+          if (!hasValidCode && expectedCode === '334') {
+            hasValidCode = lines.some(line => {
+              const trimmed = line.trim();
+              return trimmed.includes('334') || trimmed.includes('Username') || trimmed.includes('Password');
+            });
           }
           
           if (!hasValidCode) {
-            throw new Error(`Réponse SMTP inattendue: ${response.trim()}`);
+            console.error(`❌ [PROFESSIONAL-SMTP] Code ${expectedCode} non trouvé dans:`, lines);
+            throw new Error(`Réponse SMTP inattendue pour ${expectedCode}: ${response.trim()}`);
           }
         }
         

@@ -55,7 +55,7 @@ export default function SmtpConfigurationModal({
         host: server.host || '',
         port: server.port || 587,
         username: server.username || '',
-        password: server.password || '',
+        password: server.password || '', // Garder le mot de passe existant même s'il est masqué
         api_key: server.api_key || '',
         domain: server.domain || '',
         region: server.region || '',
@@ -63,6 +63,23 @@ export default function SmtpConfigurationModal({
         from_name: server.from_name,
         from_email: server.from_email,
         is_active: server.is_active,
+      });
+    } else {
+      // Réinitialiser le formulaire pour un nouveau serveur
+      setFormData({
+        name: '',
+        type: 'smtp',
+        host: '',
+        port: 587,
+        username: '',
+        password: '',
+        api_key: '',
+        domain: '',
+        region: '',
+        encryption: 'tls',
+        from_name: '',
+        from_email: '',
+        is_active: true,
       });
     }
   }, [server]);
@@ -212,8 +229,8 @@ export default function SmtpConfigurationModal({
                   type="password"
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
-                  placeholder="••••••••"
-                  required
+                  placeholder={server ? "••••••••" : "Mot de passe"}
+                  required={!server} // Mot de passe requis seulement pour nouveau serveur
                 />
               </div>
               <div>
