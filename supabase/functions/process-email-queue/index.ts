@@ -308,6 +308,7 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
                 }
               }
             }
+          }
           
           // Pour l'authentification (334), être plus permissif
           if (!hasValidCode && expectedCode === '334') {
