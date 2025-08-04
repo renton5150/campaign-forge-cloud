@@ -204,149 +204,217 @@ async function sendViaSendGrid(queueItem: QueueItem, server: SmtpServer): Promis
   return true;
 }
 
-// SMTP professionnel optimisé avec timeouts fixes
+// SMTP professionnel optimisé avec timeouts corrects
 async function sendViaSmtpProfessional(queueItem: QueueItem, server: SmtpServer): Promise<boolean> {
-  const { host, port, username, password, encryption } = server;
+  console.log(`🔗 [PROFESSIONAL-SMTP] Connexion à ${server.host}:${server.port} pour ${queueItem.contact_email}`);
   
-  if (!host || !port || !username || !password) {
+  // Timeout global adaptatif selon le serveur
+  const globalTimeoutMs = server.host?.includes('ovh.net') ? 8000 : 12000;
+  const abortController = new AbortController();
+  
+  const globalTimeout = setTimeout(() => {
+    console.log(`⏰ [PROFESSIONAL-SMTP] Timeout global après ${globalTimeoutMs}ms`);
+    abortController.abort();
+  }, globalTimeoutMs);
+
+  try {
+    return await Promise.race([
+      performSmtpOperation(queueItem, server, abortController.signal),
+      new Promise<never>((_, reject) => {
+        abortController.signal.addEventListener('abort', () => {
+          reject(new Error(`Timeout SMTP après ${globalTimeoutMs}ms`));
+        });
+      })
+    ]);
+  } finally {
+    clearTimeout(globalTimeout);
+  }
+}
+
+async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, signal: AbortSignal): Promise<boolean> {
+  const { host, port, username, password, encryption, from_email, from_name } = server;
+  
+  if (!host || !port || !username || !password || !from_email) {
     throw new Error('Configuration SMTP incomplète');
   }
 
-  console.log(`🔗 [PROFESSIONAL-SMTP] Connexion à ${host}:${port} pour ${queueItem.contact_email}`);
-  
-  let conn;
-  const connectionTimeout = 30000; // Timeout fixé à 30s pour le système professionnel
+  let conn: Deno.TcpConn | null = null;
+  let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
   try {
+    // Vérification d'annulation
+    if (signal.aborted) throw new Error('Opération annulée');
+    
+    // Fonction utilitaire pour envoyer une commande SMTP avec timeout strict
+    const sendCommand = async (command: string, expectedCode?: string): Promise<string> => {
+      if (!writer || !reader) throw new Error('Connexion non initialisée');
+      if (signal.aborted) throw new Error('Opération annulée');
+      
+      console.log(`📤 [PROFESSIONAL-SMTP] Envoi: ${command.replace(/\r\n$/, '')}`);
+      
+      const encoder = new TextEncoder();
+      await writer.write(encoder.encode(command));
+      
+      // Timeout strict pour chaque commande (4 secondes)
+      const commandTimeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout sur commande SMTP (4s)')), 4000);
+      });
+      
+      const readPromise = (async () => {
+        const result = await reader.read();
+        if (result.done) throw new Error('Connexion fermée par le serveur');
+        
+        const decoder = new TextDecoder();
+        const response = decoder.decode(result.value);
+        console.log(`📥 [PROFESSIONAL-SMTP] Reçu: ${response.trim()}`);
+        
+        if (expectedCode && !response.startsWith(expectedCode)) {
+          throw new Error(`Réponse SMTP inattendue: ${response.trim()}`);
+        }
+        
+        return response;
+      })();
+      
+      return await Promise.race([readPromise, commandTimeout]);
+    };
+
+    // Connexion TCP avec timeout court
+    console.log(`🔌 [PROFESSIONAL-SMTP] Connexion TCP vers ${host}:${port}`);
+    const connectTimeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout connexion TCP (3s)')), 3000);
+    });
+    
     const connectPromise = Deno.connect({
       hostname: host,
       port: port,
-      transport: 'tcp'
     });
-
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout de connexion SMTP (30s)')), connectionTimeout);
-    });
-
-    conn = await Promise.race([connectPromise, timeoutPromise]) as Deno.TcpConn;
+    
+    conn = await Promise.race([connectPromise, connectTimeout]);
     console.log('✅ [PROFESSIONAL-SMTP] Connexion TCP établie');
-
-  } catch (error) {
-    throw new Error(`Connexion SMTP échouée: ${error.message}`);
-  }
-
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-
-  // Fonction pour envoyer une commande avec timeout unifié
-  async function sendCommand(command: string, timeout = 30000): Promise<string> {
-    console.log('📤 [PROFESSIONAL-SMTP] Envoi:', command.trim());
     
-    const writePromise = conn.write(encoder.encode(command));
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout commande SMTP (30s)')), timeout);
-    });
-
-    await Promise.race([writePromise, timeoutPromise]);
+    let stream = conn;
     
-    const buffer = new Uint8Array(4096);
-    const readPromise = conn.read(buffer);
-    const readTimeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout lecture SMTP (30s)')), timeout);
-    });
-
-    const bytesRead = await Promise.race([readPromise, readTimeoutPromise]) as number | null;
-    const response = decoder.decode(buffer.subarray(0, bytesRead || 0));
+    // Détection SSL/TLS selon le port
+    const useDirectSSL = port === 465 || encryption === 'ssl';
+    const useSTARTTLS = port === 587 || encryption === 'tls';
     
-    console.log('📥 [PROFESSIONAL-SMTP] Réponse:', response.trim());
-    return response;
-  }
-
-  try {
-    // 1. Lire le message de bienvenue
-    const welcomeBuffer = new Uint8Array(1024);
-    const welcomeBytesRead = await conn.read(welcomeBuffer);
-    const welcomeResponse = decoder.decode(welcomeBuffer.subarray(0, welcomeBytesRead || 0));
-    
-    if (!welcomeResponse.startsWith('220')) {
-      throw new Error(`Erreur de connexion: ${welcomeResponse.trim()}`);
+    if (useDirectSSL) {
+      console.log('🔒 [PROFESSIONAL-SMTP] Activation SSL directe (port 465)');
+      stream = await Deno.startTls(conn, {
+        hostname: host,
+      });
+      console.log('✅ [PROFESSIONAL-SMTP] SSL direct activé');
     }
-
-    // 2. EHLO
-    const ehloResponse = await sendCommand(`EHLO ${host}\r\n`);
-    if (!ehloResponse.startsWith('250')) {
-      throw new Error(`Erreur EHLO: ${ehloResponse.trim()}`);
-    }
-
-    // 3. STARTTLS si nécessaire
-    if (encryption === 'tls') {
-      const startTlsResponse = await sendCommand('STARTTLS\r\n');
-      if (!startTlsResponse.startsWith('220')) {
-        throw new Error(`Erreur STARTTLS: ${startTlsResponse.trim()}`);
+    
+    reader = stream.readable.getReader();
+    writer = stream.writable.getWriter();
+    
+    // Lire le message de bienvenue avec timeout strict
+    console.log('👋 [PROFESSIONAL-SMTP] Lecture du message de bienvenue...');
+    const welcomeTimeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout sur message de bienvenue (2s)')), 2000);
+    });
+    
+    const welcomePromise = (async () => {
+      const result = await reader.read();
+      if (result.done) throw new Error('Connexion fermée lors du welcome');
+      
+      const decoder = new TextDecoder();
+      const response = decoder.decode(result.value);
+      console.log(`📥 [PROFESSIONAL-SMTP] Welcome: ${response.trim()}`);
+      
+      if (!response.startsWith('220')) {
+        throw new Error(`Message de bienvenue invalide: ${response.trim()}`);
       }
       
-      conn = await Deno.startTls(conn, { hostname: host });
-      console.log('🔒 [PROFESSIONAL-SMTP] Connexion TLS établie');
+      return response;
+    })();
+    
+    await Promise.race([welcomePromise, welcomeTimeout]);
+    
+    // EHLO
+    await sendCommand(`EHLO ${host}\r\n`, '250');
+    
+    // STARTTLS si nécessaire (port 587)
+    if (useSTARTTLS && !useDirectSSL) {
+      console.log('🔒 [PROFESSIONAL-SMTP] Activation STARTTLS (port 587)');
+      await sendCommand('STARTTLS\r\n', '220');
       
-      const ehloTlsResponse = await sendCommand(`EHLO ${host}\r\n`);
-      if (!ehloTlsResponse.startsWith('250')) {
-        throw new Error(`Erreur EHLO après TLS: ${ehloTlsResponse.trim()}`);
+      // Upgrader vers TLS
+      stream = await Deno.startTls(stream, {
+        hostname: host,
+      });
+      
+      reader = stream.readable.getReader();
+      writer = stream.writable.getWriter();
+      
+      // Re-EHLO après STARTTLS
+      await sendCommand(`EHLO ${host}\r\n`, '250');
+      console.log('✅ [PROFESSIONAL-SMTP] STARTTLS activé');
+    }
+    
+    // Authentication
+    await sendCommand('AUTH LOGIN\r\n', '334');
+    
+    const usernameB64 = encodeBase64(username);
+    const passwordB64 = encodeBase64(password);
+    
+    await sendCommand(`${usernameB64}\r\n`, '334');
+    await sendCommand(`${passwordB64}\r\n`, '235');
+    
+    console.log('✅ [PROFESSIONAL-SMTP] Authentification réussie');
+    
+    // Mail transaction
+    await sendCommand(`MAIL FROM:<${from_email}>\r\n`, '250');
+    await sendCommand(`RCPT TO:<${queueItem.contact_email}>\r\n`, '250');
+    await sendCommand('DATA\r\n', '354');
+    
+    // Construire l'email avec headers complets et standards
+    const messageId = queueItem.message_id || `${Date.now()}.${Math.random().toString(36)}@${host}`;
+    const date = new Date().toUTCString().replace('GMT', '+0000');
+    
+    const emailContent = `Message-ID: <${messageId}>
+Date: ${date}
+From: ${from_name ? `"${from_name}" <${from_email}>` : from_email}
+To: ${queueItem.contact_name ? `"${queueItem.contact_name}" <${queueItem.contact_email}>` : queueItem.contact_email}
+Subject: ${queueItem.subject}
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+X-Mailer: Professional Email System v2.1
+
+${queueItem.html_content}
+.\r\n`;
+    
+    await sendCommand(emailContent, '250');
+    
+    // Fermeture propre
+    await sendCommand('QUIT\r\n', '221');
+    
+    console.log('✅ [PROFESSIONAL-SMTP] Email envoyé avec succès');
+    return true;
+    
+  } catch (error: any) {
+    console.error('❌ [PROFESSIONAL-SMTP] Erreur:', error);
+    
+    // Tentative de fermeture propre en cas d'erreur
+    try {
+      if (writer) {
+        await writer.write(new TextEncoder().encode('QUIT\r\n'));
       }
-    }
-
-    // 4. Authentification
-    const authResponse = await sendCommand('AUTH LOGIN\r\n');
-    if (!authResponse.startsWith('334')) {
-      throw new Error(`Erreur AUTH LOGIN: ${authResponse.trim()}`);
-    }
-
-    const userResponse = await sendCommand(`${encodeBase64(username)}\r\n`);
-    if (!userResponse.startsWith('334')) {
-      throw new Error(`Erreur nom d'utilisateur: ${userResponse.trim()}`);
-    }
-
-    const passResponse = await sendCommand(`${encodeBase64(password)}\r\n`);
-    if (!passResponse.startsWith('235')) {
-      throw new Error(`Erreur mot de passe: ${passResponse.trim()}`);
-    }
-
-    // 5. Envoi de l'email
-    const mailFromResponse = await sendCommand(`MAIL FROM:<${server.from_email}>\r\n`);
-    if (!mailFromResponse.startsWith('250')) {
-      throw new Error(`Erreur MAIL FROM: ${mailFromResponse.trim()}`);
-    }
-
-    const rcptToResponse = await sendCommand(`RCPT TO:<${queueItem.contact_email}>\r\n`);
-    if (!rcptToResponse.startsWith('250')) {
-      throw new Error(`Erreur RCPT TO: ${rcptToResponse.trim()}`);
-    }
-
-    const dataResponse = await sendCommand('DATA\r\n');
-    if (!dataResponse.startsWith('354')) {
-      throw new Error(`Erreur DATA: ${dataResponse.trim()}`);
-    }
-
-    // Construction du message avec headers professionnels
-    const emailContent = [
-      `From: ${server.from_name} <${server.from_email}>`,
-      `To: ${queueItem.contact_email}`,
-      `Subject: ${queueItem.subject}`,
-      `Message-ID: ${queueItem.message_id}`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=UTF-8',
-      'X-Mailer: Professional Email System v2.0',
-      '',
-      queueItem.html_content,
-      '.',
-      ''
-    ].join('\r\n');
-
-    const contentResponse = await sendCommand(emailContent);
-    if (!contentResponse.startsWith('250')) {
-      throw new Error(`Erreur envoi contenu: ${contentResponse.trim()}`);
-    }
-
-    await sendCommand('QUIT\r\n');
+    } catch {}
+    
+    throw new Error(`Erreur de connexion: ${error.message}`);
+    
+  } finally {
+    // Nettoyage des ressources
+    try {
+      if (reader) await reader.cancel();
+      if (writer) await writer.close();
+      if (conn) conn.close();
+    } catch {}
+  }
     
     console.log(`✅ [PROFESSIONAL-SMTP] Email envoyé avec succès à ${queueItem.contact_email}`);
     return true;

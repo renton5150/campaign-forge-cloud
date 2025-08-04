@@ -69,10 +69,15 @@ export const useSmtpConnectionTest = () => {
         } 
       });
 
-      // Timeout côté client de 120 secondes pour les serveurs lents
+      // Timeout côté client adaptatif selon le serveur
+      const isOvhServer = serverData.host?.includes('ovh.net');
+      const clientTimeoutMs = isOvhServer ? 12000 : 20000; // 12s pour OVH, 20s pour les autres
+      
+      console.log(`⏰ [CLIENT] Timeout client fixé à ${clientTimeoutMs}ms pour ${serverData.host}`);
+      
       const clientTimeout = setTimeout(() => {
-        throw new Error('Timeout côté client après 120 secondes');
-      }, 120000);
+        throw new Error(`Timeout côté client après ${clientTimeoutMs/1000} secondes`);
+      }, clientTimeoutMs);
 
       const response = await supabase.functions.invoke('process-email-queue', {
         body: requestBody
