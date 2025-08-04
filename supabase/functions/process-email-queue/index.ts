@@ -701,6 +701,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const requestBody = await req.json();
+    console.log('📨 [PROFESSIONAL] Début du traitement avec body:', JSON.stringify({ ...requestBody, test_server: requestBody.test_server ? { ...requestBody.test_server, password: '***' } : undefined }));
     
     // MODE TEST - Nouveau système unifié
     if (requestBody.test_mode === true) {
@@ -709,7 +710,27 @@ const handler = async (req: Request): Promise<Response> => {
       const { test_server, test_email, send_real_email = true } = requestBody;
       
       if (!test_server || !test_server.host || !test_server.port || !test_server.username || !test_server.password || !test_server.from_email || !test_email) {
-        throw new Error('Paramètres de test manquants');
+        console.error('❌ [PROFESSIONAL-TEST] Paramètres de test manquants:', { 
+          hasTestServer: !!test_server, 
+          hasHost: !!test_server?.host,
+          hasPort: !!test_server?.port,
+          hasUsername: !!test_server?.username,
+          hasPassword: !!test_server?.password,
+          hasFromEmail: !!test_server?.from_email,
+          hasTestEmail: !!test_email
+        });
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Paramètres de test manquants',
+            details: 'Vérifiez que tous les paramètres SMTP et l\'email de test sont fournis'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          }
+        );
       }
 
       const result = await testSmtpServerProfessional(test_server, test_email, send_real_email);

@@ -61,9 +61,15 @@ export const useSmtpConnectionTest = () => {
         send_real_email: sendRealEmail
       };
       
-      console.log('📤 [CLIENT] Corps de la requête:', { ...requestBody, test_server: { ...requestBody.test_server, password: '***' } });
+      console.log('📤 [CLIENT] Corps de la requête:', { 
+        ...requestBody, 
+        test_server: { 
+          ...requestBody.test_server, 
+          password: '***' 
+        } 
+      });
 
-      // Appel à la fonction professionnelle avec timeout côté client étendu (120s)
+      // Timeout côté client de 120 secondes pour les serveurs lents
       const clientTimeout = setTimeout(() => {
         throw new Error('Timeout côté client après 120 secondes');
       }, 120000);
@@ -75,10 +81,8 @@ export const useSmtpConnectionTest = () => {
       clearTimeout(clientTimeout);
       
       console.log('📥 [CLIENT] Réponse brute complète:', response);
-      console.log('📥 [CLIENT] Réponse data:', response.data);
-      console.log('📥 [CLIENT] Réponse error:', response.error);
 
-      // Vérifier s'il y a une erreur de transport
+      // Vérifier les erreurs de transport
       if (response.error) {
         console.error('❌ [CLIENT] Erreur de transport:', response.error);
         throw new Error(`Erreur de transport: ${response.error.message || response.error}`);
