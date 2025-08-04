@@ -90,13 +90,15 @@ export default function CampaignSchedule({ formData, updateFormData }: CampaignS
 
       const { data, error } = await supabase.functions.invoke('send-test-email', {
         body: {
-          smtp_host: smtpServer.host,
-          smtp_port: smtpServer.port,
-          smtp_username: smtpServer.username,
-          smtp_password: smtpServer.password,
+          host: smtpServer.host,
+          port: smtpServer.port,
+          username: smtpServer.username,
+          password: smtpServer.password,
           from_email: formData.from_email || smtpServer.from_email,
           from_name: formData.from_name || smtpServer.from_name,
           test_email: testEmail,
+          encryption: smtpServer.encryption || 'tls',
+          sendRealEmail: true,
           html_content: personalizedContent,
           subject: formData.subject || 'Test de campagne'
         }
