@@ -271,8 +271,11 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
         
         if (expectedCode && !response.startsWith(expectedCode)) {
           // Gestion spéciale pour les réponses multi-lignes (comme OVH/7TIC)
-          const lines = response.trim().split('\n');
-          const hasValidCode = lines.some(line => line.trim().startsWith(expectedCode));
+          const lines = response.trim().split(/\r?\n/);
+          const hasValidCode = lines.some(line => {
+            const cleanLine = line.trim().replace(/\r$/, '');
+            return cleanLine.startsWith(expectedCode + '-') || cleanLine.startsWith(expectedCode + ' ');
+          });
           
           if (!hasValidCode) {
             throw new Error(`Réponse SMTP inattendue: ${response.trim()}`);
