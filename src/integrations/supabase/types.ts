@@ -731,6 +731,73 @@ export type Database = {
           },
         ]
       }
+      email_clicks: {
+        Row: {
+          campaign_id: string | null
+          clicked_at: string | null
+          contact_email: string
+          country: string | null
+          created_at: string | null
+          device_type: string | null
+          email_queue_id: string | null
+          id: string
+          ip_address: unknown | null
+          original_url: string
+          tenant_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          clicked_at?: string | null
+          contact_email: string
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          email_queue_id?: string | null
+          id?: string
+          ip_address?: unknown | null
+          original_url: string
+          tenant_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          clicked_at?: string | null
+          contact_email?: string
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          email_queue_id?: string | null
+          id?: string
+          ip_address?: unknown | null
+          original_url?: string
+          tenant_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_clicks_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_clicks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           email_queue_id: string | null
@@ -759,6 +826,73 @@ export type Database = {
             columns: ["email_queue_id"]
             isOneToOne: false
             referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_opens: {
+        Row: {
+          campaign_id: string | null
+          contact_email: string
+          country: string | null
+          created_at: string | null
+          device_type: string | null
+          email_client: string | null
+          email_queue_id: string | null
+          id: string
+          ip_address: unknown | null
+          opened_at: string | null
+          tenant_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_email: string
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          email_client?: string | null
+          email_queue_id?: string | null
+          id?: string
+          ip_address?: unknown | null
+          opened_at?: string | null
+          tenant_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_email?: string
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          email_client?: string | null
+          email_queue_id?: string | null
+          id?: string
+          ip_address?: unknown | null
+          opened_at?: string | null
+          tenant_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_opens_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_opens_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_opens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1482,30 +1616,100 @@ export type Database = {
       }
       tenants: {
         Row: {
+          brand_config: Json | null
           company_name: string
           created_at: string
           domain: string
           id: string
           status: Database["public"]["Enums"]["tenant_status"]
+          tracking_domain: string | null
+          unsubscribe_page_config: Json | null
           updated_at: string
         }
         Insert: {
+          brand_config?: Json | null
           company_name: string
           created_at?: string
           domain: string
           id?: string
           status?: Database["public"]["Enums"]["tenant_status"]
+          tracking_domain?: string | null
+          unsubscribe_page_config?: Json | null
           updated_at?: string
         }
         Update: {
+          brand_config?: Json | null
           company_name?: string
           created_at?: string
           domain?: string
           id?: string
           status?: Database["public"]["Enums"]["tenant_status"]
+          tracking_domain?: string | null
+          unsubscribe_page_config?: Json | null
           updated_at?: string
         }
         Relationships: []
+      }
+      tracking_tokens: {
+        Row: {
+          campaign_id: string | null
+          contact_email: string
+          created_at: string | null
+          email_queue_id: string | null
+          expires_at: string | null
+          id: string
+          original_url: string | null
+          tenant_id: string
+          token: string
+          token_type: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_email: string
+          created_at?: string | null
+          email_queue_id?: string | null
+          expires_at?: string | null
+          id?: string
+          original_url?: string | null
+          tenant_id: string
+          token: string
+          token_type: string
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_email?: string
+          created_at?: string | null
+          email_queue_id?: string | null
+          expires_at?: string | null
+          id?: string
+          original_url?: string | null
+          tenant_id?: string
+          token?: string
+          token_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_tokens_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_tokens_email_queue_id_fkey"
+            columns: ["email_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       unsubscribe_tokens: {
         Row: {
@@ -1542,6 +1746,57 @@ export type Database = {
           },
           {
             foreignKeyName: "unsubscribe_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unsubscribes: {
+        Row: {
+          campaign_id: string | null
+          contact_email: string
+          created_at: string | null
+          id: string
+          ip_address: unknown | null
+          reason: string | null
+          tenant_id: string
+          unsubscribed_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_email: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          reason?: string | null
+          tenant_id: string
+          unsubscribed_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_email?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          reason?: string | null
+          tenant_id?: string
+          unsubscribed_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unsubscribes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unsubscribes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1705,6 +1960,17 @@ export type Database = {
       generate_dkim_keypair: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      generate_tracking_token: {
+        Args: {
+          p_tenant_id: string
+          p_email_queue_id: string
+          p_campaign_id: string
+          p_contact_email: string
+          p_token_type: string
+          p_original_url?: string
+        }
+        Returns: string
       }
       generate_unsubscribe_token: {
         Args: { p_email: string; p_tenant_id: string; p_campaign_id?: string }
