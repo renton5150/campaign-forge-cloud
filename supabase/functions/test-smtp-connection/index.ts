@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 interface SmtpTestRequest {
@@ -18,6 +17,73 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// FONCTION CORRIGÉE pour OVH/7TIC : Parsing SMTP multi-lignes
+async function sendCommand(
+  socket: Deno.TlsConn | Deno.Conn, 
+  command: string, 
+  expectedCode: string,
+  timeoutMs: number = 8000
+): Promise<string> {
+  console.log(`📤 Envoi: ${command.trim()}`);
+  
+  // Envoyer la commande
+  const encoder = new TextEncoder();
+  await socket.write(encoder.encode(command + '\r\n'));
+  
+  // Lire la réponse avec timeout
+  const timeoutPromise = new Promise<never>((_, reject) => 
+    setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
+  );
+  
+  const responsePromise = (async () => {
+    let fullResponse = '';
+    const buffer = new Uint8Array(4096);
+    const decoder = new TextDecoder();
+    
+    while (true) {
+      const bytesRead = await socket.read(buffer);
+      if (!bytesRead) break;
+      
+      const chunk = decoder.decode(buffer.subarray(0, bytesRead));
+      fullResponse += chunk;
+      
+      // SPÉCIFIQUE OVH : Vérifier fin de réponse multi-ligne
+      const lines = fullResponse.split('\r\n').filter(line => line.length > 0);
+      
+      if (lines.length > 0) {
+        const lastLine = lines[lines.length - 1];
+        
+        // Une réponse SMTP est complète si :
+        // - Elle se termine par un code suivi d'un espace (ex: "250 OK")
+        // - Ou si c'est une réponse simple sur une ligne
+        if (lastLine.match(/^\d{3}\s/) || !lastLine.includes('-')) {
+          break;
+        }
+      }
+    }
+    
+    return fullResponse.trim();
+  })();
+  
+  const response = await Promise.race([responsePromise, timeoutPromise]);
+  console.log(`📥 Reçu: ${response}`);
+  
+  // CORRECTION : Vérifier le code dans n'importe quelle ligne
+  const lines = response.split('\r\n');
+  const hasValidCode = lines.some(line => {
+    const trimmedLine = line.trim();
+    // Accepter format : "250 OK", "250-INFO", "334 AUTH"
+    return trimmedLine.startsWith(expectedCode + ' ') || 
+           trimmedLine.startsWith(expectedCode + '-');
+  });
+  
+  if (!hasValidCode) {
+    throw new Error(`Réponse SMTP inattendue pour ${expectedCode}: ${response}`);
+  }
+  
+  return response;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -48,7 +114,7 @@ serve(async (req) => {
     console.log(`Testing ${type} connection...`);
 
     if (type === 'smtp') {
-      return await testSmtpConnection({ host, port, username, password, encryption });
+      return await testSmtpServerProfessional({ host, port, username, password, encryption });
     } else if (type === 'sendgrid') {
       return await testSendGridConnection(api_key!);
     } else if (type === 'mailgun') {
@@ -65,7 +131,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors du test:', error);
     return new Response(JSON.stringify({ 
       success: false, 
@@ -77,13 +143,16 @@ serve(async (req) => {
   }
 });
 
-async function testSmtpConnection({ host, port, username, password, encryption }: {
+// FONCTION CORRIGÉE pour OVH/7TIC
+async function testSmtpServerProfessional(params: {
   host?: string;
   port?: number;
   username?: string;
   password?: string;
   encryption?: string;
 }) {
+  const { host, port, username, password, encryption } = params;
+  
   console.log('Testing SMTP connection with:', { host, port, username: username ? '***' : 'missing', encryption });
 
   if (!host || !port) {
@@ -96,69 +165,82 @@ async function testSmtpConnection({ host, port, username, password, encryption }
     });
   }
 
+  const isOvhServer = host.includes('ovh.net');
+  const timeout = isOvhServer ? 12000 : 8000;
+  
   try {
-    // Test de connexion TCP au serveur SMTP
-    console.log(`Attempting to connect to ${host}:${port}`);
+    let socket: Deno.TlsConn | Deno.Conn;
     
-    const conn = await Deno.connect({
-      hostname: host,
-      port: port,
-      transport: 'tcp'
-    });
-
-    console.log('TCP connection established');
-
-    // Lire la réponse de bienvenue du serveur
-    const buffer = new Uint8Array(1024);
-    const bytesRead = await conn.read(buffer);
-    const response = new TextDecoder().decode(buffer.subarray(0, bytesRead || 0));
-    
-    console.log('SMTP Response:', response);
-
-    // Vérifier que la réponse commence par 220 (Service ready)
-    if (!response.startsWith('220')) {
-      conn.close();
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `Réponse SMTP invalide: ${response.trim()}` 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // CORRECTION SSL/TLS selon le port
+    if (port === 465) {
+      // Port 465 = SSL direct
+      socket = await Deno.connectTls({
+        hostname: host,
+        port: port,
+      });
+    } else {
+      // Port 587 ou autres = connexion normale puis STARTTLS
+      socket = await Deno.connect({
+        hostname: host,
+        port: port,
       });
     }
-
-    // Envoyer EHLO
-    const encoder = new TextEncoder();
-    await conn.write(encoder.encode(`EHLO test.domain.com\r\n`));
     
-    const helloBuffer = new Uint8Array(1024);
-    const helloBytesRead = await conn.read(helloBuffer);
-    const helloResponse = new TextDecoder().decode(helloBuffer.subarray(0, helloBytesRead || 0));
+    // Lire message de bienvenue
+    await sendCommand(socket, '', '220', 3000);
     
-    console.log('EHLO Response:', helloResponse);
-
-    // Fermer la connexion proprement
-    await conn.write(encoder.encode(`QUIT\r\n`));
-    conn.close();
+    // EHLO
+    await sendCommand(socket, `EHLO localhost`, '250', timeout);
+    
+    // STARTTLS seulement si port != 465
+    if (port !== 465 && encryption === 'tls') {
+      await sendCommand(socket, 'STARTTLS', '220', timeout);
+      
+      // Upgrade vers TLS
+      socket = await Deno.startTls(socket as Deno.Conn, {
+        hostname: host,
+      });
+      
+      // Nouvel EHLO après STARTTLS
+      await sendCommand(socket, `EHLO localhost`, '250', timeout);
+    }
+    
+    if (username && password) {
+      // Test d'authentification
+      await sendCommand(socket, 'AUTH LOGIN', '334', timeout);
+      
+      const usernameB64 = btoa(username);
+      await sendCommand(socket, usernameB64, '334', timeout);
+      
+      const passwordB64 = btoa(password);
+      await sendCommand(socket, passwordB64, '235', timeout);
+      
+      console.log('✅ Authentification réussie');
+    }
+    
+    // QUIT
+    await sendCommand(socket, 'QUIT', '221', 2000);
+    
+    socket.close();
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Connexion SMTP réussie - Serveur accessible',
+      message: isOvhServer ? 'Connexion OVH/7TIC réussie avec parsing multi-lignes' : 'Connexion SMTP réussie',
       details: {
-        server_response: response.trim(),
-        ehlo_response: helloResponse.trim(),
-        note: username && password ? 'Credentials fournis mais non testés pour sécurité' : 'Test de connectivité uniquement'
+        server_type: isOvhServer ? 'OVH/7TIC' : 'Standard',
+        ssl_method: port === 465 ? 'SSL Direct' : 'STARTTLS',
+        authentication: username && password ? 'Testée et validée' : 'Non testée'
       }
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur de connexion SMTP:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: `Impossible de se connecter au serveur SMTP: ${error.message}` 
+      error: `Test SMTP échoué: ${error.message}` 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -205,7 +287,7 @@ async function testSendGridConnection(apiKey: string) {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ 
       success: false, 
       error: `Erreur SendGrid: ${error.message}` 
@@ -257,7 +339,7 @@ async function testMailgunConnection(apiKey: string, domain: string, region?: st
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ 
       success: false, 
       error: `Erreur Mailgun: ${error.message}` 
@@ -315,7 +397,7 @@ async function testAmazonSESConnection(accessKeyId: string, secretAccessKey: str
       });
     }
 
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ 
       success: false, 
       error: `Erreur Amazon SES: ${error.message}` 

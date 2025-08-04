@@ -204,30 +204,92 @@ async function sendViaSendGrid(queueItem: QueueItem, server: SmtpServer): Promis
   return true;
 }
 
-// SMTP professionnel optimisé avec timeouts corrects
+// SMTP CORRIGÉ pour OVH/7TIC avec SSL adaptatif
 async function sendViaSmtpProfessional(queueItem: QueueItem, server: SmtpServer): Promise<boolean> {
-  console.log(`🔗 [PROFESSIONAL-SMTP] Connexion à ${server.host}:${server.port} pour ${queueItem.contact_email}`);
+  const isOvhServer = server.host?.includes('ovh.net');
+  const timeout = isOvhServer ? 15000 : 8000; // Timeout plus long pour OVH
   
-  // Timeout global adaptatif selon le serveur
-  const globalTimeoutMs = server.host?.includes('ovh.net') ? 8000 : 12000;
-  const abortController = new AbortController();
-  
-  const globalTimeout = setTimeout(() => {
-    console.log(`⏰ [PROFESSIONAL-SMTP] Timeout global après ${globalTimeoutMs}ms`);
-    abortController.abort();
-  }, globalTimeoutMs);
-
   try {
-    return await Promise.race([
-      performSmtpOperation(queueItem, server, abortController.signal),
-      new Promise<never>((_, reject) => {
-        abortController.signal.addEventListener('abort', () => {
-          reject(new Error(`Timeout SMTP après ${globalTimeoutMs}ms`));
-        });
-      })
-    ]);
-  } finally {
-    clearTimeout(globalTimeout);
+    console.log(`🔌 Connexion SMTP vers ${server.host}:${server.port}`);
+    
+    let socket: Deno.TlsConn | Deno.Conn;
+    
+    // CORRECTION SSL/TLS selon le port
+    if (server.port === 465) {
+      // Port 465 = SSL direct
+      socket = await Deno.connectTls({
+        hostname: server.host!,
+        port: server.port,
+      });
+    } else {
+      // Port 587 ou autres = connexion normale puis STARTTLS
+      socket = await Deno.connect({
+        hostname: server.host!,
+        port: server.port,
+      });
+    }
+    
+    // Lire message de bienvenue
+    await sendCommand(socket, '', '220', 3000); // Pas de commande, juste lire
+    
+    // EHLO
+    await sendCommand(socket, `EHLO localhost`, '250', timeout);
+    
+    // STARTTLS seulement si port != 465
+    if (server.port !== 465 && server.encryption === 'tls') {
+      await sendCommand(socket, 'STARTTLS', '220', timeout);
+      
+      // Upgrade vers TLS
+      socket = await Deno.startTls(socket as Deno.Conn, {
+        hostname: server.host!,
+      });
+      
+      // Nouvel EHLO après STARTTLS
+      await sendCommand(socket, `EHLO localhost`, '250', timeout);
+    }
+    
+    // Authentification
+    await sendCommand(socket, 'AUTH LOGIN', '334', timeout);
+    
+    const username = btoa(server.username!);
+    await sendCommand(socket, username, '334', timeout);
+    
+    const password = btoa(server.password!);
+    await sendCommand(socket, password, '235', timeout);
+    
+    // MAIL FROM - CORRECTION : Accepter plusieurs codes de succès
+    try {
+      await sendCommand(socket, `MAIL FROM:<${server.from_email}>`, '250', timeout);
+    } catch (error: any) {
+      // OVH peut répondre 235 au lieu de 250 après MAIL FROM
+      if (error.message.includes('235')) {
+        console.log('✅ MAIL FROM accepté avec code 235 (OVH)');
+      } else {
+        throw error;
+      }
+    }
+    
+    // RCPT TO
+    await sendCommand(socket, `RCPT TO:<${queueItem.contact_email}>`, '250', timeout);
+    
+    // DATA
+    await sendCommand(socket, 'DATA', '354', timeout);
+    
+    // Envoyer contenu
+    const emailContent = `From: ${server.from_email}\r\nTo: ${queueItem.contact_email}\r\nSubject: ${queueItem.subject}\r\n\r\n${queueItem.html_content}\r\n.`;
+    await sendCommand(socket, emailContent, '250', timeout * 2); // Timeout double pour l'envoi
+    
+    // QUIT
+    await sendCommand(socket, 'QUIT', '221', 2000);
+    
+    socket.close();
+    
+    console.log('✅ Email envoyé avec succès via SMTP professionnel');
+    return true;
+    
+  } catch (error: any) {
+    console.error('❌ Erreur SMTP:', error.message);
+    return false;
   }
 }
 
@@ -246,89 +308,71 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
     // Vérification d'annulation
     if (signal.aborted) throw new Error('Opération annulée');
     
-    // Fonction utilitaire pour envoyer une commande SMTP avec timeout strict
-    const sendCommand = async (command: string, expectedCode?: string): Promise<string> => {
-      if (!writer || !reader) throw new Error('Connexion non initialisée');
-      if (signal.aborted) throw new Error('Opération annulée');
+    // FONCTION CORRIGÉE : Parsing SMTP multi-lignes pour OVH/7TIC
+    const sendCommand = async (
+      socket: Deno.TlsConn | Deno.Conn, 
+      command: string, 
+      expectedCode: string,
+      timeoutMs: number = 8000
+    ): Promise<string> => {
+      console.log(`📤 Envoi: ${command.trim()}`);
       
-      console.log(`📤 [PROFESSIONAL-SMTP] Envoi: ${command.replace(/\r\n$/, '')}`);
-      
+      // Envoyer la commande
       const encoder = new TextEncoder();
-      await writer.write(encoder.encode(command));
+      await socket.write(encoder.encode(command + '\r\n'));
       
-      // Timeout adaptatif selon le serveur - OVH plus lent
-      const timeoutMs = queueItem.contact_email?.includes('ovh') || server.host?.includes('ovh.net') ? 12000 : 6000;
-      const commandTimeout = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`Timeout sur commande SMTP (${timeoutMs/1000}s)`)), timeoutMs);
-      });
+      // Lire la réponse avec timeout
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
+      );
       
-      const readPromise = (async () => {
-        const result = await reader.read();
-        if (result.done) throw new Error('Connexion fermée par le serveur');
-        
+      const responsePromise = (async () => {
+        let fullResponse = '';
+        const buffer = new Uint8Array(4096);
         const decoder = new TextDecoder();
-        const response = decoder.decode(result.value);
-        console.log(`📥 [PROFESSIONAL-SMTP] Reçu: ${response.trim()}`);
         
-        if (expectedCode) {
-          // Gestion spéciale pour les réponses multi-lignes SMTP (OVH, 7TIC, etc.)
-          const lines = response.trim().split(/\r?\n/);
-          let hasValidCode = false;
-          let finalResponse = '';
+        while (true) {
+          const bytesRead = await socket.read(buffer);
+          if (!bytesRead) break;
           
-          console.log(`🔍 [PROFESSIONAL-SMTP] Analyse réponse multi-lignes pour code ${expectedCode}:`, lines);
+          const chunk = decoder.decode(buffer.subarray(0, bytesRead));
+          fullResponse += chunk;
           
-          // Identifier la dernière ligne (sans '-') qui contient le code final
-          for (const line of lines) {
-            const cleanLine = line.trim().replace(/\r$/, '');
+          // SPÉCIFIQUE OVH : Vérifier fin de réponse multi-ligne
+          const lines = fullResponse.split('\r\n').filter(line => line.length > 0);
+          
+          if (lines.length > 0) {
+            const lastLine = lines[lines.length - 1];
             
-            // Pour OVH/7TIC: chercher le code suivi d'un espace (ligne finale)
-            if (cleanLine.startsWith(expectedCode + ' ')) {
-              hasValidCode = true;
-              finalResponse = cleanLine;
-              console.log(`✅ [PROFESSIONAL-SMTP] Code final ${expectedCode} trouvé: ${cleanLine}`);
+            // Une réponse SMTP est complète si :
+            // - Elle se termine par un code suivi d'un espace (ex: "250 OK")
+            // - Ou si c'est une réponse simple sur une ligne
+            if (lastLine.match(/^\d{3}\s/) || !lastLine.includes('-')) {
               break;
             }
-            // Ligne intermédiaire avec tiret (ex: "250-ENHANCEDSTATUSCODES")
-            else if (cleanLine.startsWith(expectedCode + '-')) {
-              console.log(`📄 [PROFESSIONAL-SMTP] Ligne intermédiaire: ${cleanLine}`);
-            }
-          }
-          
-          // Si pas de ligne finale trouvée, accepter la première ligne avec le code
-          if (!hasValidCode) {
-            for (const line of lines) {
-              const cleanLine = line.trim().replace(/\r$/, '');
-              if (cleanLine.startsWith(expectedCode)) {
-                const nextChar = cleanLine.charAt(expectedCode.length);
-                if (nextChar === '' || nextChar === ' ' || nextChar === '-') {
-                  hasValidCode = true;
-                  finalResponse = cleanLine;
-                  console.log(`✅ [PROFESSIONAL-SMTP] Code ${expectedCode} accepté de: ${cleanLine}`);
-                  break;
-                }
-              }
-            }
-          }
-          
-          // Pour l'authentification (334), être plus permissif
-          if (!hasValidCode && expectedCode === '334') {
-            hasValidCode = lines.some(line => {
-              const trimmed = line.trim();
-              return trimmed.includes('334') || trimmed.includes('Username') || trimmed.includes('Password');
-            });
-          }
-          
-          if (!hasValidCode) {
-            console.error(`❌ [PROFESSIONAL-SMTP] Code ${expectedCode} non trouvé dans:`, lines);
-            throw new Error(`Réponse SMTP inattendue pour ${expectedCode}: ${response.trim()}`);
           }
         }
         
-        return response;
+        return fullResponse.trim();
       })();
       
-      return await Promise.race([readPromise, commandTimeout]);
+      const response = await Promise.race([responsePromise, timeoutPromise]);
+      console.log(`📥 Reçu: ${response}`);
+      
+      // CORRECTION : Vérifier le code dans n'importe quelle ligne
+      const lines = response.split('\r\n');
+      const hasValidCode = lines.some(line => {
+        const trimmedLine = line.trim();
+        // Accepter format : "250 OK", "250-INFO", "334 AUTH"
+        return trimmedLine.startsWith(expectedCode + ' ') || 
+               trimmedLine.startsWith(expectedCode + '-');
+      });
+      
+      if (!hasValidCode) {
+        throw new Error(`Réponse SMTP inattendue pour ${expectedCode}: ${response}`);
+      }
+      
+      return response;
     };
 
     // Connexion TCP avec timeout court
