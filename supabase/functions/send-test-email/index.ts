@@ -16,6 +16,8 @@ interface TestEmailRequest {
   test_email: string;
   encryption?: string;
   sendRealEmail?: boolean;
+  html_content?: string;
+  subject?: string;
 }
 
 serve(async (req: Request) => {
@@ -33,7 +35,9 @@ serve(async (req: Request) => {
       from_name,
       test_email,
       encryption = 'tls',
-      sendRealEmail = false
+      sendRealEmail = false,
+      html_content,
+      subject
     }: TestEmailRequest = await req.json();
 
     console.log(`🚀 [NODEMAILER] Test SMTP: ${host}:${port} (${encryption})`);
@@ -85,8 +89,8 @@ serve(async (req: Request) => {
         const mailOptions = {
           from: `${from_name} <${from_email}>`,
           to: test_email,
-          subject: 'Test SMTP - Envoi réussi',
-          html: `
+          subject: subject || 'Test SMTP - Envoi réussi',
+          html: html_content || `
             <h2>🎉 Test SMTP réussi !</h2>
             <p>Votre serveur SMTP <strong>${host}:${port}</strong> fonctionne parfaitement.</p>
             <p><strong>Configuration testée :</strong></p>
@@ -100,7 +104,7 @@ serve(async (req: Request) => {
             <hr>
             <small>Test effectué le ${new Date().toLocaleString('fr-FR')}</small>
           `,
-          text: `Test SMTP réussi ! Serveur: ${host}:${port}, Encryption: ${encryption}, Temps: ${responseTime}ms`
+          text: subject ? `${subject} - Test depuis la campagne` : `Test SMTP réussi ! Serveur: ${host}:${port}, Encryption: ${encryption}, Temps: ${responseTime}ms`
         };
 
         await transporter.sendMail(mailOptions);
