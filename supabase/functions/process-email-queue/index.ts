@@ -256,9 +256,10 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
       const encoder = new TextEncoder();
       await writer.write(encoder.encode(command));
       
-      // Timeout strict pour chaque commande (4 secondes)
+      // Timeout adaptatif selon le serveur - OVH plus lent
+      const timeoutMs = queueItem.contact_email?.includes('ovh') || server.host?.includes('ovh.net') ? 12000 : 6000;
       const commandTimeout = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout sur commande SMTP (4s)')), 4000);
+        setTimeout(() => reject(new Error(`Timeout sur commande SMTP (${timeoutMs/1000}s)`)), timeoutMs);
       });
       
       const readPromise = (async () => {
@@ -451,8 +452,14 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
     
     console.log('✅ [PROFESSIONAL-SMTP] Authentification réussie');
     
-    // Mail transaction
-    await sendCommand(`MAIL FROM:<${from_email}>\r\n`, '250');
+    // Mail transaction - codes spéciaux pour OVH/7TIC
+    // MAIL FROM peut retourner 235, 250, 251 ou 252 selon le serveur
+    const mailFromResponse = await sendCommand(`MAIL FROM:<${from_email}>\r\n`);
+    if (!mailFromResponse.includes('235') && !mailFromResponse.includes('250') && !mailFromResponse.includes('251') && !mailFromResponse.includes('252')) {
+      throw new Error(`MAIL FROM rejeté: ${mailFromResponse.trim()}`);
+    }
+    console.log('✅ [PROFESSIONAL-SMTP] MAIL FROM accepté');
+    
     await sendCommand(`RCPT TO:<${queueItem.contact_email}>\r\n`, '250');
     await sendCommand('DATA\r\n', '354');
     
