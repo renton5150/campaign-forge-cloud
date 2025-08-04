@@ -270,7 +270,13 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
         console.log(`📥 [PROFESSIONAL-SMTP] Reçu: ${response.trim()}`);
         
         if (expectedCode && !response.startsWith(expectedCode)) {
-          throw new Error(`Réponse SMTP inattendue: ${response.trim()}`);
+          // Gestion spéciale pour les réponses multi-lignes (comme OVH/7TIC)
+          const lines = response.trim().split('\n');
+          const hasValidCode = lines.some(line => line.trim().startsWith(expectedCode));
+          
+          if (!hasValidCode) {
+            throw new Error(`Réponse SMTP inattendue: ${response.trim()}`);
+          }
         }
         
         return response;
