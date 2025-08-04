@@ -10,6 +10,7 @@ import { useQueueProcessor } from '@/hooks/useQueueProcessor';
 import { useEmailQueueNew } from '@/hooks/useEmailQueueNew';
 import { useToast } from '@/hooks/use-toast';
 import { Campaign } from '@/types/database';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CampaignSendButtonProps {
   campaign: Campaign;
@@ -18,10 +19,81 @@ interface CampaignSendButtonProps {
 export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedLists, setSelectedLists] = useState<string[]>([]);
+  const [isLoadingLists, setIsLoadingLists] = useState(false);
   const { contactLists } = useContactLists();
   const { queueCampaign, isQueueing } = useEmailQueueNew(); // Système professionnel
   const { processQueue, isProcessing } = useQueueProcessor(); // Processeur professionnel
   const { toast } = useToast();
+
+  // Charger les listes sélectionnées depuis la base de données quand le dialog s'ouvre
+  const loadCampaignLists = async () => {
+    if (!campaign?.id) return;
+    
+    setIsLoadingLists(true);
+    try {
+      const { data, error } = await supabase
+        .from('campaign_lists')
+        .select('list_id')
+        .eq('campaign_id', campaign.id);
+      
+      if (error) throw error;
+      
+      const listIds = data?.map(item => item.list_id) || [];
+      setSelectedLists(listIds);
+      
+      console.log('🔄 Listes chargées pour la campagne:', listIds);
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des listes:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les listes sélectionnées",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingLists(false);
+    }
+  };
+
+  // Charger les listes quand le dialog s'ouvre
+  const handleDialogOpen = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (open) {
+      loadCampaignLists();
+    }
+  };
+
+  // Sauvegarder les listes sélectionnées dans campaign_lists
+  const saveCampaignLists = async () => {
+    if (!campaign?.id) return;
+    
+    try {
+      // Supprimer les anciennes associations
+      await supabase
+        .from('campaign_lists')
+        .delete()
+        .eq('campaign_id', campaign.id);
+      
+      // Ajouter les nouvelles associations
+      if (selectedLists.length > 0) {
+        const campaignListsData = selectedLists.map(listId => ({
+          campaign_id: campaign.id,
+          list_id: listId,
+          added_at: new Date().toISOString()
+        }));
+        
+        const { error } = await supabase
+          .from('campaign_lists')
+          .insert(campaignListsData);
+        
+        if (error) throw error;
+      }
+      
+      console.log('✅ Listes de campagne sauvegardées:', selectedLists);
+    } catch (error: any) {
+      console.error('Erreur lors de la sauvegarde des listes:', error);
+      throw error;
+    }
+  };
 
   const handleSend = async () => {
     if (selectedLists.length === 0) {
@@ -33,7 +105,25 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
       return;
     }
 
+    // Vérifier que les listes sélectionnées ont des contacts
+    const totalContacts = selectedLists.reduce((total, listId) => {
+      const list = contactLists?.find(l => l.id === listId);
+      return total + (list?.total_contacts || 0);
+    }, 0);
+
+    if (totalContacts === 0) {
+      toast({
+        title: "Aucun contact à contacter",
+        description: "Les listes sélectionnées ne contiennent aucun contact. Veuillez choisir des listes avec des contacts ou ajouter des contacts aux listes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
+      // Sauvegarder les listes sélectionnées dans campaign_lists
+      await saveCampaignLists();
+      
       // Étape 1: Mettre en queue avec le système professionnel
       const result = await queueCampaign({
         campaignId: campaign.id,
@@ -63,7 +153,7 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
         }
       }
 
-      setIsDialogOpen(false);
+      handleDialogOpen(false);
       setSelectedLists([]);
     } catch (error: any) {
       console.error('Error sending campaign with professional system:', error);
@@ -101,7 +191,7 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
   const isLoading = isQueueing || isProcessing;
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogOpen}>
       <DialogTrigger asChild>
         <Button 
           size="sm" 
@@ -148,24 +238,33 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
               Sélectionner les listes de contacts :
             </h4>
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {contactLists?.map((list) => (
-                <div key={list.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={list.id}
-                    checked={selectedLists.includes(list.id)}
-                    onCheckedChange={() => toggleList(list.id)}
-                  />
-                  <Label 
-                    htmlFor={list.id} 
-                    className="text-sm cursor-pointer flex-1"
-                  >
-                    {list.name}
-                    <span className="text-gray-500 ml-2">
-                      ({list.total_contacts || 0} contacts)
-                    </span>
-                  </Label>
+              {isLoadingLists ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <span className="text-sm text-gray-600">Chargement des listes...</span>
                 </div>
-              ))}
+              ) : (
+                contactLists?.map((list) => (
+                  <div key={list.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={list.id}
+                      checked={selectedLists.includes(list.id)}
+                      onCheckedChange={() => toggleList(list.id)}
+                      disabled={isLoadingLists}
+                    />
+                    <Label 
+                      htmlFor={list.id} 
+                      className="text-sm cursor-pointer flex-1"
+                    >
+                      {list.name}
+                      <span className={`ml-2 ${(list.total_contacts || 0) === 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                        ({list.total_contacts || 0} contacts)
+                        {(list.total_contacts || 0) === 0 && ' - Liste vide!'}
+                      </span>
+                    </Label>
+                  </div>
+                ))
+              )}
             </div>
           </div>
           
@@ -181,7 +280,7 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
           <div className="flex justify-end space-x-2">
             <Button 
               variant="outline" 
-              onClick={() => setIsDialogOpen(false)}
+              onClick={() => handleDialogOpen(false)}
               disabled={isLoading}
             >
               Annuler
