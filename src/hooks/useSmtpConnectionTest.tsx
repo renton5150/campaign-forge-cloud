@@ -44,27 +44,31 @@ export const useSmtpConnectionTest = () => {
     setLastTest(null);
     
     try {
-      console.log('📤 [CLIENT] Appel de la fonction Edge send-test-email...');
+      console.log('📤 [CLIENT] Appel de la fonction Edge process-email-queue en mode test...');
       
       const requestBody = {
-        smtp_host: serverData.host,
-        smtp_port: serverData.port,
-        smtp_username: serverData.username,
-        smtp_password: serverData.password,
-        from_email: serverData.from_email,
-        from_name: serverData.from_name,
+        test_mode: true,
+        test_server: {
+          host: serverData.host,
+          port: serverData.port,
+          username: serverData.username,
+          password: serverData.password,
+          from_email: serverData.from_email,
+          from_name: serverData.from_name,
+          encryption: serverData.encryption || 'tls'
+        },
         test_email: sendRealEmail ? serverData.test_email : 'test@example.com',
         send_real_email: sendRealEmail
       };
       
-      console.log('📤 [CLIENT] Corps de la requête:', { ...requestBody, smtp_password: '***' });
+      console.log('📤 [CLIENT] Corps de la requête:', { ...requestBody, test_server: { ...requestBody.test_server, password: '***' } });
 
-      // Appel direct à la fonction Edge avec timeout côté client étendu (60s)
+      // Appel à la fonction professionnelle avec timeout côté client étendu (120s)
       const clientTimeout = setTimeout(() => {
-        throw new Error('Timeout côté client après 60 secondes');
-      }, 60000);
+        throw new Error('Timeout côté client après 120 secondes');
+      }, 120000);
 
-      const response = await supabase.functions.invoke('send-test-email', {
+      const response = await supabase.functions.invoke('process-email-queue', {
         body: requestBody
       });
 

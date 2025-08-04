@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.3';
 
@@ -504,12 +503,229 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
   return { succeeded, failed };
 }
 
+// Fonction pour détecter le type de serveur SMTP et adapter les paramètres
+function getServerConfig(host: string, port: number) {
+  const hostLower = host.toLowerCase();
+  
+  // Configuration spécifique par serveur
+  const serverConfigs = {
+    turboSmtp: {
+      detect: (h: string) => h.includes('turbo-smtp.com'),
+      name: 'Turbo SMTP',
+      connectTimeout: 15000,
+      readTimeout: 15000,
+      sendTimeout: 20000,
+      isKnownSlow: true,
+      suggestions: [
+        'Le serveur Turbo SMTP est connu pour être lent, ceci est normal',
+        'Essayez le port 587 (STARTTLS) au lieu du port 465 (SSL)',
+        'Vérifiez que pro.eu.turbo-smtp.com est accessible'
+      ]
+    },
+    ovh7tic: {
+      detect: (h: string) => h.includes('ovh.net') || h.includes('7tic'),
+      name: '7TIC/OVH',
+      connectTimeout: 10000,
+      readTimeout: 8000,
+      sendTimeout: 15000,
+      isKnownSlow: false,
+      suggestions: [
+        'Pour OVH/7tic, utilisez votre adresse email complète comme nom d\'utilisateur',
+        'Vérifiez les paramètres de sécurité de votre compte OVH',
+        'Port 465 (SSL) ou 587 (STARTTLS) sont recommandés'
+      ]
+    },
+    gmail: {
+      detect: (h: string) => h.includes('gmail.com') || h.includes('google.com'),
+      name: 'Gmail SMTP',
+      connectTimeout: 8000,
+      readTimeout: 8000,
+      sendTimeout: 12000,
+      isKnownSlow: false,
+      suggestions: [
+        'Pour Gmail, utilisez un mot de passe d\'application, pas votre mot de passe principal',
+        'Activez l\'authentification à 2 facteurs et générez un mot de passe d\'app',
+        'Utilisez le port 587 avec STARTTLS'
+      ]
+    },
+    outlook: {
+      detect: (h: string) => h.includes('outlook') || h.includes('live.com') || h.includes('hotmail'),
+      name: 'Outlook/Hotmail',
+      connectTimeout: 8000,
+      readTimeout: 8000,
+      sendTimeout: 12000,
+      isKnownSlow: false,
+      suggestions: [
+        'Pour Outlook, utilisez l\'authentification moderne OAuth2 si possible',
+        'Vérifiez les paramètres de sécurité de votre compte Microsoft',
+        'Port 587 avec STARTTLS est recommandé'
+      ]
+    },
+    generic: {
+      detect: () => true, // fallback
+      name: 'SMTP Générique',
+      connectTimeout: 10000,
+      readTimeout: 10000,
+      sendTimeout: 15000,
+      isKnownSlow: false,
+      suggestions: [
+        'Vérifiez les paramètres SMTP auprès de votre fournisseur',
+        'Assurez-vous que les ports et protocoles de chiffrement sont corrects',
+        'Contactez votre administrateur système si le problème persiste'
+      ]
+    }
+  };
+
+  // Détecter le type de serveur
+  for (const [key, config] of Object.entries(serverConfigs)) {
+    if (key !== 'generic' && config.detect(hostLower)) {
+      return config;
+    }
+  }
+  
+  return serverConfigs.generic;
+}
+
+// Fonction pour générer des suggestions d'erreur spécifiques
+function getErrorSuggestions(error: Error, serverConfig: any, host: string, port: number): string[] {
+  const errorMsg = error.message.toLowerCase();
+  
+  // Suggestions spécifiques par type d'erreur
+  if (errorMsg.includes('timeout') || errorMsg.includes('connexion')) {
+    return [
+      `Problème de connectivité avec ${serverConfig.name}`,
+      `Vérifiez que ${host}:${port} est accessible depuis votre réseau`,
+      'Contrôlez les paramètres de firewall',
+      ...serverConfig.suggestions
+    ];
+  }
+  
+  if (errorMsg.includes('auth') || errorMsg.includes('535')) {
+    return [
+      `Erreur d'authentification sur ${serverConfig.name}`,
+      'Vérifiez votre nom d\'utilisateur et mot de passe',
+      ...serverConfig.suggestions
+    ];
+  }
+  
+  if (errorMsg.includes('550') || errorMsg.includes('address')) {
+    return [
+      'Adresse email rejetée par le serveur',
+      'Vérifiez l\'adresse email de destination',
+      `Consultez les restrictions de ${serverConfig.name}`,
+      ...serverConfig.suggestions
+    ];
+  }
+  
+  // Suggestions génériques + suggestions spécifiques au serveur
+  return [
+    `Erreur avec le serveur ${serverConfig.name}`,
+    'Vérifiez la configuration SMTP',
+    ...serverConfig.suggestions
+  ];
+}
+
+// SYSTÈME PROFESSIONNEL - Test SMTP avec serveur temporaire
+async function testSmtpServerProfessional(testServer: any, testEmail: string, sendRealEmail: boolean = true) {
+  const startTime = Date.now();
+  
+  // Détecter le type de serveur et adapter la configuration
+  const serverConfig = getServerConfig(testServer.host, testServer.port);
+  
+  console.log(`🧪 [PROFESSIONAL-TEST] Test ${serverConfig.name} à ${testServer.host}:${testServer.port} pour ${testEmail}`);
+  
+  try {
+    const testResult = await sendViaSmtpProfessional({
+      id: 'test-' + Date.now(),
+      campaign_id: 'test-campaign',
+      contact_email: testEmail,
+      contact_name: 'Test User',
+      subject: `Test SMTP ${serverConfig.name} - ${new Date().toLocaleString('fr-FR')}`,
+      html_content: `
+        <h1>Test SMTP réussi</h1>
+        <p>Ce test a été effectué avec succès depuis le système professionnel.</p>
+        <p><strong>Serveur:</strong> ${testServer.host}:${testServer.port}</p>
+        <p><strong>Type:</strong> ${serverConfig.name}</p>
+        <p><strong>Email expéditeur:</strong> ${testServer.from_email}</p>
+        <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+      `,
+      message_id: `test-${Date.now()}@${testServer.host}`,
+      retry_count: 0
+    }, {
+      id: 'test-server',
+      type: 'smtp',
+      host: testServer.host,
+      port: testServer.port,
+      username: testServer.username,
+      password: testServer.password,
+      encryption: testServer.encryption || 'tls',
+      from_name: testServer.from_name || 'Test Sender',
+      from_email: testServer.from_email,
+      tenant_id: 'test-tenant'
+    } as SmtpServer);
+
+    const duration = Date.now() - startTime;
+    
+    if (testResult) {
+      return {
+        success: true,
+        message: `Test réussi avec ${serverConfig.name} (${duration}ms)`,
+        details: `Serveur: ${testServer.host}:${testServer.port} | Type: ${serverConfig.name} | Durée: ${duration}ms`,
+        responseTime: duration
+      };
+    } else {
+      throw new Error('Test échoué');
+    }
+    
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error(`❌ [PROFESSIONAL-TEST] Erreur avec ${serverConfig.name}:`, error.message);
+    
+    // Générer des suggestions spécifiques au serveur et à l'erreur
+    const suggestions = getErrorSuggestions(error, serverConfig, testServer.host, testServer.port);
+    
+    return {
+      success: false,
+      error: `Test échoué avec ${serverConfig.name}`,
+      details: `${error.message} (${duration}ms) | Serveur: ${testServer.host}:${testServer.port}`,
+      responseTime: duration,
+      suggestions: suggestions
+    };
+  }
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const requestBody = await req.json();
+    
+    // MODE TEST - Nouveau système unifié
+    if (requestBody.test_mode === true) {
+      console.log('🧪 [PROFESSIONAL-TEST] Mode test activé');
+      
+      const { test_server, test_email, send_real_email = true } = requestBody;
+      
+      if (!test_server || !test_server.host || !test_server.port || !test_server.username || !test_server.password || !test_server.from_email || !test_email) {
+        throw new Error('Paramètres de test manquants');
+      }
+
+      const result = await testSmtpServerProfessional(test_server, test_email, send_real_email);
+      
+      console.log('✅ [PROFESSIONAL-TEST] Résultat final:', result);
+
+      return new Response(
+        JSON.stringify(result),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // MODE NORMAL - Traitement des emails en queue
     console.log('🚀 [PROFESSIONAL SYSTEM] Démarrage du traitement haute performance');
 
     // Récupérer les emails en attente avec optimisation
