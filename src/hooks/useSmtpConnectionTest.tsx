@@ -104,7 +104,7 @@ export const useSmtpConnectionTest = () => {
 
       const testResult: ConnectionTestResult = {
         success: data.success === true,
-        message: data.message,
+        message: data.message || (data.success ? 'Test réussi' : 'Test échoué'),
         details: data.details,
         error: data.success !== true ? (data.error || data.details || 'Erreur inconnue') : undefined,
         responseTime: data.responseTime || undefined,
@@ -112,7 +112,16 @@ export const useSmtpConnectionTest = () => {
       };
       
       console.log('✅ [CLIENT] Résultat du test final:', testResult);
-      setLastTest(testResult);
+      
+      // CORRECTION: S'assurer que setLastTest fonctionne toujours
+      try {
+        setLastTest(testResult);
+      } catch (error) {
+        console.error('❌ [CLIENT] Erreur setState:', error);
+        // Force reset du state
+        setTesting(false);
+        setLastTest(null);
+      }
       
       if (testResult.success) {
         const message = sendRealEmail 

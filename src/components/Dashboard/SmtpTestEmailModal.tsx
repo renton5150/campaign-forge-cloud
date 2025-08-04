@@ -111,7 +111,17 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
   }
 
   const handleSendTest = async () => {
-    if (!testEmail.trim()) return;
+    console.log('🎯 [MODAL] handleSendTest appelé', { testEmail: testEmail.trim(), testing });
+    
+    if (!testEmail.trim()) {
+      console.log('❌ [MODAL] Email de test vide');
+      return;
+    }
+
+    if (testing) {
+      console.log('⚠️ [MODAL] Test déjà en cours, ignorer');
+      return;
+    }
 
     console.log('🎯 [MODAL] Démarrage du test d\'envoi d\'email...', {
       server: server.name,
@@ -120,16 +130,20 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
       mode: testMode
     });
 
-    await testConnection({
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      password: server.password,
-      from_email: server.from_email,
-      from_name: server.from_name,
-      test_email: testEmail.trim(),
-      encryption: server.encryption || 'tls'
-    }, testMode === 'full');
+    try {
+      await testConnection({
+        host: server.host,
+        port: server.port,
+        username: server.username,
+        password: server.password,
+        from_email: server.from_email,
+        from_name: server.from_name,
+        test_email: testEmail.trim(),
+        encryption: server.encryption || 'tls'
+      }, testMode === 'full');
+    } catch (error) {
+      console.error('❌ [MODAL] Erreur dans handleSendTest:', error);
+    }
   };
 
   const handleTest7TicAlternatives = async () => {
