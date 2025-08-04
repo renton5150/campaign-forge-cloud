@@ -29,7 +29,7 @@ export const useSmtpConnectionTest = () => {
   const { toast } = useToast();
 
   const testConnection = async (serverData: SmtpTestConfig, sendRealEmail: boolean = true) => {
-    console.log('🔍 [CLIENT] Début du test de connexion SMTP...', { 
+    console.log('🔍 [CLIENT] Début du test SMTP avec Nodemailer...', { 
       serverData: { 
         host: serverData.host, 
         port: serverData.port, 
@@ -44,48 +44,23 @@ export const useSmtpConnectionTest = () => {
     setLastTest(null);
     
     try {
-      console.log('📤 [CLIENT] Appel de la fonction Edge process-email-queue en mode test...');
+      console.log('📤 [CLIENT] Appel de la fonction send-test-email avec Nodemailer...');
       
-      const requestBody = {
-        test_mode: true,
-        test_server: {
+      const response = await supabase.functions.invoke('send-test-email', {
+        body: {
           host: serverData.host,
           port: serverData.port,
           username: serverData.username,
           password: serverData.password,
           from_email: serverData.from_email,
           from_name: serverData.from_name,
-          encryption: serverData.encryption || 'tls'
-        },
-        test_email: sendRealEmail ? serverData.test_email : 'test@example.com',
-        send_real_email: sendRealEmail
-      };
-      
-      console.log('📤 [CLIENT] Corps de la requête:', { 
-        ...requestBody, 
-        test_server: { 
-          ...requestBody.test_server, 
-          password: '***' 
-        } 
+          test_email: serverData.test_email,
+          encryption: serverData.encryption || 'tls',
+          sendRealEmail
+        }
       });
-
-      // Timeout côté client adaptatif selon le serveur
-      const isOvhServer = serverData.host?.includes('ovh.net');
-      const clientTimeoutMs = isOvhServer ? 12000 : 20000; // 12s pour OVH, 20s pour les autres
       
-      console.log(`⏰ [CLIENT] Timeout client fixé à ${clientTimeoutMs}ms pour ${serverData.host}`);
-      
-      const clientTimeout = setTimeout(() => {
-        throw new Error(`Timeout côté client après ${clientTimeoutMs/1000} secondes`);
-      }, clientTimeoutMs);
-
-      const response = await supabase.functions.invoke('process-email-queue', {
-        body: requestBody
-      });
-
-      clearTimeout(clientTimeout);
-      
-      console.log('📥 [CLIENT] Réponse brute complète:', response);
+      console.log('📥 [CLIENT] Réponse Nodemailer complète:', response);
 
       // Vérifier les erreurs de transport
       if (response.error) {
@@ -100,7 +75,7 @@ export const useSmtpConnectionTest = () => {
       }
 
       const data = response.data;
-      console.log('📊 [CLIENT] Data traitée:', data);
+      console.log('📊 [CLIENT] Data Nodemailer traitée:', data);
 
       const testResult: ConnectionTestResult = {
         success: data.success === true,
@@ -111,25 +86,16 @@ export const useSmtpConnectionTest = () => {
         suggestions: data.suggestions || undefined
       };
       
-      console.log('✅ [CLIENT] Résultat du test final:', testResult);
-      
-      // CORRECTION: S'assurer que setLastTest fonctionne toujours
-      try {
-        setLastTest(testResult);
-      } catch (error) {
-        console.error('❌ [CLIENT] Erreur setState:', error);
-        // Force reset du state
-        setTesting(false);
-        setLastTest(null);
-      }
+      console.log('✅ [CLIENT] Résultat du test Nodemailer:', testResult);
+      setLastTest(testResult);
       
       if (testResult.success) {
         const message = sendRealEmail 
-          ? `Email de test envoyé avec succès à ${serverData.test_email} (${testResult.responseTime || 0}ms)`
-          : `Test de connectivité réussi (${testResult.responseTime || 0}ms)`;
+          ? `Email envoyé avec succès via Nodemailer à ${serverData.test_email} (${testResult.responseTime || 0}ms)`
+          : `Test Nodemailer réussi (${testResult.responseTime || 0}ms)`;
         
         toast({
-          title: "✅ Test de connexion réussi",
+          title: "✅ Test Nodemailer réussi",
           description: message,
         });
       } else {
@@ -137,7 +103,7 @@ export const useSmtpConnectionTest = () => {
         const timeInfo = testResult.responseTime ? ` (${testResult.responseTime}ms)` : '';
         
         toast({
-          title: "❌ Test de connexion échoué",
+          title: "❌ Test Nodemailer échoué",
           description: errorMsg + timeInfo,
           variant: "destructive",
         });
@@ -146,7 +112,7 @@ export const useSmtpConnectionTest = () => {
       return testResult;
       
     } catch (error: any) {
-      console.error('❌ [CLIENT] Erreur lors du test de connexion:', error);
+      console.error('❌ [CLIENT] Erreur lors du test Nodemailer:', error);
       
       const testResult: ConnectionTestResult = {
         success: false,
@@ -157,7 +123,7 @@ export const useSmtpConnectionTest = () => {
       setLastTest(testResult);
       
       toast({
-        title: "❌ Erreur de test",
+        title: "❌ Erreur test Nodemailer",
         description: error.message || 'Erreur lors du test de connexion',
         variant: "destructive",
       });
