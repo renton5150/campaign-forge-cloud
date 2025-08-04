@@ -22,6 +22,10 @@ interface QueueItem {
   retry_count: number;
 }
 
+interface EmailQueueItemWithTenant extends QueueItem {
+  tenant_id: string;
+}
+
 interface SmtpServer {
   id: string;
   type: string;
@@ -599,7 +603,250 @@ async function sendWithProfessionalRetry(queueItem: QueueItem, server: SmtpServe
   return false;
 }
 
-// SYSTÈME PROFESSIONNEL - Traitement parallèle haute performance
+// =============================================
+// FONCTIONS UTILITAIRES TRACKING MULTI-TENANT
+// =============================================
+
+interface TrackingTokens {
+  open: string;
+  unsubscribe: string;
+}
+
+// Générer les tokens de tracking pour un email
+async function generateTrackingTokens(
+  emailQueueId: string, 
+  campaignId: string,
+  tenantId: string, 
+  contactEmail: string
+): Promise<TrackingTokens> {
+  console.log(`🔐 Génération tokens tracking pour ${contactEmail} (tenant: ${tenantId})`);
+  
+  try {
+    // Générer token pour ouverture
+    const { data: openToken, error: openError } = await supabase.rpc('generate_tracking_token', {
+      p_tenant_id: tenantId,
+      p_email_queue_id: emailQueueId,
+      p_campaign_id: campaignId,
+      p_contact_email: contactEmail,
+      p_token_type: 'open',
+      p_original_url: null
+    });
+
+    if (openError) throw new Error(`Erreur token ouverture: ${openError.message}`);
+
+    // Générer token pour désabonnement
+    const { data: unsubscribeToken, error: unsubError } = await supabase.rpc('generate_tracking_token', {
+      p_tenant_id: tenantId,
+      p_email_queue_id: emailQueueId,
+      p_campaign_id: campaignId,
+      p_contact_email: contactEmail,
+      p_token_type: 'unsubscribe',
+      p_original_url: null
+    });
+
+    if (unsubError) throw new Error(`Erreur token désabonnement: ${unsubError.message}`);
+
+    console.log(`✅ Tokens générés: ouverture=${openToken?.slice(0,10)}..., désabo=${unsubscribeToken?.slice(0,10)}...`);
+    
+    return {
+      open: openToken,
+      unsubscribe: unsubscribeToken
+    };
+  } catch (error: any) {
+    console.error('❌ Erreur génération tokens:', error.message);
+    throw error;
+  }
+}
+
+// Générer token pour tracking de clic
+async function generateClickTrackingToken(
+  emailQueueId: string,
+  campaignId: string, 
+  tenantId: string,
+  contactEmail: string,
+  originalUrl: string
+): Promise<string> {
+  try {
+    const { data: clickToken, error } = await supabase.rpc('generate_tracking_token', {
+      p_tenant_id: tenantId,
+      p_email_queue_id: emailQueueId,
+      p_campaign_id: campaignId,
+      p_contact_email: contactEmail,
+      p_token_type: 'click',
+      p_original_url: originalUrl
+    });
+
+    if (error) throw new Error(`Erreur token clic: ${error.message}`);
+    return clickToken;
+  } catch (error: any) {
+    console.error('❌ Erreur génération token clic:', error.message);
+    throw error;
+  }
+}
+
+// Fonction utilitaire pour échapper les caractères spéciaux regex
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Réécrire tous les liens pour tracking des clics
+async function rewriteLinksForClickTracking(
+  html: string, 
+  emailQueueId: string,
+  campaignId: string,
+  tenantId: string,
+  contactEmail: string,
+  trackingDomain: string
+): Promise<string> {
+  console.log(`🔗 Réécriture des liens pour tracking (domaine: ${trackingDomain})`);
+  
+  try {
+    // Regex pour trouver tous les liens <a href="...">
+    const linkRegex = /<a\s+([^>]*\s+)?href\s*=\s*["']([^"']+)["']([^>]*)>/gi;
+    
+    let processedHtml = html;
+    const linksToReplace: Array<{original: string, tracking: string}> = [];
+    let match;
+    
+    // Identifier tous les liens à remplacer
+    while ((match = linkRegex.exec(html)) !== null) {
+      const originalUrl = match[2];
+      
+      // Ignorer les liens de tracking déjà créés, mailto, tel, ancres
+      if (
+        originalUrl.includes(trackingDomain) ||
+        originalUrl.startsWith('mailto:') ||
+        originalUrl.startsWith('tel:') ||
+        originalUrl.startsWith('#') ||
+        originalUrl.includes('unsubscribe') ||
+        originalUrl.includes('track-email')
+      ) {
+        continue;
+      }
+      
+      // Générer token pour ce lien
+      const clickToken = await generateClickTrackingToken(
+        emailQueueId, 
+        campaignId,
+        tenantId,
+        contactEmail, 
+        originalUrl
+      );
+      
+      const trackingUrl = `https://${trackingDomain}/functions/v1/track-email-click/${clickToken}`;
+      
+      linksToReplace.push({
+        original: originalUrl,
+        tracking: trackingUrl
+      });
+    }
+    
+    // Remplacer tous les liens identifiés
+    for (const link of linksToReplace) {
+      processedHtml = processedHtml.replace(
+        new RegExp(escapeRegExp(link.original), 'g'),
+        link.tracking
+      );
+    }
+    
+    console.log(`✅ ${linksToReplace.length} liens réécris pour tracking`);
+    return processedHtml;
+    
+  } catch (error: any) {
+    console.error('❌ Erreur réécriture liens:', error.message);
+    // Retourner le HTML original en cas d'erreur
+    return html;
+  }
+}
+
+// Traiter l'email pour intégrer le tracking multi-tenant
+async function processEmailForTracking(
+  emailData: EmailQueueItemWithTenant, 
+  tenant: any
+): Promise<EmailQueueItemWithTenant> {
+  console.log(`🎯 Traitement tracking pour ${emailData.contact_email} (tenant: ${tenant.company_name})`);
+  
+  try {
+    // Générer les tokens de tracking
+    const tokens = await generateTrackingTokens(
+      emailData.id,
+      emailData.campaign_id,
+      emailData.tenant_id,
+      emailData.contact_email
+    );
+    
+    // Déterminer le domaine de tracking
+    const trackingDomain = tenant.tracking_domain || `tracking.campaignforge.app`;
+    
+    // URLs de tracking personnalisées
+    const pixelUrl = `https://${trackingDomain}/functions/v1/track-email-open/${tokens.open}`;
+    const unsubscribeUrl = `https://${trackingDomain}/functions/v1/track-unsubscribe/${tokens.unsubscribe}`;
+    
+    console.log(`📍 Domaine tracking: ${trackingDomain}`);
+    console.log(`📷 Pixel URL: ${pixelUrl.slice(0, 60)}...`);
+    console.log(`🚫 Unsubscribe URL: ${unsubscribeUrl.slice(0, 60)}...`);
+    
+    // Modifier le HTML pour ajouter tracking
+    let processedHtml = emailData.html_content;
+    
+    // 1. Réécrire tous les liens pour tracking des clics AVANT d'ajouter le pixel
+    processedHtml = await rewriteLinksForClickTracking(
+      processedHtml,
+      emailData.id,
+      emailData.campaign_id,
+      emailData.tenant_id,
+      emailData.contact_email,
+      trackingDomain
+    );
+    
+    // 2. Ajouter le pixel de tracking (invisible)
+    if (processedHtml.includes('</body>')) {
+      processedHtml = processedHtml.replace(
+        '</body>', 
+        `<img src="${pixelUrl}" width="1" height="1" style="display:none !important; visibility:hidden !important; opacity:0 !important; position:absolute !important; left:-9999px !important;" alt="" /></body>`
+      );
+    } else {
+      // Si pas de balise body, ajouter à la fin
+      processedHtml += `<img src="${pixelUrl}" width="1" height="1" style="display:none !important; visibility:hidden !important; opacity:0 !important; position:absolute !important; left:-9999px !important;" alt="" />`;
+    }
+    
+    // 3. Gérer le lien de désabonnement
+    if (processedHtml.includes('{{unsubscribe_url}}')) {
+      // Remplacer le placeholder par l'URL personnalisée
+      processedHtml = processedHtml.replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl);
+    } else if (!processedHtml.toLowerCase().includes('unsubscribe') && !processedHtml.toLowerCase().includes('désabonner')) {
+      // Ajouter un lien de désabonnement si pas présent
+      const unsubscribeFooter = `
+        <div style="text-align:center; font-size:12px; color:#666; margin-top:30px; padding:20px; border-top:1px solid #eee;">
+          <p style="margin:0;">
+            Vous recevez cet email car vous êtes inscrit à notre liste de diffusion.<br>
+            <a href="${unsubscribeUrl}" style="color:#666; text-decoration:underline;">Se désabonner de tous les emails</a>
+          </p>
+        </div>
+      `;
+      
+      if (processedHtml.includes('</body>')) {
+        processedHtml = processedHtml.replace('</body>', unsubscribeFooter + '</body>');
+      } else {
+        processedHtml += unsubscribeFooter;
+      }
+    }
+    
+    console.log(`✅ Email traité avec tracking (${processedHtml.length} caractères)`);
+    
+    return {
+      ...emailData,
+      html_content: processedHtml
+    };
+    
+  } catch (error: any) {
+    console.error(`❌ Erreur traitement tracking pour ${emailData.contact_email}:`, error.message);
+    // Retourner l'email original en cas d'erreur pour ne pas bloquer l'envoi
+    return emailData;
+  }
+}
+
+// SYSTÈME PROFESSIONNEL - Traitement parallèle haute performance AVEC TRACKING
 async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServers: SmtpServer[]): Promise<{ succeeded: number; failed: number }> {
   const maxConcurrency = 50; // Concurrence augmentée pour le système professionnel
   let succeeded = 0;
@@ -624,6 +871,36 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
           .update({ status: 'processing', updated_at: new Date().toISOString() })
           .eq('id', queueItem.id);
 
+        // NOUVEAU : Récupérer les infos du tenant pour le tracking
+        const { data: campaignData } = await supabase
+          .from('campaigns')
+          .select('tenant_id')
+          .eq('id', queueItem.campaign_id)
+          .single();
+
+        if (!campaignData?.tenant_id) {
+          throw new Error('Tenant ID non trouvé pour la campagne');
+        }
+
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('id, company_name, tracking_domain, brand_config')
+          .eq('id', campaignData.tenant_id)
+          .single();
+
+        if (!tenant) {
+          throw new Error('Tenant non trouvé');
+        }
+
+        // NOUVEAU : Traiter l'email pour intégrer le tracking multi-tenant
+        const emailWithTenant: EmailQueueItemWithTenant = {
+          ...queueItem,
+          tenant_id: tenant.id
+        };
+        
+        const processedEmail = await processEmailForTracking(emailWithTenant, tenant);
+        console.log(`🎯 Email traité avec tracking pour ${processedEmail.contact_email}`);
+
         // Sélection intelligente du serveur SMTP
         const availableServer = smtpServers.find(server => 
           smtpStatsCache.get(server.id)?.isHealthy !== false && 
@@ -634,7 +911,8 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
           throw new Error('Aucun serveur SMTP disponible dans le système professionnel');
         }
 
-        const success = await sendWithProfessionalRetry(queueItem, availableServer);
+        // Envoyer l'email avec le contenu tracking intégré
+        const success = await sendWithProfessionalRetry(processedEmail, availableServer);
 
         if (success) {
           await supabase
@@ -646,6 +924,7 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
             })
             .eq('id', queueItem.id);
           
+          console.log(`✅ Email envoyé avec tracking: ${processedEmail.contact_email}`);
           return { success: true };
         } else {
           await supabase
@@ -662,12 +941,14 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
         }
 
       } catch (error: any) {
+        console.error(`❌ Erreur traitement email ${queueItem.contact_email}:`, error.message);
+        
         await supabase
           .from('email_queue')
           .update({
             status: 'failed',
             retry_count: queueItem.retry_count + 1,
-            error_message: `[PROFESSIONAL] ${error.message}`,
+            error_message: `[PROFESSIONAL+TRACKING] ${error.message}`,
             updated_at: new Date().toISOString()
           })
           .eq('id', queueItem.id);
@@ -976,12 +1257,12 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Aucun serveur SMTP configuré pour le système professionnel');
     }
 
-    console.log(`📧 [PROFESSIONAL] Traitement de ${queueItems.length} emails via ${smtpServers.length} serveurs SMTP`);
+    console.log(`📧 [PROFESSIONAL+TRACKING] Traitement de ${queueItems.length} emails via ${smtpServers.length} serveurs SMTP avec tracking intégré`);
 
-    // Traitement avec le système professionnel haute performance
+    // Traitement avec le système professionnel haute performance + tracking multi-tenant
     const { succeeded, failed } = await processEmailsBatchProfessional(queueItems, smtpServers);
 
-    console.log(`✅ [PROFESSIONAL] Traitement terminé: ${succeeded} réussis, ${failed} échoués`);
+    console.log(`✅ [PROFESSIONAL+TRACKING] Traitement terminé: ${succeeded} succès, ${failed} échecs`);
 
     return new Response(JSON.stringify({
       success: true,
