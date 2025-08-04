@@ -405,14 +405,49 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
       console.log('✅ [PROFESSIONAL-SMTP] STARTTLS activé');
     }
     
-    // Authentication
-    await sendCommand('AUTH LOGIN\r\n', '334');
+    // Authentication - gestion spéciale pour OVH/7TIC
+    console.log('🔐 [PROFESSIONAL-SMTP] Début authentification LOGIN');
     
-    const usernameB64 = encodeBase64(username);
-    const passwordB64 = encodeBase64(password);
-    
-    await sendCommand(`${usernameB64}\r\n`, '334');
-    await sendCommand(`${passwordB64}\r\n`, '235');
+    try {
+      // Pour OVH/7TIC, la commande AUTH LOGIN peut retourner directement 250 au lieu de 334
+      const authResponse = await sendCommand('AUTH LOGIN\r\n');
+      console.log(`🔍 [PROFESSIONAL-SMTP] Réponse AUTH LOGIN: ${authResponse.trim()}`);
+      
+      // Si on reçoit 334, c'est le comportement standard (challenge)
+      if (authResponse.includes('334')) {
+        console.log('📝 [PROFESSIONAL-SMTP] Challenge d\'authentification reçu (334)');
+      }
+      // Si on reçoit 250, le serveur OVH/7TIC accepte directement
+      else if (authResponse.includes('250')) {
+        console.log('✅ [PROFESSIONAL-SMTP] Serveur OVH/7TIC accepte AUTH LOGIN directement');
+        // On continue avec les credentials en base64
+      }
+      else {
+        throw new Error(`Réponse AUTH LOGIN inattendue: ${authResponse.trim()}`);
+      }
+      
+      const usernameB64 = encodeBase64(username);
+      const passwordB64 = encodeBase64(password);
+      
+      console.log('👤 [PROFESSIONAL-SMTP] Envoi username en base64');
+      await sendCommand(`${usernameB64}\r\n`, '334');
+      
+      console.log('🔑 [PROFESSIONAL-SMTP] Envoi password en base64');
+      await sendCommand(`${passwordB64}\r\n`, '235');
+      
+    } catch (authError: any) {
+      console.error('❌ [PROFESSIONAL-SMTP] Erreur authentification:', authError.message);
+      
+      // Tentative avec AUTH PLAIN pour certains serveurs OVH/7TIC
+      console.log('🔄 [PROFESSIONAL-SMTP] Tentative AUTH PLAIN en fallback');
+      try {
+        const authPlain = encodeBase64(`\0${username}\0${password}`);
+        await sendCommand(`AUTH PLAIN ${authPlain}\r\n`, '235');
+        console.log('✅ [PROFESSIONAL-SMTP] Authentification PLAIN réussie');
+      } catch (plainError: any) {
+        throw new Error(`Échec authentification LOGIN et PLAIN: ${authError.message} | ${plainError.message}`);
+      }
+    }
     
     console.log('✅ [PROFESSIONAL-SMTP] Authentification réussie');
     
