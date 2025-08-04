@@ -273,23 +273,41 @@ async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, si
           // Gestion spéciale pour les réponses multi-lignes SMTP (OVH, 7TIC, etc.)
           const lines = response.trim().split(/\r?\n/);
           let hasValidCode = false;
+          let finalResponse = '';
           
-          console.log(`🔍 [PROFESSIONAL-SMTP] Analyse réponse pour code ${expectedCode}:`, lines);
+          console.log(`🔍 [PROFESSIONAL-SMTP] Analyse réponse multi-lignes pour code ${expectedCode}:`, lines);
           
-          // Vérifier chaque ligne pour le code attendu
+          // Identifier la dernière ligne (sans '-') qui contient le code final
           for (const line of lines) {
             const cleanLine = line.trim().replace(/\r$/, '');
             
-            // Formats acceptés: "250", "250-", "250 ", "250-ENHANCEDSTATUSCODES", etc.
-            if (cleanLine.startsWith(expectedCode)) {
-              const nextChar = cleanLine.charAt(expectedCode.length);
-              if (nextChar === '' || nextChar === ' ' || nextChar === '-') {
-                hasValidCode = true;
-                console.log(`✅ [PROFESSIONAL-SMTP] Code ${expectedCode} trouvé dans: ${cleanLine}`);
-                break;
-              }
+            // Pour OVH/7TIC: chercher le code suivi d'un espace (ligne finale)
+            if (cleanLine.startsWith(expectedCode + ' ')) {
+              hasValidCode = true;
+              finalResponse = cleanLine;
+              console.log(`✅ [PROFESSIONAL-SMTP] Code final ${expectedCode} trouvé: ${cleanLine}`);
+              break;
+            }
+            // Ligne intermédiaire avec tiret (ex: "250-ENHANCEDSTATUSCODES")
+            else if (cleanLine.startsWith(expectedCode + '-')) {
+              console.log(`📄 [PROFESSIONAL-SMTP] Ligne intermédiaire: ${cleanLine}`);
             }
           }
+          
+          // Si pas de ligne finale trouvée, accepter la première ligne avec le code
+          if (!hasValidCode) {
+            for (const line of lines) {
+              const cleanLine = line.trim().replace(/\r$/, '');
+              if (cleanLine.startsWith(expectedCode)) {
+                const nextChar = cleanLine.charAt(expectedCode.length);
+                if (nextChar === '' || nextChar === ' ' || nextChar === '-') {
+                  hasValidCode = true;
+                  finalResponse = cleanLine;
+                  console.log(`✅ [PROFESSIONAL-SMTP] Code ${expectedCode} accepté de: ${cleanLine}`);
+                  break;
+                }
+              }
+            }
           
           // Pour l'authentification (334), être plus permissif
           if (!hasValidCode && expectedCode === '334') {

@@ -107,10 +107,23 @@ export default function SmtpConfigurationModal({
   };
 
   const handleInputChange = (field: keyof SmtpServerFormData, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      
+      // Auto-configure encryption based on port for 7TIC/OVH
+      if (field === 'port') {
+        if (value === 465) {
+          updated.encryption = 'ssl';
+        } else if (value === 587) {
+          updated.encryption = 'tls';
+        }
+      }
+      
+      return updated;
+    });
   };
 
   return (

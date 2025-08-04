@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const SmtpServersPage = () => {
-  const { servers, loading, deleteServer, updateServer, refetch } = useSmtpServers();
+  const { servers, loading, deleteServer, updateServer, createServer, refetch } = useSmtpServers();
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState<SmtpServer | null>(null);
@@ -182,6 +182,8 @@ const SmtpServersPage = () => {
         onSave={async (data) => {
           if (selectedServer) {
             await updateServer(selectedServer.id, data);
+          } else {
+            await createServer(data);
           }
           setIsConfigModalOpen(false);
           setSelectedServer(null);
