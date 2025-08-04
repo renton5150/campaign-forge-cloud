@@ -18,6 +18,118 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// DIAGNOSTIC RÉSEAU COMPLET pour identifier les problèmes de connectivité
+async function diagnosticNetwork(host: string, port: number): Promise<string> {
+  const diagnostics: string[] = [];
+  
+  try {
+    // Test 1: Résolution DNS
+    diagnostics.push(`🔍 Test DNS pour ${host}:`);
+    try {
+      const dnsLookup = await fetch(`https://dns.google/resolve?name=${host}&type=A`);
+      const dnsResult = await dnsLookup.json();
+      if (dnsResult.Answer) {
+        const ips = dnsResult.Answer.map((a: any) => a.data).join(', ');
+        diagnostics.push(`✅ DNS OK: ${host} → ${ips}`);
+      } else {
+        diagnostics.push(`❌ DNS ÉCHEC: ${host} ne résout pas`);
+        return diagnostics.join('\n');
+      }
+    } catch (e) {
+      diagnostics.push(`❌ DNS ERROR: ${e.message}`);
+    }
+
+    // Test 2: Connexion TCP basique
+    diagnostics.push(`\n🔌 Test connexion TCP ${host}:${port}:`);
+    const tcpStart = Date.now();
+    
+    try {
+      const tcpSocket = await Promise.race([
+        Deno.connect({ hostname: host, port: port }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('TCP_TIMEOUT')), 5000)
+        )
+      ]) as Deno.Conn;
+      
+      const tcpTime = Date.now() - tcpStart;
+      diagnostics.push(`✅ TCP OK: Connexion établie en ${tcpTime}ms`);
+      tcpSocket.close();
+      
+    } catch (error) {
+      const tcpTime = Date.now() - tcpStart;
+      if (error.message === 'TCP_TIMEOUT') {
+        diagnostics.push(`❌ TCP TIMEOUT: Aucune réponse après 5000ms`);
+      } else {
+        diagnostics.push(`❌ TCP ÉCHEC: ${error.message} (${tcpTime}ms)`);
+      }
+      return diagnostics.join('\n');
+    }
+
+    // Test 3: Connexion SSL si port 465
+    if (port === 465) {
+      diagnostics.push(`\n🔐 Test connexion SSL ${host}:${port}:`);
+      const sslStart = Date.now();
+      
+      try {
+        const sslSocket = await Promise.race([
+          Deno.connectTls({ hostname: host, port: port }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('SSL_TIMEOUT')), 8000)
+          )
+        ]) as Deno.TlsConn;
+        
+        const sslTime = Date.now() - sslStart;
+        diagnostics.push(`✅ SSL OK: Connexion TLS établie en ${sslTime}ms`);
+        sslSocket.close();
+        
+      } catch (error) {
+        const sslTime = Date.now() - sslStart;
+        diagnostics.push(`❌ SSL ÉCHEC: ${error.message} (${sslTime}ms)`);
+        return diagnostics.join('\n');
+      }
+    }
+
+    // Test 4: Test SMTP Welcome Message
+    diagnostics.push(`\n📧 Test message SMTP welcome:`);
+    const smtpStart = Date.now();
+    
+    try {
+      const smtpSocket = port === 465 
+        ? await Deno.connectTls({ hostname: host, port: port })
+        : await Deno.connect({ hostname: host, port: port });
+      
+      // Lire le message de bienvenue avec timeout court
+      const buffer = new Uint8Array(1024);
+      const welcomePromise = smtpSocket.read(buffer);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('WELCOME_TIMEOUT')), 3000)
+      );
+      
+      const bytesRead = await Promise.race([welcomePromise, timeoutPromise]) as number;
+      const welcome = new TextDecoder().decode(buffer.subarray(0, bytesRead || 0));
+      
+      const smtpTime = Date.now() - smtpStart;
+      if (welcome.startsWith('220')) {
+        diagnostics.push(`✅ SMTP OK: ${welcome.trim()} (${smtpTime}ms)`);
+      } else {
+        diagnostics.push(`⚠️  SMTP INATTENDU: ${welcome.trim()} (${smtpTime}ms)`);
+      }
+      
+      smtpSocket.close();
+      
+    } catch (error) {
+      const smtpTime = Date.now() - smtpStart;
+      diagnostics.push(`❌ SMTP ÉCHEC: ${error.message} (${smtpTime}ms)`);
+    }
+
+    return diagnostics.join('\n');
+    
+  } catch (error) {
+    diagnostics.push(`❌ DIAGNOSTIC GÉNÉRAL ÉCHEC: ${error.message}`);
+    return diagnostics.join('\n');
+  }
+}
+
 // FONCTION CORRIGÉE pour OVH/7TIC : Parsing SMTP multi-lignes
 async function sendCommand(
   socket: Deno.TlsConn | Deno.Conn, 
@@ -143,7 +255,7 @@ serve(async (req) => {
   }
 });
 
-// FONCTION CORRIGÉE pour OVH/7TIC
+// FONCTION CORRIGÉE pour OVH/7TIC avec diagnostic réseau
 async function testSmtpServerProfessional(params: {
   host?: string;
   port?: number;
@@ -167,6 +279,33 @@ async function testSmtpServerProfessional(params: {
 
   const isOvhServer = host.includes('ovh.net');
   const timeout = isOvhServer ? 12000 : 8000;
+  
+  // DIAGNOSTIC COMPLET AVANT TEST SMTP
+  console.log('🔍 DÉBUT DIAGNOSTIC RÉSEAU pour', host);
+  const networkDiagnostic = await diagnosticNetwork(host, port);
+  console.log('📋 RÉSULTAT DIAGNOSTIC:');
+  console.log(networkDiagnostic);
+
+  // Si diagnostic révèle un problème réseau, retourner immédiatement
+  if (networkDiagnostic.includes('DNS ÉCHEC') || 
+      networkDiagnostic.includes('TCP ÉCHEC') || 
+      networkDiagnostic.includes('SSL ÉCHEC')) {
+    
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Problème de connectivité réseau détecté',
+      diagnostic: networkDiagnostic,
+      recommendation: isOvhServer 
+        ? 'Le serveur OVH/7TIC semble inaccessible depuis Supabase. Vérifiez avec votre hébergeur ou testez un autre serveur SMTP.'
+        : 'Vérifiez la configuration réseau et les paramètres du serveur.'
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Si diagnostic OK, continuer avec le test SMTP complet
+  console.log('✅ Diagnostic réseau OK, test SMTP en cours...');
   
   try {
     let socket: Deno.TlsConn | Deno.Conn;
