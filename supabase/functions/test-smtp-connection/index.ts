@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 interface SmtpTestRequest {
-  type: 'smtp' | 'sendgrid' | 'mailgun' | 'amazon_ses';
+  type: 'smtp' | 'sendgrid' | 'mailgun' | 'amazon_ses' | '7tic_alternatives';
   host?: string;
   port?: number;
   username?: string;
@@ -227,6 +227,8 @@ serve(async (req) => {
 
     if (type === 'smtp') {
       return await testSmtpServerProfessional({ host, port, username, password, encryption });
+    } else if (type === '7tic_alternatives') {
+      return await test7TicAlternatives(username!, password!);
     } else if (type === 'sendgrid') {
       return await testSendGridConnection(api_key!);
     } else if (type === 'mailgun') {
@@ -254,6 +256,80 @@ serve(async (req) => {
     });
   }
 });
+
+// FONCTION POUR TESTER TOUTES LES ALTERNATIVES 7TIC
+async function test7TicAlternatives(username: string, password: string) {
+  const configs = [
+    { host: 'ssl0.ovh.net', port: 587, encryption: 'tls', name: 'OVH Port 587 (STARTTLS)' },
+    { host: 'mail.7tic.fr', port: 587, encryption: 'tls', name: '7TIC Direct' },
+    { host: 'pro1.mail.ovh.net', port: 587, encryption: 'tls', name: 'OVH Pro' },
+    { host: 'mail.ovh.net', port: 587, encryption: 'tls', name: 'OVH Standard' },
+    { host: 'ssl0.ovh.net', port: 465, encryption: 'ssl', name: 'Original SSL:465' }
+  ];
+
+  const results = [];
+  
+  for (const config of configs) {
+    console.log(`🔍 Test ${config.name}: ${config.host}:${config.port}`);
+    
+    try {
+      const result = await testSmtpServerProfessional({
+        host: config.host,
+        port: config.port,
+        username: username,
+        password: password,
+        encryption: config.encryption
+      });
+      
+      // Parse la réponse pour extraire le success
+      const response = await result.json();
+      
+      results.push({
+        config: config.name,
+        host: config.host,
+        port: config.port,
+        encryption: config.encryption,
+        success: response.success,
+        details: response.message || response.error
+      });
+      
+      if (response.success) {
+        console.log(`✅ SUCCESS avec ${config.name}!`);
+        return new Response(JSON.stringify({
+          success: true,
+          workingConfig: config,
+          message: `Connexion réussie avec ${config.name}`,
+          allResults: results
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+    } catch (error) {
+      console.log(`❌ ${config.name}: ${error.message}`);
+      results.push({
+        config: config.name,
+        host: config.host,
+        port: config.port,
+        encryption: config.encryption,
+        success: false,
+        details: `Erreur: ${error.message}`
+      });
+    }
+  }
+  
+  // Aucune config ne fonctionne
+  return new Response(JSON.stringify({
+    success: false,
+    message: 'Aucune configuration 7TIC accessible depuis Supabase',
+    allResults: results,
+    recommendation: 'Contactez 7TIC pour vérifier les paramètres SMTP ou utilisez Turbo SMTP en backup'
+  }), {
+    status: 400,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
 
 // FONCTION CORRIGÉE pour OVH/7TIC avec diagnostic réseau
 async function testSmtpServerProfessional(params: {

@@ -132,6 +132,32 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
     }, testMode === 'full');
   };
 
+  const handleTest7TicAlternatives = async () => {
+    console.log('🔍 [MODAL] Test de toutes les alternatives 7TIC...');
+    
+    // Utiliser l'API directe pour tester les alternatives
+    try {
+      const response = await fetch('https://tvzmqkdgapkbktgtlhco.supabase.co/functions/v1/test-smtp-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2em1xa2RnYXBrYmt0Z3RsaGNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTQzODUsImV4cCI6MjA2NjY5MDM4NX0.Oq8XQcEuSBkpnOQB6S3FHvuUz6yJekoaV4Q7Ngs5Ix8`
+        },
+        body: JSON.stringify({
+          type: '7tic_alternatives',
+          username: server.username,
+          password: server.password
+        })
+      });
+
+      const result = await response.json();
+      console.log('📊 [MODAL] Résultat test alternatives:', result);
+      
+    } catch (error) {
+      console.error('❌ [MODAL] Erreur test alternatives:', error);
+    }
+  };
+
   const serverInfo = getServerInfo(server.host);
 
   return (
@@ -314,6 +340,28 @@ export default function SmtpTestEmailModal({ open, onClose, server }: SmtpTestEm
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Bouton spécial pour 7TIC/OVH */}
+          {serverInfo.type === '7TIC/OVH' && (
+            <Alert className="border-orange-200 bg-orange-50">
+              <Info className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <strong>Problème détecté avec {server.host}:{server.port} ?</strong>
+                <p className="text-sm mt-1">
+                  Testez automatiquement toutes les configurations alternatives 7TIC/OVH disponibles.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2 border-orange-300 text-orange-700 hover:bg-orange-100"
+                  onClick={handleTest7TicAlternatives}
+                  disabled={testing}
+                >
+                  🔍 Tester toutes les configs 7TIC
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
 
           <div className="flex justify-end space-x-2">
