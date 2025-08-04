@@ -307,6 +307,22 @@ async function testSmtpServerProfessional(params: {
   // Si diagnostic OK, continuer avec le test SMTP complet
   console.log('✅ Diagnostic réseau OK, test SMTP en cours...');
   
+  // Test de comparaison avec différents serveurs OVH
+  const ovhServers = [
+    { host: 'ssl0.ovh.net', port: 465 },
+    { host: 'ssl0.ovh.net', port: 587 },
+    { host: 'pro1.mail.ovh.net', port: 587 },
+    { host: 'mail.ovh.net', port: 587 }
+  ];
+
+  if (isOvhServer) {
+    console.log('🔍 Test de comparaison serveurs OVH:');
+    for (const server of ovhServers) {
+      const serverTest = await diagnosticNetwork(server.host, server.port);
+      console.log(`📋 ${server.host}:${server.port} →`, serverTest.split('\n')[0]);
+    }
+  }
+  
   try {
     let socket: Deno.TlsConn | Deno.Conn;
     
