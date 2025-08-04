@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import AuthGuard from '@/components/auth/AuthGuard';
 import Sidebar from '@/components/Layout/Sidebar';
-import DashboardPage from '@/components/Dashboard/DashboardPage';
+import { DashboardPage } from '@/components/Dashboard/DashboardPage';
 import TenantsManagement from '@/components/Dashboard/TenantsManagement';
 import UsersManagement from '@/components/Dashboard/UsersManagement';
 import SendingDomainsPage from '@/components/Dashboard/SendingDomainsPage';

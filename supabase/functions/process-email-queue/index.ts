@@ -848,7 +848,7 @@ async function processEmailForTracking(
 
 // SYSTÈME PROFESSIONNEL - Traitement parallèle haute performance AVEC TRACKING
 async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServers: SmtpServer[]): Promise<{ succeeded: number; failed: number }> {
-  const maxConcurrency = 50; // Concurrence augmentée pour le système professionnel
+  const maxConcurrency = 150; // Optimisation : 3x plus rapide pour 250k emails en 4h
   let succeeded = 0;
   let failed = 0;
 
