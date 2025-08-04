@@ -415,20 +415,7 @@ ${queueItem.html_content}
       if (conn) conn.close();
     } catch {}
   }
-    
-    console.log(`✅ [PROFESSIONAL-SMTP] Email envoyé avec succès à ${queueItem.contact_email}`);
-    return true;
 
-  } catch (error) {
-    console.error('❌ [PROFESSIONAL-SMTP] Erreur:', error);
-    throw error;
-  } finally {
-    try {
-      conn.close();
-    } catch (e) {
-      console.log('[PROFESSIONAL-SMTP] Connexion déjà fermée');
-    }
-  }
 }
 
 // SYSTÈME PROFESSIONNEL - Retry avec backoff exponentiel intelligent
