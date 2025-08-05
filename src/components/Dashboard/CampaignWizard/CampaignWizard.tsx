@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Save, Send } from 'lucide-react';
@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useFormBackup } from '@/hooks/useLocalStorage';
+import { supabase } from '@/integrations/supabase/client';
 import CampaignBasicInfo from './CampaignBasicInfo';
 import CampaignRecipients from './CampaignRecipients';
 import CampaignContent from './CampaignContent';
@@ -58,6 +59,31 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
   const { user } = useAuth();
   const { toast } = useToast();
   const { backup, hasBackup, clearBackup } = useFormBackup(formData, campaign?.id);
+
+  // Charger les listes sélectionnées si on modifie une campagne existante
+  useEffect(() => {
+    const loadCampaignLists = async () => {
+      if (!campaign?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('campaign_lists')
+          .select('list_id')
+          .eq('campaign_id', campaign.id);
+        
+        if (error) throw error;
+        
+        const listIds = data?.map(item => item.list_id) || [];
+        setFormData(prev => ({ ...prev, selected_lists: listIds }));
+        
+        console.log('🔄 Listes chargées pour campagne existante:', listIds);
+      } catch (error: any) {
+        console.error('Erreur lors du chargement des listes:', error);
+      }
+    };
+
+    loadCampaignLists();
+  }, [campaign?.id]);
 
   const handleAutoSaveSuccess = useCallback(() => {
     setLastSaved(new Date());
@@ -137,10 +163,45 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
         created_by: user.id,
       };
 
+      let savedCampaign;
       if (campaign) {
-        await updateCampaign.mutateAsync({ id: campaign.id, ...campaignData });
+        savedCampaign = await updateCampaign.mutateAsync({ id: campaign.id, ...campaignData });
       } else {
-        await createCampaign.mutateAsync(campaignData);
+        savedCampaign = await createCampaign.mutateAsync(campaignData);
+      }
+
+      // Sauvegarder les listes sélectionnées dans campaign_lists
+      const campaignId = savedCampaign?.id || campaign?.id;
+      if (campaignId && formData.selected_lists.length > 0) {
+        console.log('💾 Sauvegarde des listes sélectionnées:', formData.selected_lists);
+        
+        // Supprimer les anciennes associations
+        const { error: deleteError } = await supabase
+          .from('campaign_lists')
+          .delete()
+          .eq('campaign_id', campaignId);
+        
+        if (deleteError) {
+          console.error('Erreur suppression anciennes listes:', deleteError);
+        }
+        
+        // Ajouter les nouvelles associations
+        const campaignListsData = formData.selected_lists.map(listId => ({
+          campaign_id: campaignId,
+          list_id: listId,
+          added_at: new Date().toISOString()
+        }));
+        
+        const { error: insertError } = await supabase
+          .from('campaign_lists')
+          .insert(campaignListsData);
+        
+        if (insertError) {
+          console.error('Erreur ajout nouvelles listes:', insertError);
+          throw insertError;
+        }
+        
+        console.log('✅ Listes de campagne sauvegardées avec succès');
       }
 
       setLastSaved(new Date());
@@ -149,7 +210,7 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
       
       toast({
         title: '✅ Campagne sauvegardée',
-        description: 'Votre campagne a été sauvegardée avec succès',
+        description: 'Votre campagne et les listes sélectionnées ont été sauvegardées avec succès',
       });
       onClose();
     } catch (error) {
