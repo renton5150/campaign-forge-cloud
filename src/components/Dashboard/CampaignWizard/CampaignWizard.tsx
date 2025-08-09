@@ -29,6 +29,7 @@ interface CampaignFormData {
   from_name: string;
   smtp_server_id: string;
   selected_lists: string[];
+  selected_blacklists: string[];
   template_id: string | null;
   html_content: string;
   scheduled_at: string;
@@ -44,6 +45,7 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
     from_name: campaign?.from_name || '',
     smtp_server_id: '',
     selected_lists: [],
+    selected_blacklists: [],
     template_id: campaign?.template_id || null,
     html_content: campaign?.html_content || '',
     scheduled_at: campaign?.scheduled_at || '',
@@ -66,17 +68,25 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
       if (!campaign?.id) return;
       
       try {
-        const { data, error } = await supabase
-          .from('campaign_lists')
-          .select('list_id')
-          .eq('campaign_id', campaign.id);
+        const [listsRes, blRes] = await Promise.all([
+          supabase
+            .from('campaign_lists')
+            .select('list_id')
+            .eq('campaign_id', campaign.id),
+          supabase
+            .from('campaign_blacklist_lists')
+            .select('blacklist_list_id')
+            .eq('campaign_id', campaign.id)
+        ]);
         
-        if (error) throw error;
+        if (listsRes.error) throw listsRes.error;
+        if (blRes.error) throw blRes.error;
         
-        const listIds = data?.map(item => item.list_id) || [];
-        setFormData(prev => ({ ...prev, selected_lists: listIds }));
+        const listIds = listsRes.data?.map(item => item.list_id) || [];
+        const blacklistIds = blRes.data?.map(item => item.blacklist_list_id) || [];
+        setFormData(prev => ({ ...prev, selected_lists: listIds, selected_blacklists: blacklistIds }));
         
-        console.log('🔄 Listes chargées pour campagne existante:', listIds);
+        console.log('🔄 Listes chargées pour campagne existante:', { listIds, blacklistIds });
       } catch (error: any) {
         console.error('Erreur lors du chargement des listes:', error);
       }
@@ -170,38 +180,57 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
         savedCampaign = await createCampaign.mutateAsync(campaignData);
       }
 
-      // Sauvegarder les listes sélectionnées dans campaign_lists
+      // Sauvegarder les listes sélectionnées et blacklists
       const campaignId = savedCampaign?.id || campaign?.id;
-      if (campaignId && formData.selected_lists.length > 0) {
+      if (campaignId) {
+        // 1) Contact lists
         console.log('💾 Sauvegarde des listes sélectionnées:', formData.selected_lists);
-        
-        // Supprimer les anciennes associations
-        const { error: deleteError } = await supabase
+        const { error: deleteListsError } = await supabase
           .from('campaign_lists')
           .delete()
           .eq('campaign_id', campaignId);
-        
-        if (deleteError) {
-          console.error('Erreur suppression anciennes listes:', deleteError);
+        if (deleteListsError) {
+          console.error('Erreur suppression anciennes listes:', deleteListsError);
         }
-        
-        // Ajouter les nouvelles associations
-        const campaignListsData = formData.selected_lists.map(listId => ({
-          campaign_id: campaignId,
-          list_id: listId,
-          added_at: new Date().toISOString()
-        }));
-        
-        const { error: insertError } = await supabase
-          .from('campaign_lists')
-          .insert(campaignListsData);
-        
-        if (insertError) {
-          console.error('Erreur ajout nouvelles listes:', insertError);
-          throw insertError;
+        if (formData.selected_lists.length > 0) {
+          const campaignListsData = formData.selected_lists.map(listId => ({
+            campaign_id: campaignId,
+            list_id: listId,
+            added_at: new Date().toISOString()
+          }));
+          const { error: insertListsError } = await supabase
+            .from('campaign_lists')
+            .insert(campaignListsData);
+          if (insertListsError) {
+            console.error('Erreur ajout nouvelles listes:', insertListsError);
+            throw insertListsError;
+          }
         }
-        
-        console.log('✅ Listes de campagne sauvegardées avec succès');
+
+        // 2) Blacklist lists
+        console.log('💾 Sauvegarde des blacklists sélectionnées:', formData.selected_blacklists);
+        const { error: deleteBlError } = await supabase
+          .from('campaign_blacklist_lists')
+          .delete()
+          .eq('campaign_id', campaignId);
+        if (deleteBlError) {
+          console.error('Erreur suppression anciennes blacklists:', deleteBlError);
+        }
+        if (formData.selected_blacklists.length > 0) {
+          const campaignBlData = formData.selected_blacklists.map(blacklistListId => ({
+            campaign_id: campaignId,
+            blacklist_list_id: blacklistListId,
+            added_at: new Date().toISOString()
+          }));
+          const { error: insertBlError } = await supabase
+            .from('campaign_blacklist_lists')
+            .insert(campaignBlData);
+          if (insertBlError) {
+            console.error('Erreur ajout nouvelles blacklists:', insertBlError);
+            throw insertBlError;
+          }
+        }
+        console.log('✅ Associations campagne (listes + blacklists) sauvegardées');
       }
 
       setLastSaved(new Date());
@@ -210,7 +239,7 @@ export default function CampaignWizard({ campaign, onClose }: CampaignWizardProp
       
       toast({
         title: '✅ Campagne sauvegardée',
-        description: 'Votre campagne et les listes sélectionnées ont été sauvegardées avec succès',
+        description: 'Votre campagne, les listes et blacklists ont été sauvegardées avec succès',
       });
       onClose();
     } catch (error) {

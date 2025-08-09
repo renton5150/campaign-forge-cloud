@@ -45,7 +45,7 @@ export function useFormBackup(formData: any, campaignId?: string) {
         lastBackup: new Date().toISOString()
       });
     }
-  }, [formData, setBackup]);
+  }, [formData?.name, formData?.subject, formData?.html_content]);
 
   const clearBackup = () => {
     removeBackup();

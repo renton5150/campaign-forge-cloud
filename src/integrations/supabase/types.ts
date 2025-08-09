@@ -163,6 +163,27 @@ export type Database = {
           },
         ]
       }
+      campaign_blacklist_lists: {
+        Row: {
+          added_at: string
+          blacklist_list_id: string
+          campaign_id: string
+          id: string
+        }
+        Insert: {
+          added_at?: string
+          blacklist_list_id: string
+          campaign_id: string
+          id?: string
+        }
+        Update: {
+          added_at?: string
+          blacklist_list_id?: string
+          campaign_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       campaign_events: {
         Row: {
           campaign_id: string

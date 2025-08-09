@@ -15,8 +15,8 @@ interface CampaignRecipientsProps {
 
 export default function CampaignRecipients({ formData, updateFormData }: CampaignRecipientsProps) {
   const { contactLists, isLoading } = useContactLists();
-  const [selectedBlacklists, setSelectedBlacklists] = useState<string[]>([]);
-
+  const selectedBlacklists: string[] = formData.selected_blacklists || [];
+  const handleBlacklistChange = (ids: string[]) => updateFormData({ selected_blacklists: ids });
   const handleListToggle = (listId: string) => {
     const currentLists = formData.selected_lists || [];
     const newLists = currentLists.includes(listId)
@@ -159,7 +159,7 @@ export default function CampaignRecipients({ formData, updateFormData }: Campaig
             <CardContent>
               <BlacklistListSelector
                 selectedListIds={selectedBlacklists}
-                onSelectionChange={setSelectedBlacklists}
+                onSelectionChange={handleBlacklistChange}
               />
             </CardContent>
           </Card>

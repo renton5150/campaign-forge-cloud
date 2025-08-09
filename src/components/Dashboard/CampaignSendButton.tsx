@@ -145,12 +145,16 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
           description: "Le système professionnel traite vos emails...",
         });
         
-        try {
-          await processQueue.mutateAsync();
-        } catch (processingError) {
-          console.warn('Processing started in background:', processingError);
-          // Le traitement continue en arrière-plan même si cette promesse échoue
-        }
+          try {
+            await processQueue.mutateAsync();
+          } catch (processingError: any) {
+            console.error('Erreur lors du traitement de la queue:', processingError);
+            toast({
+              title: "Traitement non démarré",
+              description: processingError?.message || "Aucun serveur SMTP configuré ou erreur de traitement. Vérifiez la configuration SMTP.",
+              variant: "destructive",
+            });
+          }
       }
 
       handleDialogOpen(false);
