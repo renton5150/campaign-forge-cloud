@@ -96,71 +96,66 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
   };
 
   const handleSend = async () => {
-    if (selectedLists.length === 0) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez sélectionner au moins une liste de contacts",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Vérifier que les listes sélectionnées ont des contacts
-    const totalContacts = selectedLists.reduce((total, listId) => {
-      const list = contactLists?.find(l => l.id === listId);
-      return total + (list?.total_contacts || 0);
-    }, 0);
-
-    if (totalContacts === 0) {
-      toast({
-        title: "Aucun contact à contacter",
-        description: "Les listes sélectionnées ne contiennent aucun contact. Veuillez choisir des listes avec des contacts ou ajouter des contacts aux listes.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      // Sauvegarder les listes sélectionnées dans campaign_lists
+      // Sauvegarder les listes sélectionnées dans campaign_lists d'abord
       await saveCampaignLists();
       
-      // Étape 1: Mettre en queue avec le système professionnel
+      // Étape 1: Mettre en queue avec le système RPC professionnel
+      // Si aucune liste sélectionnée, le RPC chargera automatiquement les listes sauvegardées
       const result = await queueCampaign({
         campaignId: campaign.id,
         contactListIds: selectedLists
       });
 
       const queuedEmails = result?.queued_emails || 0;
-      const message = result?.message || `${queuedEmails} emails ajoutés à la queue d'envoi`;
+      const duplicatesSkipped = result?.duplicates_skipped || 0;
+      
+      let message = result?.message || `${queuedEmails} emails mis en queue`;
+      
+      if (queuedEmails === 0) {
+        toast({
+          title: "Aucun email à envoyer",
+          description: "Aucun contact actif trouvé dans les listes sélectionnées ou tous les emails sont déjà en queue/envoyés.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
-        title: "✅ Campagne mise en queue (système professionnel)",
+        title: "✅ Campagne mise en queue",
         description: message,
       });
 
-      // Étape 2: Démarrer le traitement automatique avec le processeur professionnel
+      // Étape 2: Démarrer le traitement automatique
       if (queuedEmails > 0) {
         toast({
           title: "🚀 Traitement démarré",
-          description: "Le système professionnel traite vos emails...",
+          description: "Envoi des emails en cours...",
         });
         
-          try {
-            await processQueue.mutateAsync();
-          } catch (processingError: any) {
-            console.error('Erreur lors du traitement de la queue:', processingError);
+        try {
+          const processResult = await processQueue.mutateAsync();
+          
+          if (processResult?.succeeded > 0) {
             toast({
-              title: "Traitement non démarré",
-              description: processingError?.message || "Aucun serveur SMTP configuré ou erreur de traitement. Vérifiez la configuration SMTP.",
-              variant: "destructive",
+              title: "✅ Emails envoyés",
+              description: `${processResult.succeeded} emails envoyés avec succès`,
             });
           }
+        } catch (processingError: any) {
+          console.error('Erreur lors du traitement de la queue:', processingError);
+          toast({
+            title: "Traitement non démarré",
+            description: processingError?.message || "Aucun serveur SMTP configuré. Vérifiez la configuration SMTP.",
+            variant: "destructive",
+          });
+        }
       }
 
       handleDialogOpen(false);
       setSelectedLists([]);
     } catch (error: any) {
-      console.error('Error sending campaign with professional system:', error);
+      console.error('Error sending campaign:', error);
       toast({
         title: "Erreur",
         description: error?.message || "Erreur lors de la mise en queue",
@@ -270,13 +265,21 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
                 ))
               )}
             </div>
+            
+            {selectedLists.length === 0 && !isLoadingLists && (
+              <div className="bg-blue-50 p-3 rounded-lg mt-3">
+                <p className="text-sm text-blue-800">
+                  💡 <strong>Info:</strong> Si aucune liste n'est sélectionnée, le système utilisera automatiquement les listes précédemment associées à cette campagne.
+                </p>
+              </div>
+            )}
           </div>
           
           {selectedLists.length > 0 && (
             <div className="bg-green-50 p-3 rounded-lg">
               <p className="text-sm text-green-800">
                 <strong>{selectedLists.length}</strong> liste(s) sélectionnée(s)<br/>
-                Le système professionnel garantit un envoi optimal.
+                Le système RPC garantit un envoi optimal et sécurisé.
               </p>
             </div>
           )}
@@ -291,7 +294,7 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
             </Button>
             <Button 
               onClick={handleSend}
-              disabled={isLoading || selectedLists.length === 0}
+              disabled={isLoading}
               className="bg-green-600 hover:bg-green-700"
             >
               {isLoading ? (
@@ -302,7 +305,7 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Envoyer avec Pro System
+                  Envoyer avec RPC System
                 </>
               )}
             </Button>

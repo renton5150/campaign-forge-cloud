@@ -77,103 +77,61 @@ export function useEmailQueueNew() {
     }
   };
 
-  // Mutation pour mettre une campagne en queue - système professionnel
+  // Mutation pour mettre une campagne en queue - système professionnel avec RPC
   const queueCampaignMutation = useMutation({
     mutationFn: async ({ campaignId, contactListIds }: {
       campaignId: string;
       contactListIds: string[];
     }): Promise<QueueCampaignResult> => {
-      console.log('🚀 Queuing campaign with professional system:', { campaignId, contactListIds });
+      console.log('🚀 Queuing campaign with professional RPC system:', { campaignId, contactListIds });
       
       try {
-        // Récupérer la campagne
-        const { data: campaign, error: campaignError } = await supabase
-          .from('campaigns')
-          .select('*')
-          .eq('id', campaignId)
-          .single();
-
-        if (campaignError) throw campaignError;
-
-        // Récupérer les contacts des listes sélectionnées
-        let contactsQuery = supabase
-          .from('contacts')
-          .select('id, email, first_name, last_name')
-          .eq('status', 'active');
-
-        if (contactListIds.length > 0) {
-          const { data: memberships, error: membershipsError } = await supabase
-            .from('contact_list_memberships')
-            .select('contact_id')
-            .in('list_id', contactListIds);
-
-          if (membershipsError) throw membershipsError;
-
-          const contactIds = memberships?.map(m => m.contact_id) || [];
-          if (contactIds.length > 0) {
-            contactsQuery = contactsQuery.in('id', contactIds);
-          }
-        }
-
-        const { data: contacts, error: contactsError } = await contactsQuery;
-        if (contactsError) throw contactsError;
-
-        let queuedCount = 0;
-        let duplicatesSkipped = 0;
-
-        // Insérer chaque contact dans la queue avec système anti-doublon professionnel
-        for (const contact of contacts || []) {
-          // Message ID unique pour éviter les doublons - système professionnel
-          const messageId = `${campaignId}-${contact.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // Si aucune liste fournie, charger automatiquement les listes associées
+        let listsToUse = contactListIds;
+        
+        if (!listsToUse || listsToUse.length === 0) {
+          console.log('📋 Aucune liste fournie, chargement des listes associées à la campagne...');
+          const { data: campaignLists, error: listsError } = await supabase
+            .from('campaign_lists')
+            .select('list_id')
+            .eq('campaign_id', campaignId);
           
-          // Vérifier les doublons avec le système professionnel
-          const { data: existing } = await supabase
-            .from('email_queue')
-            .select('id')
-            .eq('campaign_id', campaignId)
-            .eq('contact_email', contact.email)
-            .in('status', ['pending', 'processing', 'sent'])
-            .limit(1);
-
-          if (existing && existing.length > 0) {
-            duplicatesSkipped++;
-            continue;
-          }
-
-          // Insérer dans la queue avec le système professionnel
-          const { error: insertError } = await supabase
-            .from('email_queue')
-            .insert({
-              campaign_id: campaignId,
-              contact_email: contact.email,
-              contact_name: contact.first_name && contact.last_name 
-                ? `${contact.first_name} ${contact.last_name}` 
-                : contact.email,
-              subject: campaign.subject,
-              html_content: campaign.html_content,
-              message_id: messageId,
-              status: 'pending',
-              scheduled_for: campaign.scheduled_at || new Date().toISOString(),
-              retry_count: 0
-            });
-
-          if (!insertError) {
-            queuedCount++;
-          }
+          if (listsError) throw listsError;
+          
+          listsToUse = campaignLists?.map(cl => cl.list_id) || [];
+          console.log('📋 Listes chargées depuis campaign_lists:', listsToUse);
         }
 
-        const result: QueueCampaignResult = {
+        // Utiliser la fonction RPC pour mettre en queue
+        const { data: result, error: rpcError } = await supabase.rpc('queue_campaign_for_sending', {
+          p_campaign_id: campaignId,
+          p_contact_list_ids: listsToUse
+        });
+
+        if (rpcError) {
+          console.error('❌ RPC Error:', rpcError);
+          throw rpcError;
+        }
+
+        // Parse the JSON result from RPC
+        const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+
+        if (!parsedResult?.success) {
+          throw new Error(parsedResult?.error || 'Erreur lors de la mise en queue');
+        }
+
+        const queueResult: QueueCampaignResult = {
           success: true,
-          queued_emails: queuedCount,
-          duplicates_skipped: duplicatesSkipped,
-          message: `Campagne mise en queue (système professionnel) - ${queuedCount} emails à envoyer`
+          queued_emails: parsedResult.queued_emails || 0,
+          duplicates_skipped: parsedResult.duplicates_skipped || 0,
+          message: parsedResult.message || `${parsedResult.queued_emails || 0} emails mis en queue`
         };
 
-        console.log('✅ Campaign queued successfully with professional system:', result);
-        return result;
+        console.log('✅ Campaign queued successfully with RPC system:', queueResult);
+        return queueResult;
 
       } catch (error: any) {
-        console.error('❌ Error queuing campaign with professional system:', error);
+        console.error('❌ Error queuing campaign with RPC system:', error);
         throw error;
       }
     },

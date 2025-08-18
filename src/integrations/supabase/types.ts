@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -1971,7 +1971,7 @@ export type Database = {
         Returns: Json
       }
       create_unsubscribe_token: {
-        Args: { p_email: string; p_tenant_id: string; p_campaign_id?: string }
+        Args: { p_campaign_id?: string; p_email: string; p_tenant_id: string }
         Returns: string
       }
       debug_auth_context: {
@@ -1984,17 +1984,17 @@ export type Database = {
       }
       generate_tracking_token: {
         Args: {
-          p_tenant_id: string
-          p_email_queue_id: string
           p_campaign_id: string
           p_contact_email: string
-          p_token_type: string
+          p_email_queue_id: string
           p_original_url?: string
+          p_tenant_id: string
+          p_token_type: string
         }
         Returns: string
       }
       generate_unsubscribe_token: {
-        Args: { p_email: string; p_tenant_id: string; p_campaign_id?: string }
+        Args: { p_campaign_id?: string; p_email: string; p_tenant_id: string }
         Returns: string
       }
       get_campaign_stats: {
@@ -2004,20 +2004,20 @@ export type Database = {
       get_emails_to_send: {
         Args: { p_limit?: number }
         Returns: {
-          queue_id: string
           campaign_id: string
           contact_email: string
           contact_name: string
-          subject: string
           html_content: string
           message_id: string
+          queue_id: string
+          subject: string
         }[]
       }
       mark_email_failed: {
         Args: {
-          p_queue_id: string
-          p_error_message: string
           p_error_code?: string
+          p_error_message: string
+          p_queue_id: string
         }
         Returns: undefined
       }
@@ -2027,12 +2027,12 @@ export type Database = {
       }
       process_unsubscription: {
         Args: {
-          p_token: string
-          p_email: string
-          p_tenant_id: string
           p_campaign_id?: string
-          p_reason?: string
+          p_email: string
           p_ip_address?: unknown
+          p_reason?: string
+          p_tenant_id: string
+          p_token: string
           p_user_agent?: string
         }
         Returns: Json
@@ -2042,7 +2042,7 @@ export type Database = {
         Returns: Json
       }
       user_has_permission: {
-        Args: { _user_id: string; _module_name: string; _action: string }
+        Args: { _action: string; _module_name: string; _user_id: string }
         Returns: boolean
       }
     }
