@@ -28,12 +28,13 @@ export function CampaignSendButton({ campaign }: CampaignSendButtonProps) {
       const queuedEmails = result?.queued_emails || 0;
       
       if (queuedEmails === 0) {
+        // Afficher un avertissement mais continuer le traitement pour les emails déjà en attente
         toast({
-          title: "Aucun email à envoyer",
-          description: "Aucun contact trouvé dans les listes associées à cette campagne. Vérifiez la configuration dans l'assistant de campagne.",
-          variant: "destructive",
+          title: "Aucun nouvel email mis en queue",
+          description: "Aucun contact nouveau n'a été ajouté (doublons/blacklist). Tentative d'envoi des emails déjà en attente...",
         });
-        return;
+        console.log('ℹ️ Aucun nouvel email mis en queue, tentative de traitement des emails existants...');
+        // NE PAS retourner ici: on poursuit avec le traitement de la queue
       }
 
       toast({
