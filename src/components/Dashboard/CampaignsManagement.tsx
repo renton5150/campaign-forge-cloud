@@ -26,21 +26,29 @@ export default function CampaignsManagement() {
   const [activeTab, setActiveTab] = useState('overview');
   const [queueStats, setQueueStats] = useState<Record<string, any>>({});
 
+  // Charger et rafraîchir les statistiques automatiquement
   useEffect(() => {
-    if (campaigns) {
-      const loadStats = async () => {
-        const stats: Record<string, any> = {};
-        for (const campaign of campaigns) {
-          try {
-            stats[campaign.id] = await getCampaignQueueStats(campaign.id);
-          } catch (error) {
-            console.error('Erreur lors du chargement des stats:', error);
-          }
+    if (!campaigns) return;
+
+    const loadStats = async () => {
+      const stats: Record<string, any> = {};
+      for (const campaign of campaigns) {
+        try {
+          stats[campaign.id] = await getCampaignQueueStats(campaign.id);
+        } catch (error) {
+          console.error('Erreur lors du chargement des stats:', error);
         }
-        setQueueStats(stats);
-      };
-      loadStats();
-    }
+      }
+      setQueueStats(stats);
+    };
+
+    // Charger les stats initialement
+    loadStats();
+
+    // Rafraîchir toutes les 5 secondes pour avoir les stats en temps réel
+    const interval = setInterval(loadStats, 5000);
+
+    return () => clearInterval(interval);
   }, [campaigns, getCampaignQueueStats]);
 
   const handleRetryFailed = async (campaignId: string) => {
@@ -50,6 +58,10 @@ export default function CampaignsManagement() {
         title: "✅ Emails relancés",
         description: `${retried} emails échoués remis en queue`,
       });
+      
+      // Rafraîchir immédiatement les stats après relance
+      const stats = await getCampaignQueueStats(campaignId);
+      setQueueStats(prev => ({ ...prev, [campaignId]: stats }));
     } catch (error: any) {
       toast({
         title: "Erreur",
