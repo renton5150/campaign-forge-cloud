@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.3';
+import nodemailer from 'npm:nodemailer@6.9.8';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -208,133 +209,61 @@ async function sendViaSendGrid(queueItem: QueueItem, server: SmtpServer): Promis
   return true;
 }
 
-// SMTP CORRIGÉ pour OVH/7TIC avec SSL adaptatif
+// SMTP via Nodemailer (compat Deno)
 async function sendViaSmtpProfessional(queueItem: QueueItem, server: SmtpServer): Promise<boolean> {
-  const isOvhServer = server.host?.includes('ovh.net');
-  const timeout = isOvhServer ? 15000 : 8000; // Timeout plus long pour OVH
-  
   try {
-    console.log(`🔌 Connexion SMTP vers ${server.host}:${server.port}`);
-    
-    let socket: Deno.TlsConn | Deno.Conn;
-    
-    // CORRECTION SSL/TLS selon le port
-    if (server.port === 465) {
-      // Port 465 = SSL direct
-      socket = await Deno.connectTls({
-        hostname: server.host!,
-        port: server.port!,
-      });
-    } else {
-      // Port 587 ou autres = connexion normale puis STARTTLS
-      socket = await Deno.connect({
-        hostname: server.host!,
-        port: server.port!,
-      });
-    }
+    console.log(`🔧 Config SMTP: ${server.host}:${server.port} (${server.encryption})`);
 
-    // Helper local: envoie une commande SMTP et lit la réponse complète (multi-lignes) en vérifiant le code attendu
-    const smtpSend = async (
-      command: string,
-      expectedCode: string,
-      timeoutMs: number = timeout
-    ): Promise<string> => {
-      const encoder = new TextEncoder();
-      const decoder = new TextDecoder();
+    const isSSL = server.encryption === 'ssl' || server.port === 465;
+    const isTLS = server.encryption === 'tls' || server.port === 587;
 
-      if (command && command.length > 0) {
-        const toSend = command.endsWith('\r\n') ? command : command + '\r\n';
-        await (socket as Deno.Conn).write(encoder.encode(toSend));
-      }
-
-      const start = Date.now();
-      let full = '';
-      const buf = new Uint8Array(4096);
-      while (Date.now() - start < timeoutMs) {
-        const n = await (socket as Deno.Conn).read(buf);
-        if (n === null) break;
-        full += decoder.decode(buf.subarray(0, n));
-
-        const lines = full.split('\r\n').filter(Boolean);
-        if (lines.length) {
-          const last = lines[lines.length - 1];
-          const ok = lines.some(l => l.startsWith(expectedCode + ' ') || l.startsWith(expectedCode + '-'));
-          // Si dernière ligne n'est pas de type continuation ("250-") on peut sortir si on a lu au moins quelque chose
-          const isContinuation = /^(\d{3})-/.test(last);
-          if (ok && !isContinuation) {
-            return full.trim();
-          }
-        }
-      }
-      // Si on est sorti de la boucle sans retour, vérifier tout de même le code dans la réponse
-      const hasCode = full.split('\r\n').some(l => l.startsWith(expectedCode + ' ') || l.startsWith(expectedCode + '-'));
-      if (!hasCode) {
-        throw new Error(`Réponse SMTP inattendue (${expectedCode}) : ${full.trim()}`);
-      }
-      return full.trim();
+    const transportConfig: any = {
+      host: server.host!,
+      port: server.port || (isSSL ? 465 : 587),
+      secure: isSSL, // true pour SSL (465), false pour TLS (587)
+      auth: server.username && server.password ? {
+        user: server.username,
+        pass: server.password,
+      } : undefined,
     };
-    
-    // Lire message de bienvenue
-    await smtpSend('', '220', 3000); // Pas de commande, juste lire
-    
-    // EHLO
-    await smtpSend(`EHLO localhost`, '250', timeout);
-    
-    // STARTTLS seulement si port != 465
-    if (server.port !== 465 && server.encryption === 'tls') {
-      await smtpSend('STARTTLS', '220', timeout);
-      
-      // Upgrade vers TLS
-      socket = await Deno.startTls(socket as Deno.Conn, { hostname: server.host! });
-      
-      // Nouvel EHLO après STARTTLS
-      await smtpSend(`EHLO localhost`, '250', timeout);
+
+    // Forcer STARTTLS si TLS ou port 587
+    if (isTLS && !isSSL) {
+      transportConfig.secure = false;
+      transportConfig.requireTLS = true;
     }
-    
-    // Authentification
-    await smtpSend('AUTH LOGIN', '334', timeout);
-    
-    const username = btoa(server.username!);
-    await smtpSend(username, '334', timeout);
-    
-    const password = btoa(server.password!);
-    await smtpSend(password, '235', timeout);
-    
-    // MAIL FROM - CORRECTION : Accepter plusieurs codes de succès
-    try {
-      await smtpSend(`MAIL FROM:<${server.from_email}>`, '250', timeout);
-    } catch (error: any) {
-      // OVH peut répondre 235 au lieu de 250 après MAIL FROM
-      if (error.message.includes('235')) {
-        console.log('✅ MAIL FROM accepté avec code 235 (OVH)');
-      } else {
-        throw error;
-      }
-    }
-    
-    // RCPT TO
-    await smtpSend(`RCPT TO:<${queueItem.contact_email}>`, '250', timeout);
-    
-    // DATA
-    await smtpSend('DATA', '354', timeout);
-    
-    // Envoyer contenu
-    const emailContent = `From: ${server.from_email}\r\nTo: ${queueItem.contact_email}\r\nSubject: ${queueItem.subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${queueItem.html_content}\r\n.`;
-    await smtpSend(emailContent, '250', timeout * 2); // Timeout double pour l'envoi
-    
-    // QUIT
-    await smtpSend('QUIT', '221', 2000);
-    
-    ;(socket as Deno.Conn).close();
-    
-    console.log('✅ Email envoyé avec succès via SMTP professionnel');
+
+    console.log(`📤 Création transporter pour ${queueItem.contact_email}`);
+    const transporter = (nodemailer as any).createTransport(transportConfig);
+
+    const mailOptions: any = {
+      from: `${server.from_name} <${server.from_email}>`,
+      to: queueItem.contact_email,
+      subject: queueItem.subject,
+      html: queueItem.html_content,
+      messageId: queueItem.message_id,
+    };
+
+    console.log(`📨 Envoi email à ${queueItem.contact_email}...`);
+    const result = await transporter.sendMail(mailOptions);
+
+    const msgId = (result && (result.messageId || (result as any)?.messageId)) || 'ok';
+    console.log(`✅ Email envoyé avec succès: ${msgId}`);
+    await logEmailStatus(queueItem.id, 'sent', `Message envoyé: ${msgId}`, server.id);
     return true;
-    
   } catch (error: any) {
-    console.error('❌ Erreur SMTP:', error.message);
+    console.error(`❌ Erreur SMTP détaillée:`, {
+      message: error?.message,
+      code: error?.code,
+      command: error?.command,
+      stack: error?.stack?.substring(0, 500),
+    });
+    await logEmailStatus(queueItem.id, 'failed', `Erreur SMTP: ${error?.message}`, server.id);
     return false;
   }
 }
+
+// ... keep existing code (legacy SMTP implementation removed in favor of Nodemailer)
 
 async function performSmtpOperation(queueItem: QueueItem, server: SmtpServer, signal: AbortSignal): Promise<boolean> {
   const { host, port, username, password, encryption, from_email, from_name } = server;
