@@ -871,28 +871,31 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
           .update({ status: 'processing', updated_at: new Date().toISOString() })
           .eq('id', queueItem.id);
 
-        // NOUVEAU : Récupérer les infos du tenant pour le tracking
-        const { data: campaignData } = await supabase
+        // 1. Récupérer la campagne
+        const { data: campaign, error: campaignError } = await supabase
           .from('campaigns')
-          .select('tenant_id')
+          .select('*')
           .eq('id', queueItem.campaign_id)
           .single();
 
-        if (!campaignData?.tenant_id) {
-          throw new Error('Tenant ID non trouvé pour la campagne');
+        if (campaignError || !campaign) {
+          throw new Error(`Campagne non trouvée: ${campaignError?.message}`);
         }
 
+        console.log(`📧 Campagne trouvée: ${campaign.name}, tenant_id: ${campaign.tenant_id}`);
+
+        // 2. Charger le tenant pour le tracking
         const { data: tenant } = await supabase
           .from('tenants')
           .select('id, company_name, tracking_domain, brand_config')
-          .eq('id', campaignData.tenant_id)
+          .eq('id', campaign.tenant_id)
           .single();
 
         if (!tenant) {
           throw new Error('Tenant non trouvé');
         }
 
-        // NOUVEAU : Traiter l'email pour intégrer le tracking multi-tenant
+        // Traiter l'email pour intégrer le tracking multi-tenant
         const emailWithTenant: EmailQueueItemWithTenant = {
           ...queueItem,
           tenant_id: tenant.id
@@ -901,20 +904,25 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
         const processedEmail = await processEmailForTracking(emailWithTenant, tenant);
         console.log(`🎯 Email traité avec tracking pour ${processedEmail.contact_email}`);
 
-        // Récupérer le serveur SMTP actif du tenant
-        const { data: tenantSmtpServers, error: tenantSmtpError } = await supabase
+        // 3. Récupérer le serveur SMTP actif du tenant
+        const { data: smtpServer, error: smtpError } = await supabase
           .from('smtp_servers')
           .select('*')
-          .eq('tenant_id', tenant.id)
+          .eq('tenant_id', campaign.tenant_id)
           .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(1);
+          .limit(1)
+          .single();
 
-        if (tenantSmtpError) {
-          throw new Error(`Erreur récupération SMTP du tenant: ${tenantSmtpError.message}`);
+        if (smtpError || !smtpServer) {
+          console.error(`❌ Serveur SMTP non trouvé pour tenant ${campaign.tenant_id}:`, smtpError);
+          throw new Error(`Serveur SMTP non configuré pour le tenant ${campaign.tenant_id}`);
         }
 
-        let availableServer = (tenantSmtpServers && tenantSmtpServers[0]) as SmtpServer | undefined;
+        console.log(`🔧 Serveur SMTP trouvé: ${smtpServer.name} (${smtpServer.host}:${smtpServer.port})`);
+
+        let availableServer = smtpServer as SmtpServer;
+
 
         // Vérifier l'état de santé et les limites si un serveur est trouvé
         if (availableServer) {
