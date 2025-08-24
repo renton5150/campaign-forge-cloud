@@ -1206,7 +1206,19 @@ const handler = async (req: Request): Promise<Response> => {
     } catch {
       requestBody = {};
     }
-    console.log('📨 [PROFESSIONAL] Début du traitement avec body:', JSON.stringify({ ...requestBody, test_server: requestBody.test_server ? { ...requestBody.test_server, password: '***' } : undefined }));
+console.log('📨 [PROFESSIONAL] Début du traitement avec body:', JSON.stringify({ ...requestBody, test_server: requestBody.test_server ? { ...requestBody.test_server, password: '***' } : undefined }));
+    
+    // [DIAGNOSTIC] Vérifier si on trouve des serveurs SMTP actifs
+    const { data: smtpDebug, error: smtpDebugError } = await supabase
+      .from('smtp_servers')
+      .select('id, tenant_id, is_active, host, port, type')
+      .eq('is_active', true);
+    
+    console.log('🔍 [DIAGNOSTIC] SMTP servers trouvés:', {
+      count: smtpDebug?.length || 0,
+      servers: smtpDebug || [],
+      error: smtpDebugError?.message || null
+    });
     
     // MODE TEST - Nouveau système unifié
     if (requestBody.test_mode === true) {
@@ -1254,7 +1266,8 @@ const handler = async (req: Request): Promise<Response> => {
     // MODE NORMAL - Traitement des emails en queue
     console.log('🚀 [PROFESSIONAL SYSTEM] Démarrage du traitement haute performance');
 
-    // Récupérer les emails en attente avec optimisation
+    // [DIAGNOSTIC] Récupérer les emails en attente avec optimisation et logs détaillés
+    console.log('🔍 [DIAGNOSTIC] Récupération des emails en queue...');
     const { data: queueItems, error: queueError } = await supabase
       .from('email_queue')
       .select('*')
@@ -1262,6 +1275,12 @@ const handler = async (req: Request): Promise<Response> => {
       .lte('scheduled_for', new Date().toISOString())
       .order('created_at', { ascending: true })
       .limit(200); // Limite augmentée pour le système professionnel
+
+    console.log('🔍 [DIAGNOSTIC] Queue status:', {
+      found: queueItems?.length || 0,
+      error: queueError?.message || null,
+      firstItem: queueItems?.[0] || null
+    });
 
     if (queueError) {
       throw new Error(`Erreur récupération queue: ${queueError.message}`);
