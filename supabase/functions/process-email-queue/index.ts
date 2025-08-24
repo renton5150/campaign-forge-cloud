@@ -871,6 +871,9 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
           .update({ status: 'processing', updated_at: new Date().toISOString() })
           .eq('id', queueItem.id);
 
+        console.log('📧 Processing email:', queueItem.id);
+        console.log('Campaign ID:', queueItem.campaign_id);
+
         // 1. Récupérer la campagne
         const { data: campaign, error: campaignError } = await supabase
           .from('campaigns')
