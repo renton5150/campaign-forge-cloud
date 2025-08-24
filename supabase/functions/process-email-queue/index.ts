@@ -223,47 +223,86 @@ async function sendViaSmtpProfessional(queueItem: QueueItem, server: SmtpServer)
       // Port 465 = SSL direct
       socket = await Deno.connectTls({
         hostname: server.host!,
-        port: server.port,
+        port: server.port!,
       });
     } else {
       // Port 587 ou autres = connexion normale puis STARTTLS
       socket = await Deno.connect({
         hostname: server.host!,
-        port: server.port,
+        port: server.port!,
       });
     }
+
+    // Helper local: envoie une commande SMTP et lit la réponse complète (multi-lignes) en vérifiant le code attendu
+    const smtpSend = async (
+      command: string,
+      expectedCode: string,
+      timeoutMs: number = timeout
+    ): Promise<string> => {
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+
+      if (command && command.length > 0) {
+        const toSend = command.endsWith('\r\n') ? command : command + '\r\n';
+        await (socket as Deno.Conn).write(encoder.encode(toSend));
+      }
+
+      const start = Date.now();
+      let full = '';
+      const buf = new Uint8Array(4096);
+      while (Date.now() - start < timeoutMs) {
+        const n = await (socket as Deno.Conn).read(buf);
+        if (n === null) break;
+        full += decoder.decode(buf.subarray(0, n));
+
+        const lines = full.split('\r\n').filter(Boolean);
+        if (lines.length) {
+          const last = lines[lines.length - 1];
+          const ok = lines.some(l => l.startsWith(expectedCode + ' ') || l.startsWith(expectedCode + '-'));
+          // Si dernière ligne n'est pas de type continuation ("250-") on peut sortir si on a lu au moins quelque chose
+          const isContinuation = /^(\d{3})-/.test(last);
+          if (ok && !isContinuation) {
+            return full.trim();
+          }
+        }
+      }
+      // Si on est sorti de la boucle sans retour, vérifier tout de même le code dans la réponse
+      const hasCode = full.split('\r\n').some(l => l.startsWith(expectedCode + ' ') || l.startsWith(expectedCode + '-'));
+      if (!hasCode) {
+        throw new Error(`Réponse SMTP inattendue (${expectedCode}) : ${full.trim()}`);
+      }
+      return full.trim();
+    };
     
     // Lire message de bienvenue
-    await sendCommand(socket, '', '220', 3000); // Pas de commande, juste lire
+    await smtpSend('', '220', 3000); // Pas de commande, juste lire
     
     // EHLO
-    await sendCommand(socket, `EHLO localhost`, '250', timeout);
+    await smtpSend(`EHLO localhost`, '250', timeout);
     
     // STARTTLS seulement si port != 465
     if (server.port !== 465 && server.encryption === 'tls') {
-      await sendCommand(socket, 'STARTTLS', '220', timeout);
+      await smtpSend('STARTTLS', '220', timeout);
       
       // Upgrade vers TLS
-      socket = await Deno.startTls(socket as Deno.Conn, {
-        hostname: server.host!,
-      });
+      socket = await Deno.startTls(socket as Deno.Conn, { hostname: server.host! });
       
       // Nouvel EHLO après STARTTLS
-      await sendCommand(socket, `EHLO localhost`, '250', timeout);
+      await smtpSend(`EHLO localhost`, '250', timeout);
     }
     
     // Authentification
-    await sendCommand(socket, 'AUTH LOGIN', '334', timeout);
+    await smtpSend('AUTH LOGIN', '334', timeout);
     
     const username = btoa(server.username!);
-    await sendCommand(socket, username, '334', timeout);
+    await smtpSend(username, '334', timeout);
     
     const password = btoa(server.password!);
-    await sendCommand(socket, password, '235', timeout);
+    await smtpSend(password, '235', timeout);
     
     // MAIL FROM - CORRECTION : Accepter plusieurs codes de succès
     try {
-      await sendCommand(socket, `MAIL FROM:<${server.from_email}>`, '250', timeout);
+      await smtpSend(`MAIL FROM:<${server.from_email}>`, '250', timeout);
     } catch (error: any) {
       // OVH peut répondre 235 au lieu de 250 après MAIL FROM
       if (error.message.includes('235')) {
@@ -274,19 +313,19 @@ async function sendViaSmtpProfessional(queueItem: QueueItem, server: SmtpServer)
     }
     
     // RCPT TO
-    await sendCommand(socket, `RCPT TO:<${queueItem.contact_email}>`, '250', timeout);
+    await smtpSend(`RCPT TO:<${queueItem.contact_email}>`, '250', timeout);
     
     // DATA
-    await sendCommand(socket, 'DATA', '354', timeout);
+    await smtpSend('DATA', '354', timeout);
     
     // Envoyer contenu
-    const emailContent = `From: ${server.from_email}\r\nTo: ${queueItem.contact_email}\r\nSubject: ${queueItem.subject}\r\n\r\n${queueItem.html_content}\r\n.`;
-    await sendCommand(socket, emailContent, '250', timeout * 2); // Timeout double pour l'envoi
+    const emailContent = `From: ${server.from_email}\r\nTo: ${queueItem.contact_email}\r\nSubject: ${queueItem.subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${queueItem.html_content}\r\n.`;
+    await smtpSend(emailContent, '250', timeout * 2); // Timeout double pour l'envoi
     
     // QUIT
-    await sendCommand(socket, 'QUIT', '221', 2000);
+    await smtpSend('QUIT', '221', 2000);
     
-    socket.close();
+    ;(socket as Deno.Conn).close();
     
     console.log('✅ Email envoyé avec succès via SMTP professionnel');
     return true;
