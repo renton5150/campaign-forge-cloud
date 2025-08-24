@@ -1351,4 +1351,4 @@ console.log('📨 [PROFESSIONAL] Début du traitement avec body:', JSON.stringif
   }
 };
 
-serve(handler);
+Deno.serve(handler);
