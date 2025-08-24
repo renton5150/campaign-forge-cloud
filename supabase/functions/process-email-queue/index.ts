@@ -901,14 +901,41 @@ async function processEmailsBatchProfessional(queueItems: QueueItem[], smtpServe
         const processedEmail = await processEmailForTracking(emailWithTenant, tenant);
         console.log(`🎯 Email traité avec tracking pour ${processedEmail.contact_email}`);
 
-        // Sélection intelligente du serveur SMTP
-        const availableServer = smtpServers.find(server => 
-          smtpStatsCache.get(server.id)?.isHealthy !== false && 
-          checkSmtpLimits(server)
-        );
+        // Récupérer le serveur SMTP actif du tenant
+        const { data: tenantSmtpServers, error: tenantSmtpError } = await supabase
+          .from('smtp_servers')
+          .select('*')
+          .eq('tenant_id', tenant.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (tenantSmtpError) {
+          throw new Error(`Erreur récupération SMTP du tenant: ${tenantSmtpError.message}`);
+        }
+
+        let availableServer = (tenantSmtpServers && tenantSmtpServers[0]) as SmtpServer | undefined;
+
+        // Vérifier l'état de santé et les limites si un serveur est trouvé
+        if (availableServer) {
+          const healthy = smtpStatsCache.get(availableServer.id)?.isHealthy !== false && checkSmtpLimits(availableServer);
+          if (!healthy) {
+            availableServer = undefined;
+          }
+        }
 
         if (!availableServer) {
-          throw new Error('Aucun serveur SMTP disponible dans le système professionnel');
+          // Marquer l'email comme échoué avec raison explicite côté tenant
+          await supabase
+            .from('email_queue')
+            .update({
+              status: 'failed',
+              retry_count: queueItem.retry_count + 1,
+              error_message: 'Aucun serveur SMTP actif pour le tenant',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', queueItem.id);
+          return { success: false };
         }
 
         // Envoyer l'email avec le contenu tracking intégré
@@ -1173,7 +1200,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const requestBody = await req.json();
+    let requestBody: any = {};
+    try {
+      requestBody = await req.json();
+    } catch {
+      requestBody = {};
+    }
     console.log('📨 [PROFESSIONAL] Début du traitement avec body:', JSON.stringify({ ...requestBody, test_server: requestBody.test_server ? { ...requestBody.test_server, password: '***' } : undefined }));
     
     // MODE TEST - Nouveau système unifié
