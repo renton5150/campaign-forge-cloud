@@ -2038,7 +2038,7 @@ export type Database = {
         Returns: Json
       }
       queue_campaign_for_sending: {
-        Args: { p_campaign_id: string; p_contact_list_ids: string[] }
+        Args: { p_campaign_id: string; p_contact_list_ids?: string[] }
         Returns: Json
       }
       user_has_permission: {
